@@ -1,0 +1,36 @@
+{
+  "Actor": {
+    "types": ["character"],
+    "templates": {
+      "base": {
+        "avatarUrl": "",
+        "description": "",
+        "abilities": [],
+        "resources": [],
+        "saves": []
+      }
+    },
+    "character": {
+      "label": "Character",
+      "templates": ["base"]
+    }
+  },
+  "Item": {
+    "types": ["ability", "resource", "save"],
+    "templates": {
+      "base": {}
+    },
+    "ability": {
+      "label": "Ability",
+      "templates": ["base"]
+    },
+    "resource": {
+      "label": "Resource",
+      "templates": ["base"]
+    },
+    "save": {
+      "label": "Save",
+      "templates": ["base"]
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "ezd6-new",
+  "title": "EZD6 TTRPG",
+  "description": "A simple EZD6 tabletop RPG system for Foundry VTT.",
+  "version": "1.0.0",
+  "authors": [
+    {
+      "name": "Your Name",
+      "url": "",
+      "email": ""
+    }
+  ],
+  "compatibility": {
+    "minimum": "12",
+    "verified": "12"
+  },
+  "esmodules": [
+    "bundle.js"
+  ],
+  "styles": [
+    "styles/module.css"
+  ],
+  "template": "template.json",
+  "languages": [],
+  "grid": {
+    "distance": 5,
+    "units": "ft"
+  }
+}

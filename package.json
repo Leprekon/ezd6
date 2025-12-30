@@ -1,0 +1,25 @@
+{
+  "name": "ezd6",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "clean": "npx rimraf dist",
+    "typecheck": "npx tsc --noEmit",
+    "bundle": "node ./scripts/esbuild-bundle.js",
+    "build": "npm run clean && npm run typecheck && npm run bundle",
+    "watch": "node ./scripts/watch.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@league-of-foundry-developers/foundry-vtt-types": "^12.331.5",
+    "chokidar": "^4.0.3",
+    "esbuild": "^0.27.0",
+    "npm-run-all": "^4.1.5",
+    "rimraf": "^6.1.2",
+    "typescript": "^5.9.3"
+  }
+}
