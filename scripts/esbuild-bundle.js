@@ -2,6 +2,10 @@
 const esbuild = require("esbuild");
 const fs = require("fs");
 const path = require("path");
+const inspector = require("inspector");
+
+delete process.env.NODE_OPTIONS;
+delete process.env.VSCODE_INSPECTOR_OPTIONS;
 
 function copyDir(src, dest) {
     if (!fs.existsSync(src)) return;
@@ -32,9 +36,17 @@ function copyDir(src, dest) {
         });
         copyDir("public", "dist");
         console.log("esbuild: bundle written to dist/bundle.js (assets copied from public/)");
+        closeInspector();
         process.exit(0);
     } catch (err) {
         console.error(err);
+        closeInspector();
         process.exit(1);
     }
 })();
+
+function closeInspector() {
+    if (inspector.url()) {
+        inspector.close();
+    }
+}

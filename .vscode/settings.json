@@ -1,3 +1,8 @@
 {
-    "chatgpt.openOnStartup": true
+    "chatgpt.openOnStartup": true,
+    "debug.javascript.autoAttachFilter": "disabled",
+    "terminal.integrated.env.windows": {
+        "NODE_OPTIONS": "",
+        "VSCODE_INSPECTOR_OPTIONS": ""
+    }
 }

@@ -2,12 +2,18 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Build",
+      "label": "Build + Copy",
       "type": "npm",
-      "script": "build",
+      "script": "bundle:copy",
       "group": {
         "kind": "build",
         "isDefault": true
+      },
+      "options": {
+        "env": {
+          "NODE_OPTIONS": "",
+          "VSCODE_INSPECTOR_OPTIONS": ""
+        }
       },
       "problemMatcher": []
     },
@@ -16,6 +22,12 @@
       "type": "npm",
       "script": "watch",
       "isBackground": true,
+      "options": {
+        "env": {
+          "NODE_OPTIONS": "",
+          "VSCODE_INSPECTOR_OPTIONS": ""
+        }
+      },
       "problemMatcher": []
     }
   ]

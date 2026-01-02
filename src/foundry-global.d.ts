@@ -8,6 +8,9 @@ declare const canvas: import("@league-of-foundry-developers/foundry-vtt-types").
 declare const ChatMessage: import("@league-of-foundry-developers/foundry-vtt-types").ChatMessage;
 declare const ChatMessageRenderOptions: import("@league-of-foundry-developers/foundry-vtt-types").ChatMessageRenderOptions;
 declare const Roll: import("@league-of-foundry-developers/foundry-vtt-types").Roll;
+declare const Actors: any;
+declare const ActorSheet: any;
+declare const FilePicker: any;
 
 // V12+ uses namespaced Dice terms
 declare const foundry: {
@@ -17,5 +20,8 @@ declare const foundry: {
             FudgeDie: any; // optional if you use fudge dice
             // ...add other dice terms if needed
         };
+    };
+    utils?: {
+        mergeObject?: (original: any, other: any, options?: any) => any;
     };
 };

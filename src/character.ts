@@ -222,36 +222,86 @@ export class Character {
 }
 
 export class CharacterSheetView {
-    constructor(private readonly character: Character) {}
+    constructor(
+        private readonly character: Character,
+        private readonly options: { onAvatarPick?: (path: string) => void; onNameCommit?: (name: string) => void } = {}
+    ) {}
 
     render(container: HTMLElement) {
         container.innerHTML = "";
         container.classList.add("ezd6-sheet");
 
-        container.append(
-            this.renderHeader(),
-            this.renderAbilitySections(),
+        const layout = createElement("div", "ezd6-sheet__layout");
+        const left = createElement("div", "ezd6-sheet__col ezd6-sheet__col--left");
+        const right = createElement("div", "ezd6-sheet__col ezd6-sheet__col--right");
+
+        left.append(
+            this.renderAvatarSection(),
+            this.renderNameSection(),
             this.renderResourceSection(),
             this.renderSavesSection(),
-            this.renderDescriptionSection(),
         );
+        right.append(this.renderAbilitySections());
+
+        layout.append(left, right);
+        container.append(layout);
     }
 
-    private renderHeader(): HTMLElement {
-        const header = createElement("div", "ezd6-sheet__header");
+    private renderAvatarSection(): HTMLElement {
+        const avatarSection = createElement("div", "ezd6-section ezd6-section--avatar");
+        avatarSection.appendChild(createElement("div", "ezd6-section__title", "Avatar"));
         const avatarWrapper = createElement("div", "ezd6-avatar");
         const avatar = createElement("img", "ezd6-avatar__img") as HTMLImageElement;
+        const placeholder = "systems/ezd6-new/assets/avatars/placeholder.png";
         avatar.alt = "Avatar";
-        avatar.src = this.character.avatarUrl ?? "systems/ezd6-new/assets/avatars/placeholder.png";
+        avatar.src = this.character.avatarUrl ?? placeholder;
+        if (this.character.avatarUrl) {
+            avatarWrapper.classList.add("ezd6-avatar--has-image");
+        } else {
+            avatarWrapper.classList.add("ezd6-avatar--empty");
+        }
+        avatar.addEventListener("error", () => {
+            if (avatar.src !== placeholder) avatar.src = placeholder;
+            avatarWrapper.classList.remove("ezd6-avatar--has-image");
+            avatarWrapper.classList.add("ezd6-avatar--empty");
+        });
         avatarWrapper.appendChild(avatar);
+        if (this.options.onAvatarPick) {
+            avatarWrapper.classList.add("ezd6-avatar--clickable");
+            avatarWrapper.title = "Click to change avatar";
+            avatarWrapper.addEventListener("click", () => {
+                const picker = new FilePicker({
+                    type: "image",
+                    current: this.character.avatarUrl ?? "",
+                    callback: (path: string) => {
+                        this.character.setAvatar(path, game?.canvas?.tokens?.controlled?.[0]);
+                        this.options.onAvatarPick?.(path);
+                        avatar.src = path;
+                        avatarWrapper.classList.add("ezd6-avatar--has-image");
+                        avatarWrapper.classList.remove("ezd6-avatar--empty");
+                    },
+                });
+                picker.render(true);
+            });
+        }
+        avatarSection.appendChild(avatarWrapper);
+        return avatarSection;
+    }
 
+    private renderNameSection(): HTMLElement {
+        const nameSection = createElement("div", "ezd6-section ezd6-section--name");
+        nameSection.appendChild(createElement("div", "ezd6-section__title", "Name"));
         const nameInput = createElement("input", "ezd6-name-input") as HTMLInputElement;
         nameInput.placeholder = "Character Name";
         nameInput.value = this.character.name;
-        nameInput.addEventListener("input", () => this.character.setName(nameInput.value, game?.canvas?.tokens?.controlled?.[0]));
-
-        header.append(avatarWrapper, nameInput);
-        return header;
+        const commit = () => {
+            this.character.setName(nameInput.value, game?.canvas?.tokens?.controlled?.[0]);
+            this.options.onNameCommit?.(nameInput.value);
+        };
+        nameInput.addEventListener("change", commit);
+        nameInput.addEventListener("blur", commit);
+        nameSection.appendChild(nameInput);
+        return nameSection;
     }
 
     private renderAbilitySections(): HTMLElement {
@@ -418,17 +468,6 @@ export class CharacterSheetView {
         rollBtn.addEventListener("click", () => this.character.rollSave(save.id));
         row.appendChild(rollBtn);
         return row;
-    }
-
-    private renderDescriptionSection(): HTMLElement {
-        const wrapper = createElement("div", "ezd6-section ezd6-section--description");
-        wrapper.appendChild(createElement("div", "ezd6-section__title", "Description & Notes"));
-        const area = createElement("textarea", "ezd6-textarea") as HTMLTextAreaElement;
-        area.placeholder = "Notes, bonds, background...";
-        area.value = this.character.description;
-        area.addEventListener("input", () => this.character.setDescription(area.value));
-        wrapper.appendChild(area);
-        return wrapper;
     }
 
     private buildLabeledField(label: string, field: HTMLElement): HTMLElement {

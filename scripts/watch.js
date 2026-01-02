@@ -5,6 +5,11 @@ const path = require("path");
 
 const SYSTEM_PATH = "C:\\Users\\lepre\\AppData\\Local\\FoundryVTT\\Data\\systems\\ezd6-new";
 const BUILD_CMD = "node ./scripts/esbuild-bundle.js";
+const RUN_ONCE = process.argv.includes("--once");
+const inspector = require("inspector");
+
+delete process.env.NODE_OPTIONS;
+delete process.env.VSCODE_INSPECTOR_OPTIONS;
 
 function copyDir(src, dest) {
     if (!fs.existsSync(src)) return;
@@ -19,31 +24,107 @@ function copyDir(src, dest) {
 }
 
 function buildAndCopy() {
-    console.log("[watcher] Building and copying...");
-    exec(BUILD_CMD, (err, stdout, stderr) => {
-        if (stdout) process.stdout.write(stdout);
-        if (stderr) process.stderr.write(stderr);
+    return new Promise((resolve, reject) => {
+        console.log("[watcher] Building and copying...");
+        exec(
+            BUILD_CMD,
+            {
+                env: {
+                    ...process.env,
+                    NODE_OPTIONS: "",
+                    VSCODE_INSPECTOR_OPTIONS: ""
+                }
+            },
+            (err, stdout, stderr) => {
+            if (stdout) process.stdout.write(stdout);
+            if (stderr) process.stderr.write(stderr);
 
-        if (err) {
-            console.error("[watcher] Build failed; skipping copy.", err);
-            return;
-        }
+            if (err) {
+                console.error("[watcher] Build failed; skipping copy.", err);
+                reject(err);
+                return;
+            }
 
-        copyDir("dist", SYSTEM_PATH);
-        console.log("[watcher] Files copied to Foundry system folder");
+            copyDir("dist", SYSTEM_PATH);
+            console.log("[watcher] Files copied to Foundry system folder");
+            resolve();
+        });
     });
 }
 
-// Initial build + copy
-buildAndCopy();
+let buildInProgress = false;
+let buildQueued = false;
+let debounceTimer = null;
 
-// Watch source and public assets for changes
-const watcher = chokidar.watch(["src/**/*", "public/**/*", "scripts/esbuild-bundle.js"], {
-    ignoreInitial: true,
-    persistent: true
-});
+async function runBuildQueue() {
+    if (buildInProgress) {
+        buildQueued = true;
+        return;
+    }
 
-watcher.on("all", (event, pathChanged) => {
-    console.log(`[watcher] ${event}: ${pathChanged}`);
-    buildAndCopy();
-});
+    buildInProgress = true;
+    try {
+        await buildAndCopy();
+    } catch (err) {
+        process.exitCode = 1;
+    } finally {
+        buildInProgress = false;
+        if (buildQueued) {
+            buildQueued = false;
+            runBuildQueue();
+        }
+    }
+}
+
+(async () => {
+    try {
+        await buildAndCopy();
+    } catch (err) {
+        process.exitCode = 1;
+        if (RUN_ONCE) {
+            closeInspector();
+            return;
+        }
+    }
+
+    if (RUN_ONCE) {
+        closeInspector();
+        return;
+    }
+
+    const watcher = chokidar.watch(["src", "public", "scripts/esbuild-bundle.js"], {
+        ignoreInitial: true,
+        persistent: true,
+        usePolling: true,
+        interval: 250,
+        binaryInterval: 300,
+        ignored: ["**/dist/**", "**/node_modules/**", "**/.git/**"],
+        awaitWriteFinish: {
+            stabilityThreshold: 200,
+            pollInterval: 100
+        }
+    });
+
+    watcher.on("ready", () => {
+        console.log("[watcher] Ready");
+    });
+
+    watcher.on("error", (err) => {
+        console.error("[watcher] Error:", err);
+    });
+
+    watcher.on("all", (event, pathChanged) => {
+        console.log(`[watcher] ${event}: ${pathChanged}`);
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            debounceTimer = null;
+            runBuildQueue();
+        }, 150);
+    });
+})();
+
+function closeInspector() {
+    if (inspector.url()) {
+        inspector.close();
+    }
+}

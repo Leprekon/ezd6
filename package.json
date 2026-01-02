@@ -7,6 +7,7 @@
     "clean": "npx rimraf dist",
     "typecheck": "npx tsc --noEmit",
     "bundle": "node ./scripts/esbuild-bundle.js",
+    "bundle:copy": "node ./scripts/watch.js --once",
     "build": "npm run clean && npm run typecheck && npm run bundle",
     "watch": "node ./scripts/watch.js"
   },

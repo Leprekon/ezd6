@@ -2,10 +2,14 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Build",
+      "name": "Build + Copy",
       "type": "node-terminal",
       "request": "launch",
-      "command": "npm run build"
+      "command": "npm run bundle:copy",
+      "env": {
+        "NODE_OPTIONS": "",
+        "VSCODE_INSPECTOR_OPTIONS": ""
+      }
     },
     {
       "name": "Watch + Copy",
