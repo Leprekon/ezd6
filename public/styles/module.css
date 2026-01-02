@@ -487,9 +487,34 @@
   gap: 4px;
 }
 
+.ezd6-task-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ezd6-task-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: fit-content;
+  transition: transform 0.12s ease;
+}
+
 .ezd6-dice-stack {
   display: inline-flex;
   gap: 2px;
+  justify-content: center;
+}
+
+.ezd6-task-btn:hover {
+  transform: scale(1.08);
 }
 
 .ezd6-icon-btn,

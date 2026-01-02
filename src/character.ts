@@ -33,6 +33,38 @@ export interface Save {
 }
 
 const DEFAULT_ABILITY_CATEGORIES = ["Inclinations", "Aspects", "Equipment"] as const;
+const TASK_ROLLS = [
+    {
+        id: "double-bane",
+        label: "Double bane",
+        formula: "3d6kl",
+        dice: ["red", "red", "grey"] as const,
+    },
+    {
+        id: "single-bane",
+        label: "Single bane",
+        formula: "2d6kl",
+        dice: ["red", "grey"] as const,
+    },
+    {
+        id: "normal",
+        label: "Normal roll",
+        formula: "1d6",
+        dice: ["grey"] as const,
+    },
+    {
+        id: "single-boon",
+        label: "Single boon",
+        formula: "2d6kh",
+        dice: ["grey", "green"] as const,
+    },
+    {
+        id: "double-boon",
+        label: "Double boon",
+        formula: "3d6kh",
+        dice: ["grey", "green", "green"] as const,
+    },
+] as const;
 
 function createId(prefix: string): string {
     const random = Math.random().toString(36).slice(2, 8);
@@ -219,6 +251,13 @@ export class Character {
         const flavor = `${save.title} #save (target ${save.targetValue})`;
         await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
     }
+
+    async rollTask(label: string, formula: string) {
+        const roll = new Roll(formula, {});
+        await roll.roll({ async: true });
+        const flavor = `${label} #task`;
+        await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
+    }
 }
 
 export class CharacterSheetView {
@@ -241,7 +280,7 @@ export class CharacterSheetView {
             this.renderResourceSection(),
             this.renderSavesSection(),
         );
-        right.append(this.renderAbilitySections());
+        right.append(this.renderTaskSection(), this.renderAbilitySections());
 
         layout.append(left, right);
         container.append(layout);
@@ -328,6 +367,33 @@ export class CharacterSheetView {
             wrapper.appendChild(block);
         }
 
+        return wrapper;
+    }
+
+    private renderTaskSection(): HTMLElement {
+        const wrapper = createElement("div", "ezd6-section ezd6-section--tasks");
+        wrapper.appendChild(createElement("div", "ezd6-section__title", "Task"));
+
+        const buttons = createElement("div", "ezd6-task-buttons");
+        TASK_ROLLS.forEach((task) => {
+            const btn = createElement("button", "ezd6-task-btn");
+            btn.type = "button";
+            btn.title = `${task.label} (${task.formula})`;
+
+            const diceRow = createElement("span", "ezd6-dice-stack");
+            task.dice.forEach((kind) => {
+                const dieImg = createElement("img", "ezd6-die-icon") as HTMLImageElement;
+                dieImg.alt = `${kind} d6`;
+                dieImg.src = getDieImagePath(6, kind);
+                diceRow.appendChild(dieImg);
+            });
+
+            btn.append(diceRow);
+            btn.addEventListener("click", () => this.character.rollTask(task.label, task.formula));
+            buttons.appendChild(btn);
+        });
+
+        wrapper.appendChild(buttons);
         return wrapper;
     }
 
