@@ -40,13 +40,17 @@ export class EZD6CharacterSheet extends ActorSheet {
                 this.actor?.update?.({ img: path, "system.avatarUrl": path });
             },
             onNameCommit: (name) => {
-                this.actor?.update?.({ name });
+                const fallback = this.actor?.name ?? "Unnamed";
+                const nextName = name?.trim() ? name.trim() : fallback;
+                this.actor?.update?.({ name: nextName });
             },
         });
         this.view.render(root);
         const descSection = html[0]?.querySelector?.(".ezd6-section--description") as HTMLElement | null;
-        if (descSection && !root.contains(descSection)) {
-            root.appendChild(descSection);
+        const descBlock = descSection?.closest(".ezd6-section-block") as HTMLElement | null;
+        const descNode = descBlock ?? descSection;
+        if (descNode && !root.contains(descNode)) {
+            root.appendChild(descNode);
         }
 
         this.syncDescriptionView(html);

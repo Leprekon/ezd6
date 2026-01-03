@@ -1,10 +1,12 @@
 <form class="ezd6-sheet-form" autocomplete="off">
   <div class="ezd6-sheet-root"></div>
-  <section class="ezd6-section ezd6-section--description">
+  <div class="ezd6-section-block">
     <div class="ezd6-section__title">Description</div>
-    <div class="ezd6-description-wrap">
-      {{editor system.description target="system.description" button=true editable=editable owner=owner}}
-      <div class="ezd6-description-view">{{{system.description}}}</div>
-    </div>
-  </section>
+    <section class="ezd6-section ezd6-section--description">
+      <div class="ezd6-description-wrap">
+        {{editor system.description target="system.description" button=true editable=editable owner=owner}}
+        <div class="ezd6-description-view">{{{system.description}}}</div>
+      </div>
+    </section>
+  </div>
 </form>

@@ -287,8 +287,7 @@ export class CharacterSheetView {
     }
 
     private renderAvatarSection(): HTMLElement {
-        const avatarSection = createElement("div", "ezd6-section ezd6-section--avatar");
-        avatarSection.appendChild(createElement("div", "ezd6-section__title", "Avatar"));
+        const { block, section } = this.buildSectionBlock("Avatar", "ezd6-section--avatar");
         const avatarWrapper = createElement("div", "ezd6-avatar");
         const avatar = createElement("img", "ezd6-avatar__img") as HTMLImageElement;
         const placeholder = "systems/ezd6-new/assets/avatars/placeholder.png";
@@ -323,56 +322,57 @@ export class CharacterSheetView {
                 picker.render(true);
             });
         }
-        avatarSection.appendChild(avatarWrapper);
-        return avatarSection;
+        section.appendChild(avatarWrapper);
+        return block;
     }
 
     private renderNameSection(): HTMLElement {
-        const nameSection = createElement("div", "ezd6-section ezd6-section--name");
-        nameSection.appendChild(createElement("div", "ezd6-section__title", "Name"));
+        const { block, section } = this.buildSectionBlock("Name", "ezd6-section--name");
         const nameInput = createElement("input", "ezd6-name-input") as HTMLInputElement;
         nameInput.placeholder = "Character Name";
         nameInput.value = this.character.name;
         const commit = () => {
-            this.character.setName(nameInput.value, game?.canvas?.tokens?.controlled?.[0]);
-            this.options.onNameCommit?.(nameInput.value);
+            const rawName = nameInput.value ?? "";
+            const trimmed = rawName.trim();
+            const fallback = this.character.name || "Unnamed";
+            const nextName = trimmed ? trimmed : fallback;
+            nameInput.value = nextName;
+            this.character.setName(nextName, game?.canvas?.tokens?.controlled?.[0]);
+            this.options.onNameCommit?.(nextName);
         };
         nameInput.addEventListener("change", commit);
         nameInput.addEventListener("blur", commit);
-        nameSection.appendChild(nameInput);
-        return nameSection;
+        section.appendChild(nameInput);
+        return block;
     }
 
     private renderAbilitySections(): HTMLElement {
-        const wrapper = createElement("div", "ezd6-section ezd6-section--abilities");
-        const title = createElement("div", "ezd6-section__title", "Abilities");
-        wrapper.appendChild(title);
+        const { block: sectionBlock, section } = this.buildSectionBlock("Abilities", "ezd6-section--abilities");
 
         for (const [category, abilities] of this.character.getAbilitiesByCategory()) {
-            const block = createElement("div", "ezd6-ability-category");
+            const categoryBlock = createElement("div", "ezd6-ability-category");
             const header = createElement("div", "ezd6-ability-category__header");
             header.appendChild(createElement("span", "ezd6-ability-category__title", category));
 
             const addBtn = createElement("button", "ezd6-ghost-btn", "+");
             addBtn.addEventListener("click", () => {
                 this.character.addAbility({ category });
-                this.reRender(wrapper);
+                this.reRender(categoryBlock);
             });
             header.appendChild(addBtn);
-            block.appendChild(header);
+            categoryBlock.appendChild(header);
 
             const list = createElement("div", "ezd6-ability-list");
             abilities.forEach((ability) => list.appendChild(this.renderAbilityRow(ability)));
-            block.appendChild(list);
-            wrapper.appendChild(block);
+            categoryBlock.appendChild(list);
+            section.appendChild(categoryBlock);
         }
 
-        return wrapper;
+        return sectionBlock;
     }
 
     private renderTaskSection(): HTMLElement {
-        const wrapper = createElement("div", "ezd6-section ezd6-section--tasks");
-        wrapper.appendChild(createElement("div", "ezd6-section__title", "Task"));
+        const { block, section } = this.buildSectionBlock("Task", "ezd6-section--tasks");
 
         const buttons = createElement("div", "ezd6-task-buttons");
         TASK_ROLLS.forEach((task) => {
@@ -393,8 +393,8 @@ export class CharacterSheetView {
             buttons.appendChild(btn);
         });
 
-        wrapper.appendChild(buttons);
-        return wrapper;
+        section.appendChild(buttons);
+        return block;
     }
 
     private renderAbilityRow(ability: Ability): HTMLElement {
@@ -465,13 +465,12 @@ export class CharacterSheetView {
     }
 
     private renderResourceSection(): HTMLElement {
-        const wrapper = createElement("div", "ezd6-section ezd6-section--resources");
-        wrapper.appendChild(createElement("div", "ezd6-section__title", "Resources"));
+        const { block, section } = this.buildSectionBlock("Resources", "ezd6-section--resources");
 
         const list = createElement("div", "ezd6-resource-list");
         this.character.resources.forEach((resource) => list.appendChild(this.renderResourceRow(resource)));
-        wrapper.appendChild(list);
-        return wrapper;
+        section.appendChild(list);
+        return block;
     }
 
     private renderResourceRow(resource: Resource): HTMLElement {
@@ -518,12 +517,11 @@ export class CharacterSheetView {
     }
 
     private renderSavesSection(): HTMLElement {
-        const wrapper = createElement("div", "ezd6-section ezd6-section--saves");
-        wrapper.appendChild(createElement("div", "ezd6-section__title", "Saves"));
+        const { block, section } = this.buildSectionBlock("Saves", "ezd6-section--saves");
         const list = createElement("div", "ezd6-save-list");
         this.character.saves.forEach((save) => list.appendChild(this.renderSaveRow(save)));
-        wrapper.appendChild(list);
-        return wrapper;
+        section.appendChild(list);
+        return block;
     }
 
     private renderSaveRow(save: Save): HTMLElement {
@@ -540,6 +538,14 @@ export class CharacterSheetView {
         const wrapper = createElement("label", "ezd6-labeled");
         wrapper.append(createElement("span", "ezd6-label", label), field);
         return wrapper;
+    }
+
+    private buildSectionBlock(title: string, sectionClass: string) {
+        const block = createElement("div", "ezd6-section-block");
+        block.appendChild(createElement("div", "ezd6-section__title", title));
+        const section = createElement("div", `ezd6-section ${sectionClass}`.trim());
+        block.appendChild(section);
+        return { block, section };
     }
 
     private reRender(container: HTMLElement) {
