@@ -263,7 +263,11 @@ export class Character {
 export class CharacterSheetView {
     constructor(
         private readonly character: Character,
-        private readonly options: { onAvatarPick?: (path: string) => void; onNameCommit?: (name: string) => void } = {}
+        private readonly options: {
+            onAvatarPick?: (path: string) => void;
+            onNameCommit?: (name: string) => void;
+            actor?: any;
+        } = {}
     ) {}
 
     render(container: HTMLElement) {
@@ -348,25 +352,9 @@ export class CharacterSheetView {
 
     private renderAbilitySections(): HTMLElement {
         const { block: sectionBlock, section } = this.buildSectionBlock("Abilities", "ezd6-section--abilities");
-
-        for (const [category, abilities] of this.character.getAbilitiesByCategory()) {
-            const categoryBlock = createElement("div", "ezd6-ability-category");
-            const header = createElement("div", "ezd6-ability-category__header");
-            header.appendChild(createElement("span", "ezd6-ability-category__title", category));
-
-            const addBtn = createElement("button", "ezd6-ghost-btn", "+");
-            addBtn.addEventListener("click", () => {
-                this.character.addAbility({ category });
-                this.reRender(categoryBlock);
-            });
-            header.appendChild(addBtn);
-            categoryBlock.appendChild(header);
-
-            const list = createElement("div", "ezd6-ability-list");
-            abilities.forEach((ability) => list.appendChild(this.renderAbilityRow(ability)));
-            categoryBlock.appendChild(list);
-            section.appendChild(categoryBlock);
-        }
+        const list = createElement("div", "ezd6-ability-list");
+        this.getAbilityItems().forEach((item) => list.appendChild(this.renderAbilityRow(item)));
+        section.appendChild(list);
 
         return sectionBlock;
     }
@@ -397,71 +385,48 @@ export class CharacterSheetView {
         return block;
     }
 
-    private renderAbilityRow(ability: Ability): HTMLElement {
+    private renderAbilityRow(item: any): HTMLElement {
+        const system = item?.system ?? {};
+        const numberOfDice = Math.max(0, Number(system.numberOfDice) || 0);
+        const tag = typeof system.tag === "string" ? system.tag : "";
+        const description = typeof system.description === "string" ? system.description : "";
         const row = createElement("div", "ezd6-ability-row");
-        row.appendChild(createElement("span", "ezd6-ability-row__title", ability.title));
+
+        const mainBtn = createElement("button", "ezd6-ability-main") as HTMLButtonElement;
+        mainBtn.type = "button";
+        mainBtn.title = numberOfDice > 0
+            ? `Roll ${numberOfDice}d6 ${this.normalizeAbilityTag(tag)}`.trim()
+            : "Post to chat";
+
+        const iconWrap = createElement("span", "ezd6-ability-icon");
+        const icon = createElement("img", "ezd6-ability-icon__img") as HTMLImageElement;
+        icon.src = item?.img || "icons/svg/item-bag.svg";
+        icon.alt = item?.name ?? "Ability icon";
+        iconWrap.appendChild(icon);
+        iconWrap.appendChild(this.buildAbilityOverlayIcon(numberOfDice));
+
+        const title = createElement("span", "ezd6-ability-row__title", item?.name ?? "Ability");
+        mainBtn.append(iconWrap, title);
+        mainBtn.addEventListener("click", () => this.rollAbilityItem(item, numberOfDice, tag, description));
+        row.appendChild(mainBtn);
 
         const actions = createElement("div", "ezd6-ability-row__actions");
+        const actionBtn = createElement("button", "ezd6-ability-action-btn") as HTMLButtonElement;
+        actionBtn.type = "button";
+        actionBtn.title = mainBtn.title;
+        actionBtn.appendChild(this.buildAbilityActionIcon(numberOfDice));
+        actionBtn.addEventListener("click", () => this.rollAbilityItem(item, numberOfDice, tag, description));
 
-        const toggleBtn = createElement("button", "ezd6-icon-btn ezd6-icon-btn--ghost", "👁");
-        const detail = this.renderAbilityDetail(ability);
-        toggleBtn.addEventListener("click", () => {
-            detail.classList.toggle("is-open");
-        });
-        actions.appendChild(toggleBtn);
+        const editBtn = createElement("button", "ezd6-ability-edit-btn") as HTMLButtonElement;
+        editBtn.type = "button";
+        editBtn.title = "Edit ability";
+        const editIcon = createElement("i", "fas fa-pen");
+        editBtn.appendChild(editIcon);
+        editBtn.addEventListener("click", () => item?.sheet?.render?.(true));
 
-        const rollBtn = createElement("button", "ezd6-roll-btn");
-        if (ability.numberOfDice > 0) {
-            rollBtn.title = `Roll ${ability.numberOfDice}d6 ${ability.rollKeyword ?? ""}`.trim();
-            const iconRow = createElement("div", "ezd6-dice-stack");
-            for (let i = 0; i < ability.numberOfDice; i++) {
-                const dieImg = createElement("img", "ezd6-die-icon") as HTMLImageElement;
-                dieImg.src = getDieImagePath(6, "grey");
-                iconRow.appendChild(dieImg);
-            }
-            rollBtn.appendChild(iconRow);
-        } else {
-            rollBtn.title = "Post to chat";
-            rollBtn.textContent = "💬";
-        }
-        rollBtn.addEventListener("click", () => this.character.rollAbility(ability.id));
-        actions.appendChild(rollBtn);
-
+        actions.append(actionBtn, editBtn);
         row.appendChild(actions);
-        row.appendChild(detail);
         return row;
-    }
-
-    private renderAbilityDetail(ability: Ability): HTMLElement {
-        const detail = createElement("div", "ezd6-ability-detail");
-        const desc = createElement("textarea", "ezd6-textarea") as HTMLTextAreaElement;
-        desc.value = ability.description;
-        desc.placeholder = "Describe the ability";
-        desc.addEventListener("input", () => {
-            ability.description = desc.value;
-        });
-
-        const meta = createElement("div", "ezd6-ability-meta");
-        const diceInput = createElement("input", "ezd6-number-input") as HTMLInputElement;
-        diceInput.type = "number";
-        diceInput.min = "0";
-        diceInput.value = ability.numberOfDice.toString();
-        diceInput.addEventListener("change", () => {
-            ability.numberOfDice = Math.max(0, Number(diceInput.value) || 0);
-            this.reRender(detail.parentElement?.parentElement?.parentElement ?? detail);
-        });
-
-        const keywordSelect = createElement("input", "ezd6-text-input") as HTMLInputElement;
-        keywordSelect.placeholder = "Roll keyword";
-        keywordSelect.value = ability.rollKeyword ?? "";
-        keywordSelect.addEventListener("input", () => {
-            ability.rollKeyword = keywordSelect.value;
-        });
-
-        meta.appendChild(this.buildLabeledField("Dice", diceInput));
-        meta.appendChild(this.buildLabeledField("Keyword", keywordSelect));
-        detail.append(desc, meta);
-        return detail;
     }
 
     private renderResourceSection(): HTMLElement {
@@ -554,4 +519,60 @@ export class CharacterSheetView {
             this.render(root);
         }
     }
+
+    private getAbilityItems(): any[] {
+        const items = this.options.actor?.items?.filter?.((item: any) => item.type === "ability") ?? [];
+        const list = Array.isArray(items) ? items.slice() : Array.from(items);
+        return list.sort((a: any, b: any) => (a.sort ?? 0) - (b.sort ?? 0) || (a.name ?? "").localeCompare(b.name ?? ""));
+    }
+
+    private normalizeAbilityTag(tag: string): string {
+        const trimmed = (tag ?? "").trim();
+        if (!trimmed) return "#task";
+        return trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+    }
+
+    private buildAbilityOverlayIcon(numberOfDice: number): HTMLElement {
+        const overlay = createElement("span", "ezd6-ability-icon__overlay");
+        if (numberOfDice > 0) {
+            const die = createElement("img", "ezd6-ability-overlay-icon ezd6-ability-overlay-icon--dice") as HTMLImageElement;
+            die.src = getDieImagePath(6, "grey");
+            die.alt = "Roll";
+            overlay.appendChild(die);
+        } else {
+            const icon = createElement("i", "fas fa-comment ezd6-ability-overlay-icon");
+            overlay.appendChild(icon);
+        }
+        return overlay;
+    }
+
+    private buildAbilityActionIcon(numberOfDice: number): HTMLElement {
+        if (numberOfDice > 0) {
+            const die = createElement("img", "ezd6-ability-action-icon ezd6-ability-action-icon--dice") as HTMLImageElement;
+            die.src = getDieImagePath(6, "grey");
+            die.alt = "Roll";
+            return die;
+        }
+        const icon = createElement("i", "fas fa-comment ezd6-ability-action-icon");
+        return icon;
+    }
+
+    private async rollAbilityItem(item: any, numberOfDice: number, tag: string, description: string) {
+        if (!item) return;
+        if (numberOfDice > 0) {
+            const formula = `${numberOfDice}d6`;
+            const flavor = `${item.name ?? "Ability"} ${this.normalizeAbilityTag(tag)}`.trim();
+            const roll = new Roll(formula, {});
+            await roll.roll({ async: true });
+            await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
+            return;
+        }
+
+        const contentPieces = [
+            `<strong>${item.name ?? "Ability"}</strong>`,
+            description ? `<div>${description}</div>` : "",
+        ];
+        await ChatMessage.create({ content: contentPieces.join(""), speaker: ChatMessage.getSpeaker?.() });
+    }
 }
+

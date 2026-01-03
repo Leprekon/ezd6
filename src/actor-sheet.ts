@@ -44,6 +44,7 @@ export class EZD6CharacterSheet extends ActorSheet {
                 const nextName = name?.trim() ? name.trim() : fallback;
                 this.actor?.update?.({ name: nextName });
             },
+            actor: this.actor,
         });
         this.view.render(root);
         const descSection = html[0]?.querySelector?.(".ezd6-section--description") as HTMLElement | null;

@@ -18,11 +18,16 @@
   "Item": {
     "types": ["ability", "resource", "save"],
     "templates": {
-      "base": {}
+      "base": {},
+      "ability": {
+        "description": "",
+        "numberOfDice": 0,
+        "tag": "#task"
+      }
     },
     "ability": {
       "label": "Ability",
-      "templates": ["base"]
+      "templates": ["base", "ability"]
     },
     "resource": {
       "label": "Resource",

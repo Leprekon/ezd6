@@ -10,6 +10,8 @@ declare const ChatMessageRenderOptions: import("@league-of-foundry-developers/fo
 declare const Roll: import("@league-of-foundry-developers/foundry-vtt-types").Roll;
 declare const Actors: any;
 declare const ActorSheet: any;
+declare const Items: any;
+declare const ItemSheet: any;
 declare const FilePicker: any;
 
 // V12+ uses namespaced Dice terms
