@@ -65,6 +65,23 @@ const TASK_ROLLS = [
         dice: ["grey", "green", "green"] as const,
     },
 ] as const;
+const MAGICK_ROLLS = [
+    {
+        id: "magick-1",
+        label: "1 die",
+        dice: 1,
+    },
+    {
+        id: "magick-2",
+        label: "2 dice",
+        dice: 2,
+    },
+    {
+        id: "magick-3",
+        label: "3 dice",
+        dice: 3,
+    },
+] as const;
 
 function createId(prefix: string): string {
     const random = Math.random().toString(36).slice(2, 8);
@@ -257,6 +274,13 @@ export class Character {
         const flavor = `${label} #task`;
         await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
     }
+
+    async rollMagick(diceCount: number) {
+        const roll = new Roll(`${diceCount}d6`, {});
+        await roll.evaluate();
+        const flavor = `Magick ${diceCount}d6 #magick`;
+        await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
+    }
 }
 
 export class CharacterSheetView {
@@ -285,7 +309,7 @@ export class CharacterSheetView {
             this.renderResourceSection(),
             this.renderSavesSection(),
         );
-        right.append(this.renderTaskSection(), this.renderAbilitySections());
+        right.append(this.renderTaskSection(), this.renderMagickSection(), this.renderAbilitySections());
 
         layout.append(left, right);
         container.append(layout);
@@ -353,6 +377,23 @@ export class CharacterSheetView {
 
     private renderAbilitySections(): HTMLElement {
         const { block: sectionBlock, section } = this.buildSectionBlock("Abilities", "ezd6-section--abilities");
+        const titleRow = createElement("div", "ezd6-section__title-row");
+        const titleLabel = createElement("div", "ezd6-section__title", "Abilities");
+        const addBtn = createElement("button", "ezd6-section__add-btn", "+") as HTMLButtonElement;
+        addBtn.type = "button";
+        addBtn.title = "Add ability";
+        addBtn.addEventListener("click", async () => {
+            await this.createAbilityItem();
+            this.reRender(section);
+        });
+        titleRow.append(titleLabel, addBtn);
+        const existingTitle = sectionBlock.querySelector(".ezd6-section__title");
+        if (existingTitle) {
+            existingTitle.replaceWith(titleRow);
+        } else {
+            sectionBlock.prepend(titleRow);
+        }
+
         const list = createElement("div", "ezd6-ability-list");
         this.getAbilityItems().forEach((item) => list.appendChild(this.renderAbilityRow(item)));
         section.appendChild(list);
@@ -379,6 +420,47 @@ export class CharacterSheetView {
 
             btn.append(diceRow);
             btn.addEventListener("click", () => this.character.rollTask(task.label, task.formula));
+            buttons.appendChild(btn);
+        });
+
+        section.appendChild(buttons);
+        return block;
+    }
+
+    private renderMagickSection(): HTMLElement {
+        const { block, section } = this.buildSectionBlock("Magick", "ezd6-section--magick");
+
+        const buttons = createElement("div", "ezd6-task-buttons");
+        const placeholderDice = [3, 2];
+        placeholderDice.forEach((count) => {
+            const placeholder = createElement("button", "ezd6-task-btn ezd6-task-btn--placeholder");
+            placeholder.type = "button";
+            placeholder.tabIndex = -1;
+            const diceRow = createElement("span", "ezd6-dice-stack");
+            for (let i = 0; i < count; i++) {
+                const dieImg = createElement("img", "ezd6-die-icon") as HTMLImageElement;
+                dieImg.alt = "grey d6";
+                dieImg.src = getDieImagePath(6, "grey");
+                diceRow.appendChild(dieImg);
+            }
+            placeholder.append(diceRow);
+            buttons.appendChild(placeholder);
+        });
+        MAGICK_ROLLS.forEach((magick) => {
+            const btn = createElement("button", "ezd6-task-btn");
+            btn.type = "button";
+            btn.title = magick.label;
+
+            const diceRow = createElement("span", "ezd6-dice-stack");
+            for (let i = 0; i < magick.dice; i++) {
+                const dieImg = createElement("img", "ezd6-die-icon") as HTMLImageElement;
+                dieImg.alt = "white d6";
+                dieImg.src = getDieImagePath(6, "grey");
+                diceRow.appendChild(dieImg);
+            }
+
+            btn.append(diceRow);
+            btn.addEventListener("click", () => this.character.rollMagick(magick.dice));
             buttons.appendChild(btn);
         });
 
@@ -620,6 +702,23 @@ export class CharacterSheetView {
         const items = this.options.actor?.items?.filter?.((item: any) => item.type === "ability") ?? [];
         const list = Array.isArray(items) ? items.slice() : Array.from(items);
         return list.sort((a: any, b: any) => (a.sort ?? 0) - (b.sort ?? 0) || (a.name ?? "").localeCompare(b.name ?? ""));
+    }
+
+    private async createAbilityItem() {
+        const actor = this.options.actor;
+        if (!actor?.createEmbeddedDocuments) return;
+        const [created] = await actor.createEmbeddedDocuments("Item", [
+            {
+                name: "New Ability",
+                type: "ability",
+                system: {
+                    description: "",
+                    numberOfDice: 0,
+                    tag: "",
+                },
+            },
+        ]);
+        created?.sheet?.render?.(true);
     }
 
     private normalizeAbilityTag(tag: string): string {

@@ -70,7 +70,7 @@ export class EZD6CharacterSheet extends ActorSheet {
                 }
                 this.scheduleMarkDescriptionDirty(descWrap);
                 this.scheduleEnableDescriptionSave(descWrap);
-                setTimeout(() => this.applyDescriptionEditorPadding(html), 0);
+                this.ensureDescriptionEditorPadding(html);
             });
         }
 
@@ -99,13 +99,19 @@ export class EZD6CharacterSheet extends ActorSheet {
         view.classList.toggle("ezd6-description-view--empty", !value);
     }
 
-    private applyDescriptionEditorPadding(html: any) {
+    private applyDescriptionEditorPadding(html: any): boolean {
         const iframe = html[0]?.querySelector?.(".ezd6-section--description .tox-edit-area__iframe") as HTMLIFrameElement | null;
-        if (!iframe) return;
-        const wrap = html[0]?.querySelector?.(".ezd6-description-wrap") as HTMLElement | null;
-        const padValue = wrap ? getComputedStyle(wrap).getPropertyValue("--desc-pad").trim() : "8px";
+        if (!iframe) return false;
 
         const apply = () => {
+            const wrap = html[0]?.querySelector?.(".ezd6-description-wrap") as HTMLElement | null;
+            const wrapStyle = wrap ? getComputedStyle(wrap) : null;
+            const padValue = wrapStyle?.getPropertyValue("--desc-pad").trim() || "8px";
+            const padTop = wrapStyle?.paddingTop?.trim() || padValue;
+            const padRight = wrapStyle?.paddingRight?.trim() || padValue;
+            const padBottom = wrapStyle?.paddingBottom?.trim() || padValue;
+            const padLeft = wrapStyle?.paddingLeft?.trim() || padValue;
+
             const doc = iframe.contentDocument;
             const body = doc?.body;
             if (!doc || !body) return false;
@@ -117,10 +123,12 @@ export class EZD6CharacterSheet extends ActorSheet {
                 style.id = styleId;
                 doc.head.appendChild(style);
             }
-            style.textContent = `html,body{margin:0;box-sizing:border-box;height:100%;} body{padding:${padValue} !important;padding-bottom:${padValue} !important;overflow-wrap:break-word;min-height:100%;}`;
+            style.textContent = `html,body{margin:0;box-sizing:border-box;height:100%;} body{padding:${padTop} ${padRight} ${padBottom} ${padLeft} !important;overflow-wrap:break-word;min-height:100%;}`;
 
-            body.style.padding = padValue;
-            body.style.paddingBottom = padValue;
+            body.style.paddingTop = padTop;
+            body.style.paddingRight = padRight;
+            body.style.paddingBottom = padBottom;
+            body.style.paddingLeft = padLeft;
             body.style.margin = "0";
             body.style.boxSizing = "border-box";
             body.style.minHeight = "100%";
@@ -128,7 +136,7 @@ export class EZD6CharacterSheet extends ActorSheet {
             return true;
         };
 
-        if (apply()) return;
+        if (apply()) return true;
 
         let attempts = 0;
         const timer = setInterval(() => {
@@ -139,6 +147,29 @@ export class EZD6CharacterSheet extends ActorSheet {
         }, 150);
 
         iframe.addEventListener("load", () => apply(), { once: true });
+        return false;
+    }
+
+    private ensureDescriptionEditorPadding(html: any) {
+        const wrap = html[0]?.querySelector?.(".ezd6-description-wrap") as HTMLElement | null;
+        if (wrap && !wrap.dataset.ezd6DescPadHook) {
+            const editor = this.getDescriptionEditor(wrap);
+            if (editor) {
+                const reapply = () => this.applyDescriptionEditorPadding(html);
+                editor.on?.("focus", reapply);
+                editor.on?.("SetContent", reapply);
+                editor.on?.("init", reapply);
+                wrap.dataset.ezd6DescPadHook = "1";
+            }
+        }
+
+        let attempts = 0;
+        const tryApply = () => {
+            attempts += 1;
+            if (this.applyDescriptionEditorPadding(html) || attempts >= 20) return;
+            setTimeout(tryApply, 100);
+        };
+        tryApply();
     }
 
     private observeDescriptionEditor(html: any) {
