@@ -1,6 +1,13 @@
 // src/actor-sheet.ts
 import { Character, CharacterSheetView } from "./character";
 
+const clampDimension = (value: number, min?: number, max?: number) => {
+    let next = value;
+    if (Number.isFinite(min)) next = Math.max(min as number, next);
+    if (Number.isFinite(max)) next = Math.min(max as number, next);
+    return next;
+};
+
 export class EZD6CharacterSheet extends ActorSheet {
     private character: Character | null = null;
     private view: CharacterSheetView | null = null;
@@ -11,6 +18,10 @@ export class EZD6CharacterSheet extends ActorSheet {
             classes: ["ezd6-sheet-wrapper"],
             width: 860,
             height: 780,
+            minWidth: 820,
+            maxWidth: 1060,
+            minHeight: 640,
+            maxHeight: 1024,
             resizable: true,
             submitOnChange: true,
             submitOnClose: true,
@@ -19,6 +30,21 @@ export class EZD6CharacterSheet extends ActorSheet {
 
     get template() {
         return "systems/ezd6-new/templates/character-sheet.hbs";
+    }
+
+    setPosition(position: any = {}) {
+        const minWidth = this.options.minWidth as number | undefined;
+        const maxWidth = this.options.maxWidth as number | undefined;
+        const minHeight = this.options.minHeight as number | undefined;
+        const maxHeight = this.options.maxHeight as number | undefined;
+        const width = Number.isFinite(position.width) ? position.width : this.position?.width;
+        const height = Number.isFinite(position.height) ? position.height : this.position?.height;
+
+        return super.setPosition({
+            ...position,
+            width: Number.isFinite(width) ? clampDimension(width, minWidth, maxWidth) : width,
+            height: Number.isFinite(height) ? clampDimension(height, minHeight, maxHeight) : height,
+        });
     }
 
     getData(options?: any) {

@@ -1,10 +1,21 @@
 // src/ability-item-sheet.ts
+const clampDimension = (value: number, min?: number, max?: number) => {
+    let next = value;
+    if (Number.isFinite(min)) next = Math.max(min as number, next);
+    if (Number.isFinite(max)) next = Math.min(max as number, next);
+    return next;
+};
+
 export class EZD6AbilityItemSheet extends ItemSheet {
     static get defaultOptions() {
         return foundry.utils.mergeObject(super.defaultOptions, {
             classes: ["ezd6-item-sheet", "ezd6-item-sheet--ability"],
             width: 460,
             height: 520,
+            minWidth: 480,
+            maxWidth: 660,
+            minHeight: 420,
+            maxHeight: 760,
             resizable: true,
             submitOnChange: true,
             submitOnClose: true,
@@ -13,6 +24,21 @@ export class EZD6AbilityItemSheet extends ItemSheet {
 
     get template() {
         return "systems/ezd6-new/templates/ability-item-sheet.hbs";
+    }
+
+    setPosition(position: any = {}) {
+        const minWidth = this.options.minWidth as number | undefined;
+        const maxWidth = this.options.maxWidth as number | undefined;
+        const minHeight = this.options.minHeight as number | undefined;
+        const maxHeight = this.options.maxHeight as number | undefined;
+        const width = Number.isFinite(position.width) ? position.width : this.position?.width;
+        const height = Number.isFinite(position.height) ? position.height : this.position?.height;
+
+        return super.setPosition({
+            ...position,
+            width: Number.isFinite(width) ? clampDimension(width, minWidth, maxWidth) : width,
+            height: Number.isFinite(height) ? clampDimension(height, minHeight, maxHeight) : height,
+        });
     }
 
     getData(options?: any) {

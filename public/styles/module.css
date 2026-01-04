@@ -115,14 +115,23 @@
   padding: 12px;
   box-sizing: border-box;
   width: 100%;
-  max-width: 980px;
-  margin: 0 auto;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
 }
 .ezd6-sheet__layout {
   display: grid;
-  grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+  grid-template-columns: minmax(234px, 324px) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
+  width: 100%;
+}
+
+.ezd6-sheet-wrapper .window-content {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
 
 .ezd6-sheet__col {
@@ -132,16 +141,23 @@
 }
 .ezd6-sheet-form {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .ezd6-sheet-root {
   min-height: 600px;
+  height: 100%;
+  min-height: 0;
 }
+
 
 .ezd6-avatar {
   width: 100%;
-  max-width: 360px;
-  max-height: 420px;
+  max-width: 324px;
+  max-height: 378px;
   overflow: hidden;
   border-radius: 8px;
   border: none;
@@ -154,7 +170,7 @@
 
 .ezd6-avatar--empty {
   aspect-ratio: 1 / 1;
-  min-height: 220px;
+  min-height: 198px;
 }
 
 .ezd6-avatar--has-image {
@@ -164,7 +180,7 @@
 .ezd6-avatar__img {
   width: 100%;
   height: auto;
-  max-height: 420px;
+  max-height: 378px;
   object-fit: contain;
   border: none;
   outline: none;
@@ -222,6 +238,16 @@
   flex-direction: column;
   gap: 6px;
 }
+.ezd6-sheet > .ezd6-section-block {
+  flex: 1 0 200px;
+  min-height: 200px;
+}
+.ezd6-sheet > .ezd6-section-block .ezd6-section--description {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
 .ezd6-section--avatar {
   border: none;
   background: transparent;
@@ -235,8 +261,10 @@
 
 .ezd6-description-wrap {
   position: relative;
-  min-height: 100px;
-  max-height: 300px;
+  min-height: 200px;
+  max-height: none;
+  flex: 1 1 auto;
+  overflow: hidden;
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 6px;
@@ -320,14 +348,16 @@
 }
 
 .ezd6-description-view {
-  min-height: 100px;
-  max-height: 300px;
+  min-height: 200px;
+  max-height: none;
+  height: 100%;
+  flex: 1 1 auto;
   overflow: auto;
   background: transparent;
   border: none;
   border-radius: 0;
   padding: var(--desc-pad);
-  padding-bottom: calc(var(--desc-pad) / 2);
+  padding-bottom: calc(var(--desc-pad) + 1px);
   box-sizing: border-box;
   color: #111;
   user-select: text !important;
@@ -543,7 +573,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.1);
   border-radius: 8px;
   overflow: hidden;
 }
