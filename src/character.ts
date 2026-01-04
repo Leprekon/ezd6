@@ -178,7 +178,6 @@ export class Character {
     static consumeHealth(): boolean {
         if (Character._health <= 0) return false;
         Character._health -= 1;
-        console.log(`[EZD6] Burn 1 used. Remaining health: ${Character._health}`);
         return true;
     }
 
@@ -232,7 +231,7 @@ export class Character {
             const formula = `${ability.numberOfDice}d6`;
             const flavor = `${ability.title} #${keyword}`;
             const roll = new Roll(formula, {});
-            await roll.roll({ async: true });
+            await roll.evaluate();
             await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
         } else {
             const contentPieces = [
@@ -247,20 +246,22 @@ export class Character {
         const save = this.saves.find((s) => s.id === saveId);
         if (!save) return;
         const roll = new Roll(`${save.numberOfDice}d6`, {});
-        await roll.roll({ async: true });
+        await roll.evaluate();
         const flavor = `${save.title} #save (target ${save.targetValue})`;
         await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
     }
 
     async rollTask(label: string, formula: string) {
         const roll = new Roll(formula, {});
-        await roll.roll({ async: true });
+        await roll.evaluate();
         const flavor = `${label} #task`;
         await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
     }
 }
 
 export class CharacterSheetView {
+    private expandedAbilityId: string | null = null;
+
     constructor(
         private readonly character: Character,
         private readonly options: {
@@ -388,45 +389,140 @@ export class CharacterSheetView {
     private renderAbilityRow(item: any): HTMLElement {
         const system = item?.system ?? {};
         const numberOfDice = Math.max(0, Number(system.numberOfDice) || 0);
-        const tag = typeof system.tag === "string" ? system.tag : "";
+        const tag = typeof system.tag === "string"
+            ? system.tag
+            : typeof system.tag === "number"
+                ? String(system.tag)
+                : "";
         const description = typeof system.description === "string" ? system.description : "";
+        const wrapper = createElement("div", "ezd6-ability-item");
         const row = createElement("div", "ezd6-ability-row");
-
-        const mainBtn = createElement("button", "ezd6-ability-main") as HTMLButtonElement;
-        mainBtn.type = "button";
-        mainBtn.title = numberOfDice > 0
-            ? `Roll ${numberOfDice}d6 ${this.normalizeAbilityTag(tag)}`.trim()
-            : "Post to chat";
+        row.setAttribute("role", "button");
+        row.tabIndex = 0;
+        row.title = "Toggle details";
 
         const iconWrap = createElement("span", "ezd6-ability-icon");
         const icon = createElement("img", "ezd6-ability-icon__img") as HTMLImageElement;
         icon.src = item?.img || "icons/svg/item-bag.svg";
         icon.alt = item?.name ?? "Ability icon";
         iconWrap.appendChild(icon);
-        iconWrap.appendChild(this.buildAbilityOverlayIcon(numberOfDice));
 
         const title = createElement("span", "ezd6-ability-row__title", item?.name ?? "Ability");
-        mainBtn.append(iconWrap, title);
-        mainBtn.addEventListener("click", () => this.rollAbilityItem(item, numberOfDice, tag, description));
-        row.appendChild(mainBtn);
+        row.append(iconWrap, title);
 
-        const actions = createElement("div", "ezd6-ability-row__actions");
-        const actionBtn = createElement("button", "ezd6-ability-action-btn") as HTMLButtonElement;
-        actionBtn.type = "button";
-        actionBtn.title = mainBtn.title;
-        actionBtn.appendChild(this.buildAbilityActionIcon(numberOfDice));
-        actionBtn.addEventListener("click", () => this.rollAbilityItem(item, numberOfDice, tag, description));
+        if (numberOfDice > 0) {
+            const rollBtn = createElement("button", "ezd6-task-btn ezd6-ability-roll-btn") as HTMLButtonElement;
+            rollBtn.type = "button";
+            rollBtn.title = `Roll ${numberOfDice}d6 ${this.normalizeAbilityTag(tag)}`.trim();
+            const diceRow = createElement("span", "ezd6-dice-stack");
+            for (let i = 0; i < numberOfDice; i++) {
+                const kind = i === 0 ? "grey" : "green";
+                const dieImg = createElement("img", "ezd6-die-icon") as HTMLImageElement;
+                dieImg.alt = `${kind} d6`;
+                dieImg.src = getDieImagePath(6, kind);
+                diceRow.appendChild(dieImg);
+            }
+            rollBtn.append(diceRow);
+            rollBtn.addEventListener("click", (event) => {
+                event.stopPropagation();
+                this.rollAbilityItem(item, numberOfDice, tag, description);
+            });
+            row.appendChild(rollBtn);
+        }
 
+        const detail = createElement("div", "ezd6-ability-detail");
+        if (this.expandedAbilityId && item?.id === this.expandedAbilityId) {
+            row.classList.add("is-open");
+            detail.classList.add("is-open");
+        }
+
+        const detailMain = createElement("div", "ezd6-ability-detail__main");
+        const detailHeader = createElement("div", "ezd6-ability-detail__header");
+        detailHeader.appendChild(createElement("span", "ezd6-ability-detail__label", "Description"));
+
+        const detailText = createElement("div", "ezd6-ability-detail__text");
+        const trimmedDescription = description.trim();
+        if (trimmedDescription) {
+            detailText.innerHTML = trimmedDescription;
+        } else {
+            detailText.textContent = "No description.";
+            detailText.classList.add("is-empty");
+        }
+
+        const detailMeta = createElement("div", "ezd6-ability-detail__meta");
+        const messageBtn = createElement("button", "ezd6-ability-msg-btn") as HTMLButtonElement;
+        messageBtn.type = "button";
+        messageBtn.title = "Post ability to chat";
+        messageBtn.appendChild(createElement("i", "fas fa-comment"));
+        messageBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            this.postAbilityMessage(item, description);
+        });
+        detailMeta.appendChild(createElement("span", "ezd6-ability-tag", this.normalizeAbilityTag(tag)));
+
+        const detailActions = createElement("div", "ezd6-ability-detail__actions");
         const editBtn = createElement("button", "ezd6-ability-edit-btn") as HTMLButtonElement;
         editBtn.type = "button";
         editBtn.title = "Edit ability";
-        const editIcon = createElement("i", "fas fa-pen");
-        editBtn.appendChild(editIcon);
-        editBtn.addEventListener("click", () => item?.sheet?.render?.(true));
+        editBtn.appendChild(createElement("i", "fas fa-pen"));
+        editBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            item?.sheet?.render?.(true);
+        });
 
-        actions.append(actionBtn, editBtn);
-        row.appendChild(actions);
-        return row;
+        const deleteBtn = createElement("button", "ezd6-ability-delete-btn") as HTMLButtonElement;
+        deleteBtn.type = "button";
+        deleteBtn.title = "Delete ability";
+        deleteBtn.appendChild(createElement("i", "fas fa-trash"));
+        deleteBtn.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            await item?.delete?.();
+            const list = wrapper.parentElement ?? wrapper;
+            this.reRender(list);
+        });
+
+        detailActions.append(editBtn, deleteBtn);
+        detailMain.append(detailHeader, detailText, detailMeta);
+
+        const detailSide = createElement("div", "ezd6-ability-detail__side");
+        detailSide.append(messageBtn, detailActions);
+
+        const detailContent = createElement("div", "ezd6-ability-detail__content");
+        detailContent.append(detailMain, detailSide);
+
+        detail.append(detailContent);
+
+        const toggleDetail = () => {
+            const list = wrapper.closest(".ezd6-ability-list") as HTMLElement | null;
+            if (list) {
+                list.querySelectorAll(".ezd6-ability-detail.is-open").forEach((openDetail) => {
+                    if (openDetail !== detail) openDetail.classList.remove("is-open");
+                });
+                list.querySelectorAll(".ezd6-ability-row.is-open").forEach((openRow) => {
+                    if (openRow !== row) openRow.classList.remove("is-open");
+                });
+            }
+            const isOpen = detail.classList.contains("is-open");
+            detail.classList.toggle("is-open", !isOpen);
+            row.classList.toggle("is-open", !isOpen);
+            this.expandedAbilityId = !isOpen ? item?.id ?? null : null;
+        };
+
+        row.addEventListener("click", (event) => {
+            const target = event.target as HTMLElement | null;
+            if (target?.closest?.(".ezd6-ability-roll-btn, .ezd6-ability-msg-btn, .ezd6-ability-edit-btn, .ezd6-ability-delete-btn")) {
+                return;
+            }
+            toggleDetail();
+        });
+        row.addEventListener("keydown", (event: KeyboardEvent) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            toggleDetail();
+        });
+
+        wrapper.append(row, detail);
+        return wrapper;
     }
 
     private renderResourceSection(): HTMLElement {
@@ -529,32 +625,36 @@ export class CharacterSheetView {
     private normalizeAbilityTag(tag: string): string {
         const trimmed = (tag ?? "").trim();
         if (!trimmed) return "#task";
+
+        const asNumber = Number(trimmed);
+        if (!Number.isNaN(asNumber) && Number.isInteger(asNumber)) {
+            const options = this.getAbilityTagOptions();
+            const option = options[asNumber];
+            if (option) return option.startsWith("#") ? option : `#${option}`;
+        }
+
         return trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
     }
 
-    private buildAbilityOverlayIcon(numberOfDice: number): HTMLElement {
-        const overlay = createElement("span", "ezd6-ability-icon__overlay");
-        if (numberOfDice > 0) {
-            const die = createElement("img", "ezd6-ability-overlay-icon ezd6-ability-overlay-icon--dice") as HTMLImageElement;
-            die.src = getDieImagePath(6, "grey");
-            die.alt = "Roll";
-            overlay.appendChild(die);
-        } else {
-            const icon = createElement("i", "fas fa-comment ezd6-ability-overlay-icon");
-            overlay.appendChild(icon);
+    private getAbilityTagOptions(): string[] {
+        const predefined = ["#task", "#default", "#attack", "#brutal", "#magick", "#miracle"];
+        let custom: string[] = [];
+        try {
+            const stored = game?.settings?.get?.("ezd6-new", "customTags");
+            if (Array.isArray(stored)) custom = stored.filter((tag) => typeof tag === "string");
+        } catch {
+            custom = [];
         }
-        return overlay;
+        return [...new Set([...predefined, ...custom])];
     }
 
-    private buildAbilityActionIcon(numberOfDice: number): HTMLElement {
-        if (numberOfDice > 0) {
-            const die = createElement("img", "ezd6-ability-action-icon ezd6-ability-action-icon--dice") as HTMLImageElement;
-            die.src = getDieImagePath(6, "grey");
-            die.alt = "Roll";
-            return die;
-        }
-        const icon = createElement("i", "fas fa-comment ezd6-ability-action-icon");
-        return icon;
+    private async postAbilityMessage(item: any, description: string) {
+        if (!item) return;
+        const contentPieces = [
+            `<strong>${item.name ?? "Ability"}</strong>`,
+            description ? `<div>${description}</div>` : "",
+        ];
+        await ChatMessage.create({ content: contentPieces.join(""), speaker: ChatMessage.getSpeaker?.() });
     }
 
     private async rollAbilityItem(item: any, numberOfDice: number, tag: string, description: string) {
@@ -563,7 +663,7 @@ export class CharacterSheetView {
             const formula = `${numberOfDice}d6`;
             const flavor = `${item.name ?? "Ability"} ${this.normalizeAbilityTag(tag)}`.trim();
             const roll = new Roll(formula, {});
-            await roll.roll({ async: true });
+            await roll.evaluate();
             await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
             return;
         }

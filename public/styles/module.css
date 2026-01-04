@@ -429,143 +429,276 @@
 .ezd6-save-list {
   display: flex;
   flex-direction: column;
+}
+
+.ezd6-ability-list {
+  gap: 4px;
+}
+
+.ezd6-resource-list,
+.ezd6-save-list {
   gap: 8px;
+}
+
+.ezd6-ability-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  align-items: stretch;
 }
 
 .ezd6-ability-row,
 .ezd6-resource-row,
 .ezd6-save-row {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: space-between;
   gap: 12px;
   background: white;
   border-radius: 8px;
-  padding: 8px;
+  padding: 0 8px 0 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
 }
 
-.ezd6-ability-row__actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.ezd6-ability-row {
+  cursor: pointer;
+  transition: none;
+  position: relative;
+  z-index: 1;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  align-items: stretch;
+  --ability-row-size: 40px;
 }
+
+.ezd6-ability-row:hover,
+.ezd6-ability-row:focus-visible {
+  border-color: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+  outline: none;
+}
+
+
 
 .ezd6-ability-row__title,
 .ezd6-resource-row__title,
 .ezd6-save-row__title {
   font-weight: 700;
 }
-
-.ezd6-ability-main {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
+.ezd6-ability-row__title {
   flex: 1 1 auto;
   min-width: 0;
-  background: transparent;
-  border: none;
-  padding: 0;
-  text-align: left;
-  cursor: pointer;
+  align-self: center;
+  padding: 8px 0;
+}
+
+.ezd6-ability-roll-btn {
+  align-self: center;
+  padding: 8px 0;
 }
 
 .ezd6-ability-icon {
   position: relative;
-  width: 28px;
-  height: 28px;
+  width: var(--ability-row-size);
+  height: var(--ability-row-size);
+  flex: 0 0 var(--ability-row-size);
+  margin: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .ezd6-ability-icon__img {
-  width: 28px;
-  height: 28px;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
   border: none;
 }
 
-.ezd6-ability-icon__overlay {
-  position: absolute;
-  inset: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.ezd6-ability-main:hover .ezd6-ability-icon__overlay {
-  opacity: 1;
-}
-
-.ezd6-ability-overlay-icon {
-  font-size: 14px;
-  color: #fff;
-  text-shadow: 0 0 3px rgba(0, 0, 0, 0.6);
-}
-
-.ezd6-ability-overlay-icon--dice {
-  width: 16px;
-  height: 16px;
-  filter: brightness(2) saturate(0);
-}
-
-.ezd6-ability-action-btn {
-  border: none;
-  background: #ededed;
-  border-radius: 6px;
-  padding: 6px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.ezd6-ability-action-icon {
-  font-size: 14px;
-  color: #333;
-}
-
-.ezd6-ability-action-icon--dice {
-  width: 16px;
-  height: 16px;
-  filter: brightness(1.4) saturate(0.1);
-}
-
-.ezd6-ability-edit-btn {
-  border: none;
-  background: transparent;
-  color: rgba(0, 0, 0, 0.5);
-  padding: 6px;
-  cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-}
-
-.ezd6-ability-row:hover .ezd6-ability-edit-btn {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 .ezd6-ability-detail {
-  display: none;
-  flex-direction: column;
-  gap: 8px;
+  display: block;
   width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
+  z-index: 0;
+  max-height: 0;
+  margin-top: 0;
+  transition: max-height 0.22s ease, margin-top 0.22s ease;
+  pointer-events: none;
 }
 
 .ezd6-ability-detail.is-open {
-  display: flex;
+  max-height: 360px;
+  margin-top: -8px;
+  pointer-events: auto;
 }
 
-.ezd6-ability-meta {
+.ezd6-ability-detail__content {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: minmax(0, 1fr) max-content;
+  column-gap: 12px;
+  width: 100%;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 0 0 8px 8px;
+  padding: 16px 8px 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.16s ease, transform 0.22s ease;
+}
+
+.ezd6-ability-detail.is-open .ezd6-ability-detail__content {
+  opacity: 1;
+  transform: translateY(0);
+}
+.ezd6-ability-detail__main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ezd6-ability-detail__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  margin-bottom: -2px;
+}
+
+.ezd6-ability-detail__label {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.ezd6-ability-msg-btn {
+  border: none;
+  border-radius: 999px;
+  padding: 4px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 20px;
+  color: rgba(0, 0, 0, 0.6);
+  transition: transform 0.12s ease, color 0.12s ease;
+  box-shadow: none;
+  outline: none;
+  appearance: none;
+  width: 100%;
+  height: calc(var(--ability-actions-height, 22px) * 2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ezd6-ability-detail__text {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.ezd6-ability-detail__text.is-empty {
+  color: rgba(0, 0, 0, 0.5);
+  font-style: italic;
+}
+
+.ezd6-ability-detail__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+.ezd6-ability-detail__side {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: max-content;
+}
+
+.ezd6-ability-detail__side .ezd6-ability-detail__actions {
+  margin-top: auto;
+  width: 100%;
+  height: var(--ability-actions-height, 22px);
+}
+
+.ezd6-ability-detail__side .ezd6-ability-msg-btn {
+  margin: auto 0;
+}
+
+.ezd6-ability-tag {
+  font-weight: 700;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+  color: #222;
+}
+
+.ezd6-ability-detail__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ezd6-ability-edit-btn,
+.ezd6-ability-delete-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 2px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: rgba(0, 0, 0, 0.6);
+  transition: transform 0.12s ease, color 0.12s ease;
+  box-shadow: none;
+  outline: none;
+  appearance: none;
+}
+
+.ezd6-ability-delete-btn {
+  color: rgba(138, 43, 43, 0.8);
+}
+
+.ezd6-ability-msg-btn:hover,
+.ezd6-ability-msg-btn:focus-visible,
+.ezd6-ability-edit-btn:hover,
+.ezd6-ability-edit-btn:focus-visible,
+.ezd6-ability-delete-btn:hover,
+.ezd6-ability-delete-btn:focus-visible {
+  transform: scale(1.08);
+  color: rgba(0, 0, 0, 0.9);
+  outline: none;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.ezd6-ability-msg-btn:focus,
+.ezd6-ability-edit-btn:focus,
+.ezd6-ability-delete-btn:focus {
+  outline: none;
+  box-shadow: none;
+  border: none;
+}
+
+.ezd6-ability-delete-btn:hover,
+.ezd6-ability-delete-btn:focus-visible {
+  color: rgba(138, 43, 43, 1);
 }
 
 .ezd6-textarea {
@@ -695,6 +828,8 @@
   flex-direction: column;
   gap: 4px;
   align-items: flex-start;
+  position: relative;
+  cursor: pointer;
 }
 
 .ezd6-item-icon {
@@ -705,9 +840,32 @@
   max-width: 108px;
   max-height: 108px;
   display: block;
-  object-fit: cover;
+  object-fit: contain;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.ezd6-item-icon-field::after {
+  content: "Change";
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: white;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 4px 8px;
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.ezd6-item-icon-field:hover::after {
+  opacity: 1;
 }
 
 .ezd6-item-title-group {
