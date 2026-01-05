@@ -12,6 +12,7 @@ export class EZD6CharacterSheet extends ActorSheet {
     private character: Character | null = null;
     private view: CharacterSheetView | null = null;
     private descObserver: MutationObserver | null = null;
+    private pendingScrollRestore: Array<{ el: HTMLElement; top: number }> = [];
 
     static get defaultOptions() {
         return foundry.utils.mergeObject(super.defaultOptions, {
@@ -49,6 +50,12 @@ export class EZD6CharacterSheet extends ActorSheet {
 
     getData(options?: any) {
         return super.getData(options);
+    }
+
+    protected async _render(force?: boolean, options?: any) {
+        this.pendingScrollRestore = this.captureScrollState();
+        await super._render(force, options);
+        this.restoreScrollState();
     }
 
     activateListeners(html: any) {
@@ -320,6 +327,44 @@ export class EZD6CharacterSheet extends ActorSheet {
         this.character.abilities = Array.isArray(system.abilities) ? system.abilities : [];
         this.character.resources = Array.isArray(system.resources) ? system.resources : [];
         this.character.saves = Array.isArray(system.saves) ? system.saves : [];
+    }
+
+    private captureScrollState() {
+        const root = this.element?.[0] as HTMLElement | undefined;
+        if (!root) return [];
+        const candidates = new Set<HTMLElement>();
+        const selectors = [".window-content", ".sheet-body", ".ezd6-sheet-root", ".ezd6-sheet"];
+        selectors.forEach((selector) => {
+            root.querySelectorAll(selector).forEach((el) => candidates.add(el as HTMLElement));
+        });
+        root.querySelectorAll("*").forEach((el) => {
+            const node = el as HTMLElement;
+            if (node.scrollTop > 0) candidates.add(node);
+        });
+        return Array.from(candidates)
+            .filter((el) => {
+                const style = getComputedStyle(el);
+                const overflowY = style.overflowY;
+                return overflowY === "auto"
+                    || overflowY === "scroll"
+                    || el.scrollTop > 0
+                    || el.scrollHeight > el.clientHeight;
+            })
+            .map((el) => ({ el, top: el.scrollTop }));
+    }
+
+    private restoreScrollState() {
+        const targets = this.pendingScrollRestore;
+        if (!targets.length) return;
+        const apply = () => {
+            targets.forEach(({ el, top }) => {
+                el.scrollTop = top;
+            });
+        };
+        requestAnimationFrame(() => {
+            apply();
+            setTimeout(apply, 50);
+        });
     }
 
     private trimTrailingEmptyDescription(html: string) {

@@ -285,6 +285,7 @@ export class Character {
 
 export class CharacterSheetView {
     private expandedAbilityId: string | null = null;
+    private expandedEquipmentId: string | null = null;
 
     constructor(
         private readonly character: Character,
@@ -309,7 +310,12 @@ export class CharacterSheetView {
             this.renderResourceSection(),
             this.renderSavesSection(),
         );
-        right.append(this.renderTaskSection(), this.renderMagickSection(), this.renderAbilitySections());
+        right.append(
+            this.renderTaskSection(),
+            this.renderMagickSection(),
+            this.renderAbilitySections(),
+            this.renderEquipmentSection(),
+        );
 
         layout.append(left, right);
         container.append(layout);
@@ -396,6 +402,32 @@ export class CharacterSheetView {
 
         const list = createElement("div", "ezd6-ability-list");
         this.getAbilityItems().forEach((item) => list.appendChild(this.renderAbilityRow(item)));
+        section.appendChild(list);
+
+        return sectionBlock;
+    }
+
+    private renderEquipmentSection(): HTMLElement {
+        const { block: sectionBlock, section } = this.buildSectionBlock("Equipment", "ezd6-section--equipment");
+        const titleRow = createElement("div", "ezd6-section__title-row");
+        const titleLabel = createElement("div", "ezd6-section__title", "Equipment");
+        const addBtn = createElement("button", "ezd6-section__add-btn", "+") as HTMLButtonElement;
+        addBtn.type = "button";
+        addBtn.title = "Add equipment";
+        addBtn.addEventListener("click", async () => {
+            await this.createEquipmentItem();
+            this.reRender(section);
+        });
+        titleRow.append(titleLabel, addBtn);
+        const existingTitle = sectionBlock.querySelector(".ezd6-section__title");
+        if (existingTitle) {
+            existingTitle.replaceWith(titleRow);
+        } else {
+            sectionBlock.prepend(titleRow);
+        }
+
+        const list = createElement("div", "ezd6-equipment-list");
+        this.getEquipmentItems().forEach((item) => list.appendChild(this.renderEquipmentRow(item)));
         section.appendChild(list);
 
         return sectionBlock;
@@ -607,6 +639,188 @@ export class CharacterSheetView {
         return wrapper;
     }
 
+    private renderEquipmentRow(item: any): HTMLElement {
+        const system = item?.system ?? {};
+        const description = typeof system.description === "string" ? system.description : "";
+        const numberOfDice = Math.max(0, Number(system.numberOfDice) || 0);
+        const tag = typeof system.tag === "string"
+            ? system.tag
+            : typeof system.tag === "number"
+                ? String(system.tag)
+                : "";
+        const isQuantifiable = Boolean(system.quantifiable);
+        const quantity = this.coerceQuantity(
+            system.quantity ?? system.defaultQuantity ?? 0
+        );
+
+        const wrapper = createElement("div", "ezd6-equipment-item");
+        const row = createElement("div", "ezd6-equipment-row");
+        if (!isQuantifiable) {
+            row.classList.add("ezd6-equipment-row--no-qty");
+        }
+        row.setAttribute("role", "button");
+        row.tabIndex = 0;
+        row.title = "Toggle details";
+
+        const iconWrap = createElement("span", "ezd6-equipment-icon");
+        const icon = createElement("img", "ezd6-equipment-icon__img") as HTMLImageElement;
+        icon.src = item?.img || "icons/svg/item-bag.svg";
+        icon.alt = item?.name ?? "Equipment icon";
+        iconWrap.appendChild(icon);
+
+        const title = createElement("span", "ezd6-equipment-row__title", item?.name ?? "Equipment");
+        row.append(iconWrap, title);
+
+        const qtySlot = createElement("div", "ezd6-equipment-qty-slot");
+        if (isQuantifiable) {
+            const qtyWrap = createElement("div", "ezd6-equipment-qty");
+            const decBtn = createElement("button", "ezd6-qty-btn", "-") as HTMLButtonElement;
+            const incBtn = createElement("button", "ezd6-qty-btn", "+") as HTMLButtonElement;
+            const value = createElement("span", "ezd6-qty-value", String(quantity));
+            decBtn.type = "button";
+            incBtn.type = "button";
+            decBtn.disabled = quantity <= 0;
+            decBtn.title = "Decrease quantity";
+            incBtn.title = "Increase quantity";
+
+            decBtn.addEventListener("click", async (event) => {
+                event.stopPropagation();
+                await this.setEquipmentQuantity(item, quantity - 1, wrapper);
+            });
+            incBtn.addEventListener("click", async (event) => {
+                event.stopPropagation();
+                await this.setEquipmentQuantity(item, quantity + 1, wrapper);
+            });
+
+            qtyWrap.append(decBtn, value, incBtn);
+            qtySlot.appendChild(qtyWrap);
+        } else {
+            qtySlot.classList.add("is-empty");
+        }
+        row.appendChild(qtySlot);
+
+        const rollSlot = createElement("div", "ezd6-equipment-roll-slot");
+        if (numberOfDice > 0) {
+            const rollBtn = createElement("button", "ezd6-task-btn ezd6-equipment-roll-btn") as HTMLButtonElement;
+            rollBtn.type = "button";
+            rollBtn.title = `Roll ${numberOfDice}d6 ${this.normalizeAbilityTag(tag)}`.trim();
+            const diceRow = createElement("span", "ezd6-dice-stack");
+            for (let i = 0; i < numberOfDice; i++) {
+                const kind = i === 0 ? "grey" : "green";
+                const dieImg = createElement("img", "ezd6-die-icon") as HTMLImageElement;
+                dieImg.alt = `${kind} d6`;
+                dieImg.src = getDieImagePath(6, kind);
+                diceRow.appendChild(dieImg);
+            }
+            rollBtn.append(diceRow);
+            rollBtn.addEventListener("click", (event) => {
+                event.stopPropagation();
+                this.rollEquipmentItem(item, numberOfDice, tag, description, quantity, isQuantifiable);
+            });
+            rollSlot.appendChild(rollBtn);
+        } else if (isQuantifiable) {
+            rollSlot.appendChild(createElement("span", "ezd6-equipment-roll-spacer"));
+        }
+        row.appendChild(rollSlot);
+
+        const detail = createElement("div", "ezd6-equipment-detail");
+        if (this.expandedEquipmentId && item?.id === this.expandedEquipmentId) {
+            row.classList.add("is-open");
+            detail.classList.add("is-open");
+        }
+
+        const detailMain = createElement("div", "ezd6-equipment-detail__main");
+        const detailHeader = createElement("div", "ezd6-equipment-detail__header");
+        detailHeader.appendChild(createElement("span", "ezd6-equipment-detail__label", "Description"));
+
+        const detailText = createElement("div", "ezd6-equipment-detail__text");
+        const trimmedDescription = description.trim();
+        if (trimmedDescription) {
+            detailText.innerHTML = trimmedDescription;
+        } else {
+            detailText.textContent = "No description.";
+            detailText.classList.add("is-empty");
+        }
+
+        const detailMeta = createElement("div", "ezd6-equipment-detail__meta");
+        detailMeta.appendChild(createElement("span", "ezd6-equipment-tag", this.normalizeAbilityTag(tag)));
+
+        const messageBtn = createElement("button", "ezd6-equipment-msg-btn") as HTMLButtonElement;
+        messageBtn.type = "button";
+        messageBtn.title = "Post equipment to chat";
+        messageBtn.appendChild(createElement("i", "fas fa-comment"));
+        messageBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            this.postEquipmentMessage(item, description, quantity, isQuantifiable);
+        });
+
+        const detailActions = createElement("div", "ezd6-equipment-detail__actions");
+        const editBtn = createElement("button", "ezd6-equipment-edit-btn") as HTMLButtonElement;
+        editBtn.type = "button";
+        editBtn.title = "Edit equipment";
+        editBtn.appendChild(createElement("i", "fas fa-pen"));
+        editBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            item?.sheet?.render?.(true);
+        });
+
+        const deleteBtn = createElement("button", "ezd6-equipment-delete-btn") as HTMLButtonElement;
+        deleteBtn.type = "button";
+        deleteBtn.title = "Delete equipment";
+        deleteBtn.appendChild(createElement("i", "fas fa-trash"));
+        deleteBtn.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            await item?.delete?.();
+            const list = wrapper.parentElement ?? wrapper;
+            this.reRender(list);
+        });
+
+        detailActions.append(editBtn, deleteBtn);
+        detailMain.append(detailHeader, detailText, detailMeta);
+
+        const detailSide = createElement("div", "ezd6-equipment-detail__side");
+        detailSide.append(messageBtn, detailActions);
+
+        const detailContent = createElement("div", "ezd6-equipment-detail__content");
+        detailContent.append(detailMain, detailSide);
+
+        detail.append(detailContent);
+
+        const toggleDetail = () => {
+            const list = wrapper.closest(".ezd6-equipment-list") as HTMLElement | null;
+            if (list) {
+                list.querySelectorAll(".ezd6-equipment-detail.is-open").forEach((openDetail) => {
+                    if (openDetail !== detail) openDetail.classList.remove("is-open");
+                });
+                list.querySelectorAll(".ezd6-equipment-row.is-open").forEach((openRow) => {
+                    if (openRow !== row) openRow.classList.remove("is-open");
+                });
+            }
+            const isOpen = detail.classList.contains("is-open");
+            detail.classList.toggle("is-open", !isOpen);
+            row.classList.toggle("is-open", !isOpen);
+            this.expandedEquipmentId = !isOpen ? item?.id ?? null : null;
+        };
+
+        row.addEventListener("click", (event) => {
+            const target = event.target as HTMLElement | null;
+            if (target?.closest?.(
+                ".ezd6-equipment-roll-btn, .ezd6-equipment-qty, .ezd6-equipment-qty-slot, .ezd6-qty-btn, .ezd6-qty-value, .ezd6-equipment-msg-btn, .ezd6-equipment-edit-btn, .ezd6-equipment-delete-btn"
+            )) {
+                return;
+            }
+            toggleDetail();
+        });
+        row.addEventListener("keydown", (event: KeyboardEvent) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            toggleDetail();
+        });
+
+        wrapper.append(row, detail);
+        return wrapper;
+    }
+
     private renderResourceSection(): HTMLElement {
         const { block, section } = this.buildSectionBlock("Resources", "ezd6-section--resources");
 
@@ -694,12 +908,58 @@ export class CharacterSheetView {
     private reRender(container: HTMLElement) {
         const root = container.closest(".ezd6-sheet") as HTMLElement | null;
         if (root) {
+            const scrollers: Array<{ el: HTMLElement; top: number }> = [];
+            const addScroller = (el: HTMLElement | null) => {
+                if (!el) return;
+                if (scrollers.some((entry) => entry.el === el)) return;
+                scrollers.push({ el, top: el.scrollTop });
+            };
+            const collectScrollParents = (start: HTMLElement | null) => {
+                let current: HTMLElement | null = start;
+                while (current) {
+                    const style = getComputedStyle(current);
+                    const overflowY = style.overflowY;
+                    const isScrollable = overflowY === "auto"
+                        || overflowY === "scroll"
+                        || current.scrollHeight > current.clientHeight
+                        || current.scrollTop > 0;
+                    if (isScrollable) addScroller(current);
+                    current = current.parentElement;
+                }
+            };
+            const windowScroller = root.closest(".window-content") as HTMLElement | null;
+            const sheetRoot = root.closest(".ezd6-sheet-root") as HTMLElement | null;
+            collectScrollParents(container);
+            collectScrollParents(root);
+            addScroller(windowScroller);
+            addScroller(sheetRoot);
+            addScroller(document.body as HTMLElement | null);
+            addScroller(document.documentElement as HTMLElement | null);
+            addScroller(document.scrollingElement as HTMLElement | null);
             this.render(root);
+            if (scrollers.length) {
+                requestAnimationFrame(() => {
+                    scrollers.forEach(({ el, top }) => {
+                        el.scrollTop = top;
+                    });
+                    setTimeout(() => {
+                        scrollers.forEach(({ el, top }) => {
+                            el.scrollTop = top;
+                        });
+                    }, 50);
+                });
+            }
         }
     }
 
     private getAbilityItems(): any[] {
         const items = this.options.actor?.items?.filter?.((item: any) => item.type === "ability") ?? [];
+        const list = Array.isArray(items) ? items.slice() : Array.from(items);
+        return list.sort((a: any, b: any) => (a.sort ?? 0) - (b.sort ?? 0) || (a.name ?? "").localeCompare(b.name ?? ""));
+    }
+
+    private getEquipmentItems(): any[] {
+        const items = this.options.actor?.items?.filter?.((item: any) => item.type === "equipment") ?? [];
         const list = Array.isArray(items) ? items.slice() : Array.from(items);
         return list.sort((a: any, b: any) => (a.sort ?? 0) - (b.sort ?? 0) || (a.name ?? "").localeCompare(b.name ?? ""));
     }
@@ -713,6 +973,25 @@ export class CharacterSheetView {
                 type: "ability",
                 system: {
                     description: "",
+                    numberOfDice: 0,
+                    tag: "",
+                },
+            },
+        ]);
+        created?.sheet?.render?.(true);
+    }
+
+    private async createEquipmentItem() {
+        const actor = this.options.actor;
+        if (!actor?.createEmbeddedDocuments) return;
+        const [created] = await actor.createEmbeddedDocuments("Item", [
+            {
+                name: "New Equipment",
+                type: "equipment",
+                system: {
+                    description: "",
+                    quantifiable: false,
+                    quantity: 1,
                     numberOfDice: 0,
                     tag: "",
                 },
@@ -756,6 +1035,19 @@ export class CharacterSheetView {
         await ChatMessage.create({ content: contentPieces.join(""), speaker: ChatMessage.getSpeaker?.() });
     }
 
+    private async postEquipmentMessage(item: any, description: string, quantity: number, isQuantifiable: boolean) {
+        if (!item) return;
+        const details = isQuantifiable ? `<div>Quantity: ${quantity}</div>` : "";
+        const tag = this.normalizeAbilityTag(item?.system?.tag ?? "");
+        const contentPieces = [
+            `<strong>${item.name ?? "Equipment"}</strong>`,
+            description ? `<div>${description}</div>` : "",
+            tag ? `<div>${tag}</div>` : "",
+            details,
+        ];
+        await ChatMessage.create({ content: contentPieces.join(""), speaker: ChatMessage.getSpeaker?.() });
+    }
+
     private async rollAbilityItem(item: any, numberOfDice: number, tag: string, description: string) {
         if (!item) return;
         if (numberOfDice > 0) {
@@ -772,6 +1064,52 @@ export class CharacterSheetView {
             description ? `<div>${description}</div>` : "",
         ];
         await ChatMessage.create({ content: contentPieces.join(""), speaker: ChatMessage.getSpeaker?.() });
+    }
+
+    private async rollEquipmentItem(
+        item: any,
+        numberOfDice: number,
+        tag: string,
+        description: string,
+        quantity: number,
+        isQuantifiable: boolean
+    ) {
+        if (!item) return;
+        if (numberOfDice > 0) {
+            const formula = `${numberOfDice}d6`;
+            const flavor = `${item.name ?? "Equipment"} ${this.normalizeAbilityTag(tag)}`.trim();
+            const roll = new Roll(formula, {});
+            await roll.evaluate();
+            await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
+            return;
+        }
+
+        const qtyLine = isQuantifiable ? `<div>Quantity: ${quantity}</div>` : "";
+        const contentPieces = [
+            `<strong>${item.name ?? "Equipment"}</strong>`,
+            description ? `<div>${description}</div>` : "",
+            qtyLine,
+        ];
+        await ChatMessage.create({ content: contentPieces.join(""), speaker: ChatMessage.getSpeaker?.() });
+    }
+
+    private async setEquipmentQuantity(item: any, nextValue: number, rerenderFrom: HTMLElement) {
+        if (!item?.update) return;
+        const next = this.coerceQuantity(nextValue);
+        await item.update({ "system.quantity": next });
+        const row = rerenderFrom.querySelector(".ezd6-equipment-row") as HTMLElement | null;
+        if (row) {
+            const value = row.querySelector(".ezd6-qty-value") as HTMLElement | null;
+            if (value) value.textContent = String(next);
+            const decBtn = row.querySelector(".ezd6-qty-btn[data-delta='-1']") as HTMLButtonElement | null;
+            if (decBtn) decBtn.disabled = next <= 0;
+        }
+    }
+
+    private coerceQuantity(value: any): number {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) return 0;
+        return Math.max(0, Math.floor(numeric));
     }
 }
 

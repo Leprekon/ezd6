@@ -16,11 +16,18 @@
     }
   },
   "Item": {
-    "types": ["ability", "resource", "save"],
+    "types": ["ability", "resource", "save", "equipment"],
     "templates": {
       "base": {},
       "ability": {
         "description": "",
+        "numberOfDice": 0,
+        "tag": "#task"
+      },
+      "equipment": {
+        "description": "",
+        "quantifiable": false,
+        "quantity": 1,
         "numberOfDice": 0,
         "tag": "#task"
       }
@@ -28,6 +35,10 @@
     "ability": {
       "label": "Ability",
       "templates": ["base", "ability"]
+    },
+    "equipment": {
+      "label": "Equipment",
+      "templates": ["base", "equipment"]
     },
     "resource": {
       "label": "Resource",
