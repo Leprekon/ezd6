@@ -35,6 +35,7 @@ export interface Save {
 }
 
 const DEFAULT_ABILITY_CATEGORIES = ["Inclinations", "Aspects", "Equipment"] as const;
+const DEFAULT_RESOURCE_ICON = "icons/svg/item-bag.svg";
 const TASK_ROLLS = [
     {
         id: "double-bane",
@@ -163,7 +164,7 @@ export class Character {
     addResource(partial: Partial<Resource>): Resource {
         const fallbackIcon = partial.iconAvailable
             ?? partial.iconSpent
-            ?? "systems/ezd6-new/assets/icons/resource-available.svg";
+            ?? DEFAULT_RESOURCE_ICON;
         const resource: Resource = {
             id: partial.id ?? createId("res"),
             title: partial.title ?? "Resource",
@@ -935,9 +936,8 @@ export class CharacterSheetView {
             deleteBtn.appendChild(createElement("i", "fas fa-trash"));
             deleteBtn.addEventListener("click", async (event) => {
                 event.stopPropagation();
-                await this.deleteResource(resource.id);
-                const list = wrapper.parentElement ?? wrapper;
-                this.refreshResourceList(list);
+                const root = wrapper.closest(".ezd6-sheet") as HTMLElement | null;
+                await this.deleteResource(resource.id, root ?? undefined);
             });
 
             detailActions.append(editBtn, deleteBtn);
@@ -1075,9 +1075,8 @@ export class CharacterSheetView {
             deleteBtn.appendChild(createElement("i", "fas fa-trash"));
             deleteBtn.addEventListener("click", async (event) => {
                 event.stopPropagation();
-                await this.deleteSave(save.id);
-                const list = wrapper.parentElement ?? wrapper;
-                this.refreshSaveList(list);
+                const root = wrapper.closest(".ezd6-sheet") as HTMLElement | null;
+                await this.deleteSave(save.id, root ?? undefined);
             });
 
             detailActions.append(editBtn, deleteBtn);
@@ -1133,7 +1132,7 @@ export class CharacterSheetView {
     private getResourceIcon(resource: Resource): string {
         const candidates = [resource.icon, resource.iconAvailable, resource.iconSpent];
         const match = candidates.find((entry) => typeof entry === "string" && entry.trim() !== "");
-        return match ?? "systems/ezd6-new/assets/icons/resource-available.svg";
+        return match ?? DEFAULT_RESOURCE_ICON;
     }
 
     private getSaveTargetValue(save: Save): number {
@@ -1508,9 +1507,13 @@ export class CharacterSheetView {
         );
     }
 
-    private async deleteResource(resourceId: string) {
+    private async deleteResource(resourceId: string, container?: HTMLElement) {
         this.character.resources = this.character.resources.filter((res) => res.id !== resourceId);
+        if (this.expandedResourceId === resourceId) {
+            this.expandedResourceId = null;
+        }
         await this.persistResources();
+        if (container) this.refreshResourceList(container);
     }
 
     private async editSave(save: Save, rerenderFrom: HTMLElement) {
@@ -1538,9 +1541,13 @@ export class CharacterSheetView {
         );
     }
 
-    private async deleteSave(saveId: string) {
+    private async deleteSave(saveId: string, container?: HTMLElement) {
         this.character.saves = this.character.saves.filter((entry) => entry.id !== saveId);
+        if (this.expandedSaveId === saveId) {
+            this.expandedSaveId = null;
+        }
         await this.persistSaves();
+        if (container) this.refreshSaveList(container);
     }
 
     private updateResourceRowUI(wrapper: HTMLElement, resource: Resource) {
@@ -1641,7 +1648,6 @@ export class CharacterSheetView {
             title: "Resource",
             value: 1,
             defaultValue: 1,
-            icon: "systems/ezd6-new/assets/icons/resource-available.svg",
         });
         await this.persistResources();
     }

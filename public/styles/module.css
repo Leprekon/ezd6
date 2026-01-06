@@ -1069,6 +1069,8 @@
   width: 32px;
   height: 32px;
   object-fit: contain;
+  border: none;
+  box-shadow: none;
 }
 
 .ezd6-resource-counter-number {
