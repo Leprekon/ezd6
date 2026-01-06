@@ -925,12 +925,14 @@ export class CharacterSheetView {
         const list = createElement("div", "ezd6-resource-list");
         this.character.resources.forEach((resource) => list.appendChild(this.renderResourceRow(resource)));
         this.updateResourceRollWidth(list);
+        this.updateResourceCounterLimits(list);
         section.appendChild(list);
         return sectionBlock;
     }
 
     private renderResourceRow(resource: Resource): HTMLElement {
         const wrapper = createElement("div", "ezd6-resource-item");
+        wrapper.dataset.resourceId = resource.id;
         const row = createElement("div", "ezd6-resource-row");
         row.setAttribute("role", "button");
         row.tabIndex = 0;
@@ -1273,6 +1275,56 @@ export class CharacterSheetView {
         return match ?? DEFAULT_RESOURCE_ICON;
     }
 
+    private getResourceIconLimit(counter: HTMLElement): number {
+        let width = counter.clientWidth;
+        const row = counter.closest(".ezd6-resource-row") as HTMLElement | null;
+        if (row) {
+            const style = getComputedStyle(row);
+            const gap = Number.parseFloat(style.columnGap || style.gap || "6") || 6;
+            const padLeft = Number.parseFloat(style.paddingLeft || "0") || 0;
+            const padRight = Number.parseFloat(style.paddingRight || "0") || 0;
+            const rollSlot = row.querySelector(".ezd6-resource-roll-slot") as HTMLElement | null;
+            const rollWidth = rollSlot?.clientWidth ?? 0;
+            const minusBtn = row.querySelector(".ezd6-qty-btn[data-delta='-1']") as HTMLElement | null;
+            const plusBtn = row.querySelector(".ezd6-qty-btn[data-delta='1']") as HTMLElement | null;
+            const minusWidth = minusBtn?.getBoundingClientRect().width ?? 24;
+            const plusWidth = plusBtn?.getBoundingClientRect().width ?? 24;
+            const available = row.clientWidth - padLeft - padRight - rollWidth - minusWidth - plusWidth - (gap * 3);
+            width = Math.max(width, available);
+        }
+        if (width <= 0) return 6;
+        const style = getComputedStyle(counter);
+        const gap = Number.parseFloat(style.gap || style.columnGap || "3") || 3;
+        const iconSize = 32;
+        const unit = iconSize + gap;
+        const count = Math.floor((width + gap) / unit);
+        return Math.max(1, count);
+    }
+
+    private updateResourceCounterLimits(container: HTMLElement) {
+        const list = container.classList.contains("ezd6-resource-list")
+            ? container
+            : (container.querySelector(".ezd6-resource-list") as HTMLElement | null);
+        if (!list) return;
+        requestAnimationFrame(() => {
+            const items = list.querySelectorAll(".ezd6-resource-item");
+            items.forEach((item) => {
+                const wrapper = item as HTMLElement;
+                const id = wrapper.dataset.resourceId;
+                if (!id) return;
+                const resource = this.character.resources.find((entry) => entry.id === id);
+                if (!resource) return;
+                const counter = wrapper.querySelector(".ezd6-resource-counter") as HTMLElement | null;
+                if (!counter) return;
+                const limit = this.getResourceIconLimit(counter);
+                const prev = Number(counter.dataset.maxIcons || "0");
+                if (limit === prev) return;
+                counter.dataset.maxIcons = String(limit);
+                this.renderResourceCounter(counter, resource, limit);
+            });
+        });
+    }
+
     private async rollResource(resource: Resource) {
         const diceCount = this.getResourceDiceCount(resource);
         if (diceCount <= 0) return;
@@ -1284,16 +1336,19 @@ export class CharacterSheetView {
         await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
     }
 
-    private renderResourceCounter(counter: HTMLElement, resource: Resource) {
+    private renderResourceCounter(counter: HTMLElement, resource: Resource, maxIcons: number = 6) {
         counter.innerHTML = "";
         const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
         const iconPath = this.getResourceIcon(resource);
         const currentValue = this.getResourceValue(resource);
         const maxValue = this.getResourceMaxValue(resource);
-        const needsNumber = currentValue > 6;
+        const N = Math.max(1, Math.floor(maxIcons));
+        const iconMode = maxValue > 0
+            ? !(currentValue > N || (currentValue === N && maxValue > N))
+            : currentValue <= N;
 
         if (maxValue > 0) {
-            if (needsNumber || (currentValue === 6 && maxValue > 6)) {
+            if (!iconMode) {
                 const count = createElement(
                     "span",
                     "ezd6-resource-counter-number",
@@ -1306,7 +1361,7 @@ export class CharacterSheetView {
                 return;
             }
 
-            const normalCount = Math.min(currentValue, 6);
+            const normalCount = Math.min(currentValue, N);
             for (let i = 0; i < normalCount; i++) {
                 const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
                 img.src = iconPath;
@@ -1314,7 +1369,7 @@ export class CharacterSheetView {
                 counter.appendChild(img);
             }
             const missing = Math.max(0, maxValue - currentValue);
-            const fadedCount = Math.max(0, Math.min(6 - normalCount, missing));
+            const fadedCount = Math.max(0, Math.min(N - normalCount, missing));
             for (let i = 0; i < fadedCount; i++) {
                 const img = createElement("img", "ezd6-resource-icon ezd6-resource-icon--faded") as HTMLImageElement;
                 img.src = iconPath;
@@ -1332,7 +1387,7 @@ export class CharacterSheetView {
             return;
         }
 
-        if (needsNumber) {
+        if (currentValue > N) {
             const count = createElement("span", "ezd6-resource-counter-number", String(currentValue));
             const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
             img.src = iconPath;
@@ -1341,7 +1396,7 @@ export class CharacterSheetView {
             return;
         }
 
-        const normalCount = Math.min(currentValue, 6);
+        const normalCount = Math.min(currentValue, N);
         for (let i = 0; i < normalCount; i++) {
             const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
             img.src = iconPath;
@@ -1508,6 +1563,7 @@ export class CharacterSheetView {
             this.character.resources.map((resource) => this.renderResourceRow(resource))
         );
         this.updateResourceRollWidth(container);
+        this.updateResourceCounterLimits(container);
     }
 
     refreshSaveList(container: HTMLElement) {
@@ -1850,7 +1906,10 @@ export class CharacterSheetView {
         if (detailTitle) detailTitle.textContent = title;
 
         if (counter) {
-            this.renderResourceCounter(counter, resource);
+            const stored = Number(counter.dataset.maxIcons || "0");
+            const limit = Number.isFinite(stored) && stored > 0 ? stored : this.getResourceIconLimit(counter);
+            counter.dataset.maxIcons = String(limit);
+            this.renderResourceCounter(counter, resource, limit);
         }
 
         const rollSlot = row?.querySelector(".ezd6-resource-roll-slot") as HTMLElement | null;
@@ -1873,7 +1932,10 @@ export class CharacterSheetView {
         }
 
         const list = wrapper.closest(".ezd6-resource-list") as HTMLElement | null;
-        if (list) this.updateResourceRollWidth(list);
+        if (list) {
+            this.updateResourceRollWidth(list);
+            this.updateResourceCounterLimits(list);
+        }
 
         if (row) {
             requestAnimationFrame(() => {
@@ -1883,18 +1945,7 @@ export class CharacterSheetView {
                 const addRect = addBtn.getBoundingClientRect();
                 const rollRect = rollSlot.getBoundingClientRect();
                 const gap = Math.max(0, rollRect.left - addRect.right);
-                console.log("[ezd6] resource roll gap", {
-                    id: resource.id,
-                    title,
-                    diceCount: this.getResourceDiceCount(resource),
-                    maxDice: this.character.resources.reduce((max, entry) => {
-                        const count = this.getResourceDiceCount(entry);
-                        return Math.max(max, count);
-                    }, 0),
-                    gap,
-                    rowPaddingRight: getComputedStyle(row).paddingRight,
-                    rollWidth: getComputedStyle(rollSlot).minWidth,
-                });
+        // gap debug removed
             });
         }
     }
@@ -1908,10 +1959,6 @@ export class CharacterSheetView {
             const count = this.getResourceDiceCount(resource);
             return Math.max(max, count);
         }, 0);
-        console.log("[ezd6] resource roll width", {
-            maxDice,
-            computedWidth: Math.max(0, maxDice * 38 - 2),
-        });
         list.dataset.ezd6MaxDice = String(maxDice);
         if (maxDice <= 0) {
             list.style.setProperty("--resource-roll-width", "0px");
