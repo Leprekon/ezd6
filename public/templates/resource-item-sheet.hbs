@@ -9,10 +9,20 @@
         <span class="ezd6-label">Name</span>
         <input class="ezd6-item-title" type="text" name="name" value="{{item.name}}" placeholder="Resource name">
       </label>
+      <label class="ezd6-item-field">
+        <span class="ezd6-label">Tag</span>
+        <select class="ezd6-text-input" name="system.tag">
+          {{selectOptions tagOptions selected=item.system.tag}}
+        </select>
+      </label>
     </div>
   </header>
 
   <section class="ezd6-item-body">
+    <label class="ezd6-item-field">
+      <span class="ezd6-label">Description</span>
+      <textarea class="ezd6-textarea" name="system.description" placeholder="Describe the resource">{{item.system.description}}</textarea>
+    </label>
     <div class="ezd6-item-field ezd6-item-field--quantity">
       <span class="ezd6-label">Value</span>
       <div class="ezd6-quantity-picker ezd6-resource-value-picker" data-count="{{item.system.value}}" data-key="value">
@@ -30,6 +40,15 @@
         <button class="ezd6-qty-btn" type="button" data-delta="1">+</button>
       </div>
       <input type="hidden" name="system.maxValue" value="{{item.system.maxValue}}">
+    </div>
+    <div class="ezd6-item-field ezd6-item-field--dice">
+      <span class="ezd6-label">Dice to roll</span>
+      <div class="ezd6-ability-dice-picker ezd6-resource-dice-picker" data-count="{{item.system.numberOfDice}}">
+        <button class="ezd6-ability-dice-btn" type="button" data-delta="-1">-</button>
+        <div class="ezd6-ability-dice-stack"></div>
+        <button class="ezd6-ability-dice-btn" type="button" data-delta="1">+</button>
+      </div>
+      <input type="hidden" name="system.numberOfDice" value="{{item.system.numberOfDice}}">
     </div>
   </section>
 </form>

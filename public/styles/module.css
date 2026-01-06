@@ -108,6 +108,15 @@
   transform-origin: center;
 }
 
+.ezd6-resource-roll-die {
+  transform: none;
+}
+
+.ezd6-save-roll-btn .ezd6-die-icon {
+  transform: scale(1.5);
+}
+
+
 .ezd6-sheet {
   display: flex;
   flex-direction: column;
@@ -745,8 +754,15 @@
   min-width: 0;
 }
 
+.ezd6-resource-detail__title,
+.ezd6-save-detail__title {
+  margin-top: auto;
+}
+
 .ezd6-ability-detail__header,
-.ezd6-equipment-detail__header {
+.ezd6-equipment-detail__header,
+.ezd6-resource-detail__header,
+.ezd6-save-detail__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -755,7 +771,9 @@
 }
 
 .ezd6-ability-detail__label,
-.ezd6-equipment-detail__label {
+.ezd6-equipment-detail__label,
+.ezd6-resource-detail__label,
+.ezd6-save-detail__label {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -764,7 +782,9 @@
 }
 
 .ezd6-ability-msg-btn,
-.ezd6-equipment-msg-btn {
+.ezd6-equipment-msg-btn,
+.ezd6-resource-msg-btn,
+.ezd6-save-msg-btn {
   border: none;
   border-radius: 999px;
   padding: 4px;
@@ -784,7 +804,9 @@
 }
 
 .ezd6-ability-detail__text,
-.ezd6-equipment-detail__text {
+.ezd6-equipment-detail__text,
+.ezd6-resource-detail__text,
+.ezd6-save-detail__text {
   font-size: 13px;
   line-height: 1.4;
   user-select: text;
@@ -794,7 +816,9 @@
 }
 
 .ezd6-ability-detail__text.is-empty,
-.ezd6-equipment-detail__text.is-empty {
+.ezd6-equipment-detail__text.is-empty,
+.ezd6-resource-detail__text.is-empty,
+.ezd6-save-detail__text.is-empty {
   color: rgba(0, 0, 0, 0.5);
   font-style: italic;
 }
@@ -810,7 +834,9 @@
 }
 
 .ezd6-ability-detail__side,
-.ezd6-equipment-detail__side {
+.ezd6-equipment-detail__side,
+.ezd6-resource-detail__side,
+.ezd6-save-detail__side {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -820,14 +846,18 @@
 }
 
 .ezd6-ability-detail__side .ezd6-ability-detail__actions,
-.ezd6-equipment-detail__side .ezd6-equipment-detail__actions {
+.ezd6-equipment-detail__side .ezd6-equipment-detail__actions,
+.ezd6-resource-detail__side .ezd6-resource-detail__actions,
+.ezd6-save-detail__side .ezd6-save-detail__actions {
   margin-top: auto;
   width: 100%;
   height: var(--ability-actions-height, 22px);
 }
 
 .ezd6-ability-detail__side .ezd6-ability-msg-btn,
-.ezd6-equipment-detail__side .ezd6-equipment-msg-btn {
+.ezd6-equipment-detail__side .ezd6-equipment-msg-btn,
+.ezd6-resource-detail__side .ezd6-resource-msg-btn,
+.ezd6-save-detail__side .ezd6-save-msg-btn {
   margin: 0;
 }
 
@@ -849,6 +879,20 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.ezd6-resource-detail__actions.is-single {
+  justify-content: flex-end;
+}
+
+.ezd6-ability-detail__actions .ezd6-ability-msg-btn,
+.ezd6-equipment-detail__actions .ezd6-equipment-msg-btn,
+.ezd6-resource-detail__actions .ezd6-resource-msg-btn,
+.ezd6-save-detail__actions .ezd6-save-msg-btn {
+  width: auto;
+  height: auto;
+  padding: 2px;
+  font-size: 14px;
 }
 
 .ezd6-resource-detail__title {
@@ -893,7 +937,11 @@
 .ezd6-equipment-edit-btn:hover,
 .ezd6-equipment-edit-btn:focus-visible,
 .ezd6-equipment-delete-btn:hover,
-.ezd6-equipment-delete-btn:focus-visible {
+.ezd6-equipment-delete-btn:focus-visible,
+.ezd6-resource-msg-btn:hover,
+.ezd6-resource-msg-btn:focus-visible,
+.ezd6-save-msg-btn:hover,
+.ezd6-save-msg-btn:focus-visible {
   transform: scale(1.08);
   color: rgba(0, 0, 0, 0.9);
   outline: none;
@@ -907,7 +955,9 @@
 .ezd6-ability-delete-btn:focus,
 .ezd6-equipment-msg-btn:focus,
 .ezd6-equipment-edit-btn:focus,
-.ezd6-equipment-delete-btn:focus {
+.ezd6-equipment-delete-btn:focus,
+.ezd6-resource-msg-btn:focus,
+.ezd6-save-msg-btn:focus {
   outline: none;
   box-shadow: none;
   border: none;
@@ -1090,10 +1140,12 @@
 }
 
 .ezd6-resource-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 24px var(--resource-roll-width, 0px);
+  column-gap: 6px;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 0 12px;
+  justify-content: stretch;
+  padding: 0 var(--resource-row-pad-right, 8px) 0 8px;
 }
 
 .ezd6-resource-row .ezd6-qty-btn {
@@ -1104,8 +1156,18 @@
   font-size: 12px;
 }
 
+.ezd6-resource-roll-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: var(--resource-roll-pad, 0px);
+  width: 100%;
+  min-width: var(--resource-roll-width, 0px);
+}
+
 .ezd6-resource-counter {
   margin: 0 auto;
+  justify-content: center;
 }
 
 .ezd6-save-row {

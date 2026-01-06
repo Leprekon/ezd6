@@ -11,11 +11,11 @@ export class EZD6ResourceItemSheet extends ItemSheet {
         return foundry.utils.mergeObject(super.defaultOptions, {
             classes: ["ezd6-item-sheet", "ezd6-item-sheet--resource"],
             width: 420,
-            height: 380,
+            height: 520,
             minWidth: 420,
             maxWidth: 620,
-            minHeight: 300,
-            maxHeight: 520,
+            minHeight: 420,
+            maxHeight: 620,
             resizable: true,
             submitOnChange: true,
             submitOnClose: true,
@@ -26,12 +26,27 @@ export class EZD6ResourceItemSheet extends ItemSheet {
         return "systems/ezd6-new/templates/resource-item-sheet.hbs";
     }
 
+    getData(options?: any) {
+        const data = super.getData(options) as any;
+        const predefined = ["#task", "#default", "#attack", "#brutal", "#magick", "#miracle"];
+        let custom: string[] = [];
+        try {
+            const stored = game?.settings?.get?.("ezd6-new", "customTags");
+            if (Array.isArray(stored)) custom = stored.filter((tag) => typeof tag === "string");
+        } catch {
+            custom = [];
+        }
+        data.tagOptions = [...new Set([...predefined, ...custom])];
+        return data;
+    }
+
     activateListeners(html: any) {
         super.activateListeners(html);
         const root = html[0] ?? html;
         void this.ensureDefaultName();
         this.refreshPicker(root, "value");
         this.refreshPicker(root, "maxValue");
+        this.refreshDicePicker(root);
 
         const sheet = root as HTMLElement | null;
         if (!sheet) return;
@@ -55,6 +70,25 @@ export class EZD6ResourceItemSheet extends ItemSheet {
             await this.item.update(formData);
             this.refreshPicker(root, key, next);
         });
+
+        const dicePicker = root?.querySelector?.(".ezd6-resource-dice-picker") as HTMLElement | null;
+        if (!dicePicker) return;
+        dicePicker.addEventListener("click", async (event: Event) => {
+            const target = event.target as HTMLElement | null;
+            const btn = target?.closest?.(".ezd6-ability-dice-btn") as HTMLElement | null;
+            if (!btn) return;
+            event.preventDefault();
+
+            const delta = Number(btn.dataset.delta) || 0;
+            const current = Number((this.item as any)?.system?.numberOfDice ?? 0) || 0;
+            const next = Math.min(3, Math.max(0, current + delta));
+            if (next === current) return;
+
+            const formData = this._getSubmitData?.() ?? {};
+            formData["system.numberOfDice"] = next;
+            await this.item.update(formData);
+            this.refreshDicePicker(root, next);
+        });
     }
 
     setPosition(position: any = {}) {
@@ -77,6 +111,10 @@ export class EZD6ResourceItemSheet extends ItemSheet {
         formData["system.value"] = this.clampValue(rawValue, 1);
         const rawMaxValue = Number(formData["system.maxValue"]);
         formData["system.maxValue"] = this.clampValue(rawMaxValue, 0);
+        const rawDice = Number(formData["system.numberOfDice"]);
+        if (Number.isFinite(rawDice)) {
+            formData["system.numberOfDice"] = Math.max(0, Math.min(3, Math.floor(rawDice)));
+        }
         await this.item.update(formData);
     }
 
@@ -152,6 +190,43 @@ export class EZD6ResourceItemSheet extends ItemSheet {
             img.alt = this.item?.name ?? "Resource icon";
             display.append(label, img);
         }
+    }
+
+    private refreshDicePicker(root: HTMLElement, count?: number) {
+        const picker = root?.querySelector?.(".ezd6-resource-dice-picker") as HTMLElement | null;
+        if (!picker) return;
+        const value = typeof count === "number"
+            ? count
+            : Number((this.item as any)?.system?.numberOfDice ?? picker.dataset.count ?? 0) || 0;
+        const clamped = Math.max(0, Math.min(3, Math.floor(value)));
+        picker.dataset.count = String(clamped);
+
+        const stack = picker.querySelector(".ezd6-ability-dice-stack") as HTMLElement | null;
+        if (stack) {
+            stack.innerHTML = "";
+            if (clamped <= 0) {
+                const dash = document.createElement("span");
+                dash.className = "ezd6-ability-dice-empty";
+                dash.textContent = "-";
+                stack.appendChild(dash);
+            } else {
+                for (let i = 0; i < clamped; i++) {
+                    const img = document.createElement("img");
+                    img.className = "ezd6-ability-dice-icon";
+                    img.src = "systems/ezd6-new/assets/dice/grey/d6-6.png";
+                    img.alt = "d6";
+                    stack.appendChild(img);
+                }
+            }
+        }
+
+        const input = root?.querySelector?.("input[name='system.numberOfDice']") as HTMLInputElement | null;
+        if (input) input.value = String(clamped);
+
+        const decBtn = picker.querySelector(".ezd6-ability-dice-btn[data-delta='-1']") as HTMLButtonElement | null;
+        const incBtn = picker.querySelector(".ezd6-ability-dice-btn[data-delta='1']") as HTMLButtonElement | null;
+        if (decBtn) decBtn.disabled = clamped <= 0;
+        if (incBtn) incBtn.disabled = clamped >= 3;
     }
 
     private async ensureDefaultName() {

@@ -11,10 +11,10 @@ export class EZD6SaveItemSheet extends ItemSheet {
         return foundry.utils.mergeObject(super.defaultOptions, {
             classes: ["ezd6-item-sheet", "ezd6-item-sheet--save"],
             width: 460,
-            height: 360,
+            height: 420,
             minWidth: 460,
             maxWidth: 660,
-            minHeight: 300,
+            minHeight: 340,
             maxHeight: 560,
             resizable: true,
             submitOnChange: true,

@@ -144,12 +144,19 @@ export class EZD6CharacterSheet extends ActorSheet {
                         const value = Number.isFinite(rawValue) ? Math.max(0, Math.floor(rawValue)) : 1;
                         const rawMax = Number(system.maxValue ?? system.defaultMaxValue ?? 0);
                         const maxValue = Number.isFinite(rawMax) ? Math.max(0, Math.floor(rawMax)) : 0;
+                        const description = typeof system.description === "string" ? system.description : "";
+                        const rawDice = Number(system.numberOfDice ?? 0);
+                        const numberOfDice = Number.isFinite(rawDice) ? Math.max(0, Math.min(3, Math.floor(rawDice))) : 0;
+                        const rollKeyword = typeof system.tag === "string" ? system.tag : "default";
                         this.character.addResource({
                             title: item.name ?? "Resource",
                             icon: item.img ?? undefined,
                             value,
                             defaultValue: value,
                             maxValue,
+                            description,
+                            numberOfDice,
+                            rollKeyword,
                         });
                         await this.actor?.update?.({ "system.resources": this.character.resources });
                         return;
@@ -159,11 +166,13 @@ export class EZD6CharacterSheet extends ActorSheet {
                         const system = (item as any)?.system ?? {};
                         const targetValue = Number(system.targetValue ?? 6);
                         const numberOfDice = Number(system.numberOfDice ?? 3);
+                        const description = typeof system.description === "string" ? system.description : "";
                         this.character.addSave({
                             title: item.name ?? "Save",
                             icon: item.img ?? undefined,
                             targetValue: Number.isFinite(targetValue) ? Math.max(2, Math.floor(targetValue)) : 6,
                             numberOfDice: Number.isFinite(numberOfDice) ? Math.max(1, Math.floor(numberOfDice)) : 3,
+                            description,
                         });
                         await this.actor?.update?.({ "system.saves": this.character.saves });
                         return;
