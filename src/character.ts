@@ -24,6 +24,7 @@ export interface Resource {
     defaultValue: number;
     maxValue?: number;
     defaultMaxValue?: number;
+    locked?: boolean;
 }
 
 export interface Save {
@@ -36,6 +37,9 @@ export interface Save {
 
 const DEFAULT_ABILITY_CATEGORIES = ["Inclinations", "Aspects", "Equipment"] as const;
 const DEFAULT_RESOURCE_ICON = "icons/svg/item-bag.svg";
+const STRIKES_RESOURCE_ID = "res-strikes";
+const STRIKES_RESOURCE_TITLE = "Strikes";
+const STRIKES_RESOURCE_ICON = "systems/ezd6-new/assets/icons/strike.png";
 const TASK_ROLLS = [
     {
         id: "double-bane",
@@ -105,6 +109,15 @@ function createElement<K extends keyof HTMLElementTagNameMap>(
     if (className) el.className = className;
     if (textContent) el.textContent = textContent;
     return el;
+}
+
+function isLockedResource(resource: Resource): boolean {
+    return resource.locked === true || resource.id === STRIKES_RESOURCE_ID;
+}
+
+function isStrikesTitle(resource: Resource): boolean {
+    const title = typeof resource.title === "string" ? resource.title.trim() : "";
+    return title.toLowerCase() === STRIKES_RESOURCE_TITLE.toLowerCase();
 }
 
 /**
@@ -177,6 +190,7 @@ export class Character {
             defaultValue: partial.defaultValue ?? 0,
             maxValue: partial.maxValue,
             defaultMaxValue: partial.defaultMaxValue,
+            locked: partial.locked ?? false,
         };
         this.resources.push(resource);
         return resource;
@@ -286,6 +300,45 @@ export class Character {
         await roll.evaluate();
         const flavor = `Magick ${diceCount}d6 #magick`;
         await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
+    }
+
+    ensureDefaultResources(): boolean {
+        let changed = false;
+        let strikes = this.resources.find((res) => res.id === STRIKES_RESOURCE_ID)
+            ?? this.resources.find((res) => isStrikesTitle(res));
+
+        if (!strikes) {
+            this.addResource({
+                id: STRIKES_RESOURCE_ID,
+                title: STRIKES_RESOURCE_TITLE,
+                icon: STRIKES_RESOURCE_ICON,
+                value: 3,
+                defaultValue: 3,
+                maxValue: 3,
+                locked: true,
+            });
+            return true;
+        }
+
+        if (!isLockedResource(strikes)) {
+            strikes.locked = true;
+            changed = true;
+        }
+
+        const rawMax = Number(strikes.maxValue ?? strikes.defaultMaxValue);
+        if (!Number.isFinite(rawMax) || rawMax <= 0) {
+            strikes.maxValue = 3;
+            changed = true;
+        }
+
+        const hasIcon = [strikes.icon, strikes.iconAvailable, strikes.iconSpent]
+            .some((entry) => typeof entry === "string" && entry.trim() !== "");
+        if (!hasIcon) {
+            strikes.icon = STRIKES_RESOURCE_ICON;
+            changed = true;
+        }
+
+        return changed;
     }
 }
 
@@ -867,7 +920,6 @@ export class CharacterSheetView {
         row.title = "Toggle details";
 
         const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
-        const iconPath = this.getResourceIcon(resource);
 
         const subBtn = createElement("button", "ezd6-qty-btn", "-") as HTMLButtonElement;
         const addBtn = createElement("button", "ezd6-qty-btn", "+") as HTMLButtonElement;
@@ -879,20 +931,7 @@ export class CharacterSheetView {
         const counter = createElement("div", "ezd6-resource-counter");
         const currentValue = this.getResourceValue(resource);
         subBtn.disabled = currentValue <= 0;
-        if (currentValue > 5) {
-            const count = createElement("span", "ezd6-resource-counter-number", String(currentValue));
-            const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
-            img.src = iconPath;
-            img.alt = `${title} icon`;
-            counter.append(count, img);
-        } else {
-            for (let i = 0; i < currentValue; i++) {
-                const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
-                img.src = iconPath;
-                img.alt = `${title} icon`;
-                counter.appendChild(img);
-            }
-        }
+        this.renderResourceCounter(counter, resource);
 
         subBtn.addEventListener("click", async (event) => {
             event.stopPropagation();
@@ -929,18 +968,19 @@ export class CharacterSheetView {
                 event.stopPropagation();
                 void this.editResource(resource, wrapper);
             });
-
-            const deleteBtn = createElement("button", "ezd6-equipment-delete-btn") as HTMLButtonElement;
-            deleteBtn.type = "button";
-            deleteBtn.title = "Delete resource";
-            deleteBtn.appendChild(createElement("i", "fas fa-trash"));
-            deleteBtn.addEventListener("click", async (event) => {
-                event.stopPropagation();
-                const root = wrapper.closest(".ezd6-sheet") as HTMLElement | null;
-                await this.deleteResource(resource.id, root ?? undefined);
-            });
-
-            detailActions.append(editBtn, deleteBtn);
+            detailActions.append(editBtn);
+            if (!isLockedResource(resource)) {
+                const deleteBtn = createElement("button", "ezd6-equipment-delete-btn") as HTMLButtonElement;
+                deleteBtn.type = "button";
+                deleteBtn.title = "Delete resource";
+                deleteBtn.appendChild(createElement("i", "fas fa-trash"));
+                deleteBtn.addEventListener("click", async (event) => {
+                    event.stopPropagation();
+                    const root = wrapper.closest(".ezd6-sheet") as HTMLElement | null;
+                    await this.deleteResource(resource.id, root ?? undefined);
+                });
+                detailActions.append(deleteBtn);
+            }
         }
 
         detailContent.append(detailMain, detailActions);
@@ -1129,10 +1169,83 @@ export class CharacterSheetView {
         return this.getResourceDefaultValue(resource);
     }
 
+    private getResourceMaxValue(resource: Resource): number {
+        const direct = Number(resource.maxValue);
+        if (Number.isFinite(direct)) return Math.max(0, Math.floor(direct));
+        const legacy = Number(resource.defaultMaxValue ?? 0);
+        return Number.isFinite(legacy) ? Math.max(0, Math.floor(legacy)) : 0;
+    }
+
     private getResourceIcon(resource: Resource): string {
         const candidates = [resource.icon, resource.iconAvailable, resource.iconSpent];
         const match = candidates.find((entry) => typeof entry === "string" && entry.trim() !== "");
         return match ?? DEFAULT_RESOURCE_ICON;
+    }
+
+    private renderResourceCounter(counter: HTMLElement, resource: Resource) {
+        counter.innerHTML = "";
+        const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
+        const iconPath = this.getResourceIcon(resource);
+        const currentValue = this.getResourceValue(resource);
+        const maxValue = this.getResourceMaxValue(resource);
+        const needsNumber = currentValue > 6;
+
+        if (maxValue > 0) {
+            if (needsNumber || (currentValue === 6 && maxValue > 6)) {
+                const count = createElement(
+                    "span",
+                    "ezd6-resource-counter-number",
+                    `${currentValue} / ${maxValue}`
+                );
+                const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
+                img.src = iconPath;
+                img.alt = `${title} icon`;
+                counter.append(count, img);
+                return;
+            }
+
+            const normalCount = Math.min(currentValue, 6);
+            for (let i = 0; i < normalCount; i++) {
+                const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
+                img.src = iconPath;
+                img.alt = `${title} icon`;
+                counter.appendChild(img);
+            }
+            const missing = Math.max(0, maxValue - currentValue);
+            const fadedCount = Math.max(0, Math.min(6 - normalCount, missing));
+            for (let i = 0; i < fadedCount; i++) {
+                const img = createElement("img", "ezd6-resource-icon ezd6-resource-icon--faded") as HTMLImageElement;
+                img.src = iconPath;
+                img.alt = `${title} icon`;
+                counter.appendChild(img);
+            }
+            return;
+        }
+
+        if (currentValue <= 0) {
+            const img = createElement("img", "ezd6-resource-icon ezd6-resource-icon--faded") as HTMLImageElement;
+            img.src = iconPath;
+            img.alt = `${title} icon`;
+            counter.appendChild(img);
+            return;
+        }
+
+        if (needsNumber) {
+            const count = createElement("span", "ezd6-resource-counter-number", String(currentValue));
+            const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
+            img.src = iconPath;
+            img.alt = `${title} icon`;
+            counter.append(count, img);
+            return;
+        }
+
+        const normalCount = Math.min(currentValue, 6);
+        for (let i = 0; i < normalCount; i++) {
+            const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
+            img.src = iconPath;
+            img.alt = `${title} icon`;
+            counter.appendChild(img);
+        }
     }
 
     private getSaveTargetValue(save: Save): number {
@@ -1489,15 +1602,21 @@ export class CharacterSheetView {
                 name: typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource",
                 type: "resource",
                 img: this.getResourceIcon(resource),
-                system: { value: this.getResourceValue(resource) },
+                system: {
+                    value: this.getResourceValue(resource),
+                    maxValue: this.getResourceMaxValue(resource),
+                },
             },
             (item: any) => {
                 const system = item?.system ?? {};
                 const nextValue = Number(system.value ?? 1);
-                const clamped = Number.isFinite(nextValue) ? this.clampInt(Math.floor(nextValue), 1, 100) : 1;
+                const clamped = Number.isFinite(nextValue) ? this.clampInt(Math.floor(nextValue), 0, 100) : 0;
+                const nextMax = Number(system.maxValue ?? 0);
+                const clampedMax = Number.isFinite(nextMax) ? this.clampInt(Math.floor(nextMax), 0, 100) : 0;
                 resource.title = item?.name ?? resource.title;
                 resource.icon = item?.img ?? resource.icon;
                 resource.value = clamped;
+                resource.maxValue = clampedMax;
                 if (!Number.isFinite(resource.defaultValue)) {
                     resource.defaultValue = clamped;
                 }
@@ -1508,6 +1627,8 @@ export class CharacterSheetView {
     }
 
     private async deleteResource(resourceId: string, container?: HTMLElement) {
+        const target = this.character.resources.find((res) => res.id === resourceId);
+        if (target && isLockedResource(target)) return;
         this.character.resources = this.character.resources.filter((res) => res.id !== resourceId);
         if (this.expandedResourceId === resourceId) {
             this.expandedResourceId = null;
@@ -1554,29 +1675,17 @@ export class CharacterSheetView {
         const row = wrapper.querySelector(".ezd6-resource-row") as HTMLElement | null;
         const counter = row?.querySelector(".ezd6-resource-counter") as HTMLElement | null;
         const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
-        const iconPath = this.getResourceIcon(resource);
         const value = this.getResourceValue(resource);
 
         const detailTitle = wrapper.querySelector(".ezd6-resource-detail__title") as HTMLElement | null;
         if (detailTitle) detailTitle.textContent = title;
 
         if (counter) {
-            counter.innerHTML = "";
-            if (value > 5) {
-                const count = createElement("span", "ezd6-resource-counter-number", String(value));
-                const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
-                img.src = iconPath;
-                img.alt = `${title} icon`;
-                counter.append(count, img);
-            } else {
-                for (let i = 0; i < value; i++) {
-                    const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
-                    img.src = iconPath;
-                    img.alt = `${title} icon`;
-                    counter.appendChild(img);
-                }
-            }
+            this.renderResourceCounter(counter, resource);
         }
+
+        const subBtn = row?.querySelector(".ezd6-qty-btn[data-delta='-1']") as HTMLButtonElement | null;
+        if (subBtn) subBtn.disabled = value <= 0;
     }
 
     private updateSaveRowUI(wrapper: HTMLElement, save: Save) {
@@ -1648,6 +1757,7 @@ export class CharacterSheetView {
             title: "Resource",
             value: 1,
             defaultValue: 1,
+            maxValue: 0,
         });
         await this.persistResources();
     }

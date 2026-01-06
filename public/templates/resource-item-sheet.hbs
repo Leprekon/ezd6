@@ -15,12 +15,21 @@
   <section class="ezd6-item-body">
     <div class="ezd6-item-field ezd6-item-field--quantity">
       <span class="ezd6-label">Value</span>
-      <div class="ezd6-quantity-picker ezd6-resource-value-picker" data-count="{{item.system.value}}">
+      <div class="ezd6-quantity-picker ezd6-resource-value-picker" data-count="{{item.system.value}}" data-key="value">
         <button class="ezd6-qty-btn" type="button" data-delta="-1">-</button>
         <div class="ezd6-resource-value-display"></div>
         <button class="ezd6-qty-btn" type="button" data-delta="1">+</button>
       </div>
       <input type="hidden" name="system.value" value="{{item.system.value}}">
+    </div>
+    <div class="ezd6-item-field ezd6-item-field--quantity">
+      <span class="ezd6-label">Max Value</span>
+      <div class="ezd6-quantity-picker ezd6-resource-max-picker" data-count="{{item.system.maxValue}}" data-key="maxValue">
+        <button class="ezd6-qty-btn" type="button" data-delta="-1">-</button>
+        <div class="ezd6-resource-value-display"></div>
+        <button class="ezd6-qty-btn" type="button" data-delta="1">+</button>
+      </div>
+      <input type="hidden" name="system.maxValue" value="{{item.system.maxValue}}">
     </div>
   </section>
 </form>

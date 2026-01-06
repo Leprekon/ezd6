@@ -69,6 +69,9 @@ export class EZD6CharacterSheet extends ActorSheet {
         }
 
         this.syncFromActor();
+        if (this.character.ensureDefaultResources()) {
+            void this.actor?.update?.({ "system.resources": this.character.resources });
+        }
         this.view = new CharacterSheetView(this.character, {
             onAvatarPick: (path) => {
                 this.actor?.update?.({ img: path, "system.avatarUrl": path });
@@ -138,12 +141,15 @@ export class EZD6CharacterSheet extends ActorSheet {
                         if (!this.character) this.character = new Character();
                         const system = (item as any)?.system ?? {};
                         const rawValue = Number(system.value ?? system.defaultValue ?? 1);
-                        const value = Number.isFinite(rawValue) ? Math.max(1, Math.floor(rawValue)) : 1;
+                        const value = Number.isFinite(rawValue) ? Math.max(0, Math.floor(rawValue)) : 1;
+                        const rawMax = Number(system.maxValue ?? system.defaultMaxValue ?? 0);
+                        const maxValue = Number.isFinite(rawMax) ? Math.max(0, Math.floor(rawMax)) : 0;
                         this.character.addResource({
                             title: item.name ?? "Resource",
                             icon: item.img ?? undefined,
                             value,
                             defaultValue: value,
+                            maxValue,
                         });
                         await this.actor?.update?.({ "system.resources": this.character.resources });
                         return;
