@@ -24,6 +24,13 @@
         "numberOfDice": 0,
         "tag": "#task"
       },
+      "resource": {
+        "value": 1
+      },
+      "save": {
+        "targetValue": 6,
+        "numberOfDice": 3
+      },
       "equipment": {
         "description": "",
         "quantifiable": false,
@@ -42,11 +49,11 @@
     },
     "resource": {
       "label": "Resource",
-      "templates": ["base"]
+      "templates": ["base", "resource"]
     },
     "save": {
       "label": "Save",
-      "templates": ["base"]
+      "templates": ["base", "save"]
     }
   }
 }

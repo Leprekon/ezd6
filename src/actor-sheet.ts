@@ -13,6 +13,7 @@ export class EZD6CharacterSheet extends ActorSheet {
     private view: CharacterSheetView | null = null;
     private descObserver: MutationObserver | null = null;
     private pendingScrollRestore: Array<{ el: HTMLElement; top: number }> = [];
+    private itemUpdateHookId: number | null = null;
 
     static get defaultOptions() {
         return foundry.utils.mergeObject(super.defaultOptions, {
@@ -78,6 +79,7 @@ export class EZD6CharacterSheet extends ActorSheet {
                 this.actor?.update?.({ name: nextName });
             },
             actor: this.actor,
+            editable: this.isEditable,
         });
         this.view.render(root);
         const descSection = html[0]?.querySelector?.(".ezd6-section--description") as HTMLElement | null;
@@ -116,12 +118,57 @@ export class EZD6CharacterSheet extends ActorSheet {
         }
         setTimeout(() => this.applyDescriptionEditorPadding(html), 0);
         this.observeDescriptionEditor(html);
+        this.registerItemUpdateHook();
 
     }
 
     protected async _updateObject(_event: Event, formData: Record<string, any>) {
         if (!this.actor) return;
         await this.actor.update(formData);
+    }
+
+    protected async _onDrop(event: DragEvent) {
+        const raw = (event as any)?.dataTransfer?.getData?.("text/plain");
+        if (raw) {
+            try {
+                const data = JSON.parse(raw);
+                if (data?.type === "Item") {
+                    const item = await this.resolveDroppedItem(data);
+                    if (item?.type === "resource") {
+                        if (!this.character) this.character = new Character();
+                        const system = (item as any)?.system ?? {};
+                        const rawValue = Number(system.value ?? system.defaultValue ?? 1);
+                        const value = Number.isFinite(rawValue) ? Math.max(1, Math.floor(rawValue)) : 1;
+                        this.character.addResource({
+                            title: item.name ?? "Resource",
+                            icon: item.img ?? undefined,
+                            value,
+                            defaultValue: value,
+                        });
+                        await this.actor?.update?.({ "system.resources": this.character.resources });
+                        return;
+                    }
+                    if (item?.type === "save") {
+                        if (!this.character) this.character = new Character();
+                        const system = (item as any)?.system ?? {};
+                        const targetValue = Number(system.targetValue ?? 6);
+                        const numberOfDice = Number(system.numberOfDice ?? 3);
+                        this.character.addSave({
+                            title: item.name ?? "Save",
+                            icon: item.img ?? undefined,
+                            targetValue: Number.isFinite(targetValue) ? Math.max(2, Math.floor(targetValue)) : 6,
+                            numberOfDice: Number.isFinite(numberOfDice) ? Math.max(1, Math.floor(numberOfDice)) : 3,
+                        });
+                        await this.actor?.update?.({ "system.saves": this.character.saves });
+                        return;
+                    }
+                }
+            } catch {
+                // fall through to default drop handling
+            }
+        }
+
+        return super._onDrop(event);
     }
 
     private syncDescriptionView(html: any) {
@@ -224,6 +271,10 @@ export class EZD6CharacterSheet extends ActorSheet {
         if (this.descObserver) {
             this.descObserver.disconnect();
             this.descObserver = null;
+        }
+        if (this.itemUpdateHookId !== null) {
+            Hooks.off("updateItem", this.itemUpdateHookId);
+            this.itemUpdateHookId = null;
         }
         return super.close(options);
     }
@@ -329,6 +380,16 @@ export class EZD6CharacterSheet extends ActorSheet {
         this.character.saves = Array.isArray(system.saves) ? system.saves : [];
     }
 
+    private async resolveDroppedItem(data: any): Promise<any | null> {
+        const uuid = data?.uuid;
+        if (uuid && typeof (globalThis as any).fromUuid === "function") {
+            const doc = await (globalThis as any).fromUuid(uuid);
+            return doc ?? null;
+        }
+        const doc = data?.data;
+        return doc ?? null;
+    }
+
     private captureScrollState() {
         const root = this.element?.[0] as HTMLElement | undefined;
         if (!root) return [];
@@ -408,5 +469,27 @@ export class EZD6CharacterSheet extends ActorSheet {
         }
 
         return container.innerHTML;
+    }
+
+    private registerItemUpdateHook() {
+        if (this.itemUpdateHookId !== null) return;
+        const actorId = this.actor?.id;
+        this.itemUpdateHookId = Hooks.on("updateItem", (item: any) => {
+            if (!actorId || item?.parent?.id !== actorId) return;
+            const type = item?.type;
+            if (type !== "ability" && type !== "equipment") return;
+            this.syncFromActor();
+            const root = this.getSheetRoot();
+            if (!root) return;
+            if (type === "ability") {
+                this.view?.refreshAbilityList(root);
+            } else {
+                this.view?.refreshEquipmentList(root);
+            }
+        });
+    }
+
+    private getSheetRoot() {
+        return this.element?.[0]?.querySelector?.(".ezd6-sheet-root") as HTMLElement | null;
     }
 }

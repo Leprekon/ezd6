@@ -510,7 +510,9 @@
 }
 
 .ezd6-ability-item,
-.ezd6-equipment-item {
+.ezd6-equipment-item,
+.ezd6-resource-item,
+.ezd6-save-item {
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -533,13 +535,15 @@
 }
 
 .ezd6-ability-row,
-.ezd6-equipment-row {
+.ezd6-equipment-row,
+.ezd6-resource-row,
+.ezd6-save-row {
   cursor: pointer;
   transition: none;
   position: relative;
   z-index: 1;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  --ability-row-size: 40px;
+  --ability-row-size: 42px;
   --equip-qty-width: 96px;
   --equip-roll-width: 132px;
   align-items: center;
@@ -551,7 +555,11 @@
 .ezd6-ability-row:hover,
 .ezd6-ability-row:focus-visible,
 .ezd6-equipment-row:hover,
-.ezd6-equipment-row:focus-visible {
+.ezd6-equipment-row:focus-visible,
+.ezd6-resource-row:hover,
+.ezd6-resource-row:focus-visible,
+.ezd6-save-row:hover,
+.ezd6-save-row:focus-visible {
   border-color: rgba(120, 0, 0, 0.35);
   box-shadow: 0 0 0 1px rgba(120, 0, 0, 0.35), 0 0 6px rgba(180, 0, 0, 0.35), 0 0 16px rgba(220, 0, 0, 0.25), 0 3px 8px rgba(0, 0, 0, 0.18);
   outline: none;
@@ -564,6 +572,11 @@
 .ezd6-resource-row__title,
 .ezd6-save-row__title {
   font-weight: 700;
+}
+.ezd6-resource-row__title,
+.ezd6-save-row__title {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .ezd6-ability-row__title,
 .ezd6-equipment-row__title {
@@ -644,9 +657,9 @@
 .ezd6-ability-icon,
 .ezd6-equipment-icon {
   position: relative;
-  width: var(--ability-row-size);
-  height: var(--ability-row-size);
-  flex: 0 0 var(--ability-row-size);
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
   margin: 0;
   display: inline-flex;
   align-items: center;
@@ -667,7 +680,9 @@
 }
 
 .ezd6-ability-detail,
-.ezd6-equipment-detail {
+.ezd6-equipment-detail,
+.ezd6-resource-detail,
+.ezd6-save-detail {
   display: block;
   width: 100%;
   box-sizing: border-box;
@@ -681,17 +696,22 @@
 }
 
 .ezd6-ability-detail.is-open,
-.ezd6-equipment-detail.is-open {
+.ezd6-equipment-detail.is-open,
+.ezd6-resource-detail.is-open,
+.ezd6-save-detail.is-open {
   max-height: 360px;
   margin-top: -8px;
   pointer-events: auto;
 }
 
 .ezd6-ability-detail__content,
-.ezd6-equipment-detail__content {
+.ezd6-equipment-detail__content,
+.ezd6-resource-detail__content,
+.ezd6-save-detail__content {
   display: grid;
   grid-template-columns: minmax(0, 1fr) max-content;
   column-gap: 12px;
+  align-items: stretch;
   width: 100%;
   background: white;
   border: 1px solid rgba(0, 0, 0, 0.12);
@@ -705,12 +725,16 @@
 }
 
 .ezd6-ability-detail.is-open .ezd6-ability-detail__content,
-.ezd6-equipment-detail.is-open .ezd6-equipment-detail__content {
+.ezd6-equipment-detail.is-open .ezd6-equipment-detail__content,
+.ezd6-resource-detail.is-open .ezd6-resource-detail__content,
+.ezd6-save-detail.is-open .ezd6-save-detail__content {
   opacity: 1;
   transform: translateY(0);
 }
 .ezd6-ability-detail__main,
-.ezd6-equipment-detail__main {
+.ezd6-equipment-detail__main,
+.ezd6-resource-detail__main,
+.ezd6-save-detail__main {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -760,6 +784,9 @@
   font-size: 13px;
   line-height: 1.4;
   user-select: text;
+  max-height: 220px;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .ezd6-ability-detail__text.is-empty,
@@ -784,6 +811,8 @@
   flex-direction: column;
   align-items: stretch;
   width: max-content;
+  justify-content: space-between;
+  height: 100%;
 }
 
 .ezd6-ability-detail__side .ezd6-ability-detail__actions,
@@ -795,7 +824,7 @@
 
 .ezd6-ability-detail__side .ezd6-ability-msg-btn,
 .ezd6-equipment-detail__side .ezd6-equipment-msg-btn {
-  margin: auto 0;
+  margin: 0;
 }
 
 .ezd6-ability-tag,
@@ -810,10 +839,18 @@
 }
 
 .ezd6-ability-detail__actions,
-.ezd6-equipment-detail__actions {
+.ezd6-equipment-detail__actions,
+.ezd6-resource-detail__actions,
+.ezd6-save-detail__actions {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.ezd6-resource-detail__title {
+  font-weight: 700;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.75);
 }
 
 .ezd6-ability-edit-btn,
@@ -918,10 +955,43 @@
   box-shadow: none !important;
 }
 
+.ezd6-save-target-picker .ezd6-quantity-input {
+  height: 32px;
+  line-height: 32px;
+  border-radius: 6px;
+}
+
 .ezd6-quantity-input::-webkit-outer-spin-button,
 .ezd6-quantity-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
+}
+
+.ezd6-resource-value-display {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 80px;
+  min-height: 32px;
+  padding: 0 6px;
+}
+
+.ezd6-resource-value-icon {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border: none;
+}
+
+.ezd6-resource-value-number {
+  font-size: 20px;
+  font-weight: 800;
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.ezd6-item-field--quantity.is-hidden {
+  display: none;
 }
 
 .ezd6-roll-btn {
@@ -990,19 +1060,160 @@
 
 .ezd6-resource-counter {
   display: inline-flex;
-  gap: 4px;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: nowrap;
 }
 
 .ezd6-resource-icon {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
 }
 
-.ezd6-resource-actions {
-  display: flex;
+.ezd6-resource-counter-number {
+  font-weight: 800;
+  font-size: 16px;
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.ezd6-resource-row {
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
+  padding: 0 12px;
+}
+
+.ezd6-resource-row .ezd6-qty-btn {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  max-width: 24px;
+  font-size: 12px;
+}
+
+.ezd6-resource-counter {
+  margin: 0 auto;
+}
+
+.ezd6-save-row {
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 8px 0 0;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.ezd6-save-row__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: center;
+  padding: 0;
+  line-height: 1.3;
+  max-height: calc(1.3em * 2);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.ezd6-save-roll-btn {
+  align-self: center;
+  padding: 8px 0;
+}
+
+.ezd6-save-target {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+}
+
+.ezd6-save-target-number {
+  font-size: 18px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.ezd6-save-detail__title {
+  font-weight: 700;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.ezd6-save-row--edit {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 140px minmax(160px, 1fr);
+  gap: 10px;
+}
+
+.ezd6-icon-picker {
+  border: 1px dashed rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  padding: 4px;
+  width: 56px;
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ezd6-icon-picker.is-empty::after {
+  content: "Pick";
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.55);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.ezd6-icon-picker__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border: none;
+}
+
+.ezd6-save-icon {
+  border: none;
+}
+
+.ezd6-save-target {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.ezd6-save-target-number {
+  font-size: 16px;
+  font-weight: 800;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.ezd6-save-target-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.ezd6-save-target-value {
+  min-width: 28px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.ezd6-save-dice-picker .ezd6-ability-dice-icon + .ezd6-ability-dice-icon {
+  margin-left: -8px;
 }
 
 .ezd6-labeled {
@@ -1028,7 +1239,7 @@
 
 .ezd6-item-header {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 12px;
 }
 
@@ -1082,6 +1293,7 @@
   flex-direction: column;
   gap: 8px;
   flex: 1 1 auto;
+  justify-content: space-between;
 }
 
 .ezd6-item-title-group select.ezd6-text-input {
@@ -1204,6 +1416,11 @@
 
   .ezd6-avatar {
     max-height: 360px;
+  }
+
+  .ezd6-resource-row--edit,
+  .ezd6-save-row--edit {
+    grid-template-columns: 1fr;
   }
 }
 .ezd6-ability-dice-btn:hover,

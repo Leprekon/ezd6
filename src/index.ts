@@ -3,6 +3,8 @@ import { registerChatMessageHooks } from "./chat-message";
 import { EZD6CharacterSheet } from "./actor-sheet";
 import { EZD6AbilityItemSheet } from "./ability-item-sheet";
 import { EZD6EquipmentItemSheet } from "./equipment-item-sheet";
+import { EZD6ResourceItemSheet } from "./resource-item-sheet";
+import { EZD6SaveItemSheet } from "./save-item-sheet";
 export { Character, CharacterSheetView, Ability, Resource, Save, DiceChangeBehavior } from "./character";
 
 registerChatMessageHooks();
@@ -18,6 +20,14 @@ Hooks.once("init", () => {
     });
     Items.registerSheet("ezd6-new", EZD6EquipmentItemSheet, {
         types: ["equipment"],
+        makeDefault: true,
+    });
+    Items.registerSheet("ezd6-new", EZD6ResourceItemSheet, {
+        types: ["resource"],
+        makeDefault: true,
+    });
+    Items.registerSheet("ezd6-new", EZD6SaveItemSheet, {
+        types: ["save"],
         makeDefault: true,
     });
 });

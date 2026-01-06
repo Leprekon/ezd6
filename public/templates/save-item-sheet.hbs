@@ -1,0 +1,34 @@
+<form class="ezd6-item-sheet ezd6-item-sheet--save" autocomplete="off">
+  <header class="ezd6-item-header">
+    <div class="ezd6-item-icon-field">
+      <span class="ezd6-label">Icon</span>
+      <img class="ezd6-item-icon" src="{{item.img}}" data-edit="img" title="{{item.name}}">
+    </div>
+    <div class="ezd6-item-title-group">
+      <label class="ezd6-item-field">
+        <span class="ezd6-label">Name</span>
+        <input class="ezd6-item-title" type="text" name="name" value="{{item.name}}" placeholder="Save name">
+      </label>
+      <div class="ezd6-item-field ezd6-item-field--quantity">
+        <span class="ezd6-label">Target</span>
+        <div class="ezd6-quantity-picker ezd6-save-target-picker" data-count="{{item.system.targetValue}}">
+          <button class="ezd6-qty-btn" type="button" data-delta="-1">-</button>
+          <input class="ezd6-number-input ezd6-quantity-input" type="number" min="2" max="6" step="1" name="system.targetValue" value="{{item.system.targetValue}}">
+          <button class="ezd6-qty-btn" type="button" data-delta="1">+</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="ezd6-item-body">
+    <div class="ezd6-item-field ezd6-item-field--dice">
+      <span class="ezd6-label">Number of Dice</span>
+      <div class="ezd6-ability-dice-picker" data-count="{{item.system.numberOfDice}}">
+        <button class="ezd6-ability-dice-btn" type="button" data-delta="-1">-</button>
+        <div class="ezd6-ability-dice-stack"></div>
+        <button class="ezd6-ability-dice-btn" type="button" data-delta="1">+</button>
+      </div>
+      <input type="hidden" name="system.numberOfDice" value="{{item.system.numberOfDice}}">
+    </div>
+  </section>
+</form>

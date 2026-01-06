@@ -15,19 +15,21 @@ export interface Ability {
 export interface Resource {
     id: string;
     title: string;
-    iconAvailable: string;
-    iconSpent: string;
-    usedForDiceBurn: boolean;
-    diceChangeBehavior: DiceChangeBehavior;
+    icon?: string;
+    iconAvailable?: string;
+    iconSpent?: string;
+    usedForDiceBurn?: boolean;
+    diceChangeBehavior?: DiceChangeBehavior;
     value: number;
-    maxValue: number;
     defaultValue: number;
-    defaultMaxValue: number;
+    maxValue?: number;
+    defaultMaxValue?: number;
 }
 
 export interface Save {
     id: string;
     title: string;
+    icon?: string;
     targetValue: number;
     numberOfDice: number;
 }
@@ -145,7 +147,7 @@ export class Character {
     addAbility(partial: Partial<Ability>): Ability {
         const ability: Ability = {
             id: partial.id ?? createId("abl"),
-            title: partial.title ?? "New Ability",
+            title: partial.title ?? "Ability",
             description: partial.description ?? "",
             category: partial.category ?? DEFAULT_ABILITY_CATEGORIES[0],
             numberOfDice: partial.numberOfDice ?? 0,
@@ -159,17 +161,21 @@ export class Character {
     }
 
     addResource(partial: Partial<Resource>): Resource {
+        const fallbackIcon = partial.iconAvailable
+            ?? partial.iconSpent
+            ?? "systems/ezd6-new/assets/icons/resource-available.svg";
         const resource: Resource = {
             id: partial.id ?? createId("res"),
             title: partial.title ?? "Resource",
-            iconAvailable: partial.iconAvailable ?? "systems/ezd6-new/assets/icons/resource-available.svg",
-            iconSpent: partial.iconSpent ?? "systems/ezd6-new/assets/icons/resource-spent.svg",
+            icon: partial.icon ?? fallbackIcon,
+            iconAvailable: partial.iconAvailable,
+            iconSpent: partial.iconSpent,
             usedForDiceBurn: partial.usedForDiceBurn ?? false,
             diceChangeBehavior: partial.diceChangeBehavior ?? "none",
             value: partial.value ?? partial.defaultValue ?? 0,
-            maxValue: partial.maxValue ?? partial.defaultMaxValue ?? 0,
             defaultValue: partial.defaultValue ?? 0,
-            defaultMaxValue: partial.defaultMaxValue ?? 0,
+            maxValue: partial.maxValue,
+            defaultMaxValue: partial.defaultMaxValue,
         };
         this.resources.push(resource);
         return resource;
@@ -178,9 +184,10 @@ export class Character {
     addSave(partial: Partial<Save>): Save {
         const save: Save = {
             id: partial.id ?? createId("sav"),
-            title: partial.title ?? "New Save",
-            targetValue: partial.targetValue ?? 0,
-            numberOfDice: partial.numberOfDice ?? 2,
+            title: partial.title ?? "Save",
+            icon: partial.icon,
+            targetValue: partial.targetValue ?? 6,
+            numberOfDice: partial.numberOfDice ?? 3,
         };
         this.saves.push(save);
         return save;
@@ -225,18 +232,14 @@ export class Character {
     adjustResource(resourceId: string, delta: number) {
         const res = this.resources.find((r) => r.id === resourceId);
         if (!res) return;
-        const max = res.maxValue > 0 ? res.maxValue : Infinity;
-        const next = Math.min(max, Math.max(0, res.value + delta));
-        res.value = next;
-    }
-
-    updateResourceMax(resourceId: string, newMax: number) {
-        const res = this.resources.find((r) => r.id === resourceId);
-        if (!res) return;
-        res.maxValue = Math.max(0, newMax);
-        if (res.maxValue > 0 && res.value > res.maxValue) {
-            res.value = res.maxValue;
-        }
+        const rawCurrent = Number(res.value);
+        const rawFallback = Number(res.defaultValue ?? res.defaultMaxValue ?? res.maxValue ?? 0);
+        const current = Number.isFinite(rawCurrent)
+            ? rawCurrent
+            : Number.isFinite(rawFallback)
+                ? rawFallback
+                : 0;
+        res.value = Math.max(0, Math.floor(current + delta));
     }
 
     async rollAbility(abilityId: string) {
@@ -262,9 +265,11 @@ export class Character {
     async rollSave(saveId: string) {
         const save = this.saves.find((s) => s.id === saveId);
         if (!save) return;
-        const roll = new Roll(`${save.numberOfDice}d6`, {});
+        const diceCount = Number.isFinite(save.numberOfDice) ? Math.max(0, Math.floor(save.numberOfDice)) : 0;
+        const roll = new Roll(`${diceCount}d6`, {});
         await roll.evaluate();
-        const flavor = `${save.title} #save (target ${save.targetValue})`;
+        const target = Number.isFinite(save.targetValue) && save.targetValue > 0 ? save.targetValue : 6;
+        const flavor = `${save.title} #target${target}`;
         await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
     }
 
@@ -286,6 +291,9 @@ export class Character {
 export class CharacterSheetView {
     private expandedAbilityId: string | null = null;
     private expandedEquipmentId: string | null = null;
+    private expandedResourceId: string | null = null;
+    private expandedSaveId: string | null = null;
+    private static readonly actorUpdateOptions = { render: false, diff: false };
 
     constructor(
         private readonly character: Character,
@@ -293,6 +301,7 @@ export class CharacterSheetView {
             onAvatarPick?: (path: string) => void;
             onNameCommit?: (name: string) => void;
             actor?: any;
+            editable?: boolean;
         } = {}
     ) {}
 
@@ -390,7 +399,7 @@ export class CharacterSheetView {
         addBtn.title = "Add ability";
         addBtn.addEventListener("click", async () => {
             await this.createAbilityItem();
-            this.reRender(section);
+            this.refreshAbilityList(section);
         });
         titleRow.append(titleLabel, addBtn);
         const existingTitle = sectionBlock.querySelector(".ezd6-section__title");
@@ -416,7 +425,7 @@ export class CharacterSheetView {
         addBtn.title = "Add equipment";
         addBtn.addEventListener("click", async () => {
             await this.createEquipmentItem();
-            this.reRender(section);
+            this.refreshEquipmentList(section);
         });
         titleRow.append(titleLabel, addBtn);
         const existingTitle = sectionBlock.querySelector(".ezd6-section__title");
@@ -822,73 +831,401 @@ export class CharacterSheetView {
     }
 
     private renderResourceSection(): HTMLElement {
-        const { block, section } = this.buildSectionBlock("Resources", "ezd6-section--resources");
+        const { block: sectionBlock, section } = this.buildSectionBlock("Resources", "ezd6-section--resources");
+        const titleRow = createElement("div", "ezd6-section__title-row");
+        const titleLabel = createElement("div", "ezd6-section__title", "Resources");
+        titleRow.append(titleLabel);
+        if (this.options.editable) {
+            const addBtn = createElement("button", "ezd6-section__add-btn", "+") as HTMLButtonElement;
+            addBtn.type = "button";
+            addBtn.title = "Add resource";
+            addBtn.addEventListener("click", async () => {
+                await this.createResourceEntry();
+                this.refreshResourceList(section);
+            });
+            titleRow.appendChild(addBtn);
+        }
+        const existingTitle = sectionBlock.querySelector(".ezd6-section__title");
+        if (existingTitle) {
+            existingTitle.replaceWith(titleRow);
+        } else {
+            sectionBlock.prepend(titleRow);
+        }
 
         const list = createElement("div", "ezd6-resource-list");
         this.character.resources.forEach((resource) => list.appendChild(this.renderResourceRow(resource)));
         section.appendChild(list);
-        return block;
+        return sectionBlock;
     }
 
     private renderResourceRow(resource: Resource): HTMLElement {
+        const wrapper = createElement("div", "ezd6-resource-item");
         const row = createElement("div", "ezd6-resource-row");
-        row.appendChild(createElement("span", "ezd6-resource-row__title", resource.title));
+        row.setAttribute("role", "button");
+        row.tabIndex = 0;
+        row.title = "Toggle details";
+
+        const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
+        const iconPath = this.getResourceIcon(resource);
+
+        const subBtn = createElement("button", "ezd6-qty-btn", "-") as HTMLButtonElement;
+        const addBtn = createElement("button", "ezd6-qty-btn", "+") as HTMLButtonElement;
+        subBtn.type = "button";
+        addBtn.type = "button";
+        subBtn.title = "Decrease resource";
+        addBtn.title = "Increase resource";
 
         const counter = createElement("div", "ezd6-resource-counter");
-        const maxVal = resource.maxValue > 0
-            ? resource.maxValue
-            : resource.value || resource.defaultMaxValue || resource.defaultValue;
-        const iconsToShow = Math.max(0, maxVal);
-        for (let i = 0; i < iconsToShow; i++) {
+        const currentValue = this.getResourceValue(resource);
+        subBtn.disabled = currentValue <= 0;
+        if (currentValue > 5) {
+            const count = createElement("span", "ezd6-resource-counter-number", String(currentValue));
             const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
-            const spent = resource.maxValue > 0 ? i >= resource.value : false;
-            img.src = spent ? resource.iconSpent : resource.iconAvailable;
-            counter.appendChild(img);
+            img.src = iconPath;
+            img.alt = `${title} icon`;
+            counter.append(count, img);
+        } else {
+            for (let i = 0; i < currentValue; i++) {
+                const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
+                img.src = iconPath;
+                img.alt = `${title} icon`;
+                counter.appendChild(img);
+            }
         }
 
-        const actions = createElement("div", "ezd6-resource-actions");
-        const addBtn = createElement("button", "ezd6-icon-btn", "+");
-        const subBtn = createElement("button", "ezd6-icon-btn", "-");
-        addBtn.addEventListener("click", () => {
-            this.character.adjustResource(resource.id, 1);
-            this.reRender(row.parentElement ?? row);
-        });
-        subBtn.addEventListener("click", () => {
+        subBtn.addEventListener("click", async (event) => {
+            event.stopPropagation();
             this.character.adjustResource(resource.id, -1);
-            this.reRender(row.parentElement ?? row);
+            this.updateResourceRowUI(wrapper, resource);
+            await this.persistResources();
+        });
+        addBtn.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            this.character.adjustResource(resource.id, 1);
+            this.updateResourceRowUI(wrapper, resource);
+            await this.persistResources();
         });
 
-        const maxInput = createElement("input", "ezd6-number-input") as HTMLInputElement;
-        maxInput.type = "number";
-        maxInput.min = "0";
-        maxInput.value = resource.maxValue.toString();
-        maxInput.title = "Max value (0 disables cap)";
-        maxInput.addEventListener("change", () => {
-            this.character.updateResourceMax(resource.id, Number(maxInput.value) || 0);
-            this.reRender(row.parentElement ?? row);
+        row.append(subBtn, counter, addBtn);
+
+        const detail = createElement("div", "ezd6-resource-detail");
+        if (this.expandedResourceId && resource.id === this.expandedResourceId) {
+            row.classList.add("is-open");
+            detail.classList.add("is-open");
+        }
+
+        const detailContent = createElement("div", "ezd6-resource-detail__content");
+        const detailMain = createElement("div", "ezd6-resource-detail__main");
+        detailMain.appendChild(createElement("div", "ezd6-resource-detail__title", title));
+
+        const detailActions = createElement("div", "ezd6-resource-detail__actions");
+        if (this.options.editable) {
+            const editBtn = createElement("button", "ezd6-equipment-edit-btn") as HTMLButtonElement;
+            editBtn.type = "button";
+            editBtn.title = "Edit resource";
+            editBtn.appendChild(createElement("i", "fas fa-pen"));
+            editBtn.addEventListener("click", (event) => {
+                event.stopPropagation();
+                void this.editResource(resource, wrapper);
+            });
+
+            const deleteBtn = createElement("button", "ezd6-equipment-delete-btn") as HTMLButtonElement;
+            deleteBtn.type = "button";
+            deleteBtn.title = "Delete resource";
+            deleteBtn.appendChild(createElement("i", "fas fa-trash"));
+            deleteBtn.addEventListener("click", async (event) => {
+                event.stopPropagation();
+                await this.deleteResource(resource.id);
+                const list = wrapper.parentElement ?? wrapper;
+                this.refreshResourceList(list);
+            });
+
+            detailActions.append(editBtn, deleteBtn);
+        }
+
+        detailContent.append(detailMain, detailActions);
+        detail.appendChild(detailContent);
+
+        const toggleDetail = () => {
+            const list = wrapper.closest(".ezd6-resource-list") as HTMLElement | null;
+            if (list) {
+                list.querySelectorAll(".ezd6-resource-detail.is-open").forEach((openDetail) => {
+                    if (openDetail !== detail) openDetail.classList.remove("is-open");
+                });
+                list.querySelectorAll(".ezd6-resource-row.is-open").forEach((openRow) => {
+                    if (openRow !== row) openRow.classList.remove("is-open");
+                });
+            }
+            const isOpen = detail.classList.contains("is-open");
+            detail.classList.toggle("is-open", !isOpen);
+            row.classList.toggle("is-open", !isOpen);
+            this.expandedResourceId = !isOpen ? resource.id : null;
+        };
+
+        row.addEventListener("click", (event) => {
+            const target = event.target as HTMLElement | null;
+            if (target?.closest?.(".ezd6-qty-btn")) return;
+            toggleDetail();
+        });
+        row.addEventListener("keydown", (event: KeyboardEvent) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            toggleDetail();
         });
 
-        actions.append(subBtn, addBtn, this.buildLabeledField("Max", maxInput));
-        row.append(counter, actions);
-        return row;
+        wrapper.append(row, detail);
+        return wrapper;
     }
 
     private renderSavesSection(): HTMLElement {
-        const { block, section } = this.buildSectionBlock("Saves", "ezd6-section--saves");
+        const { block: sectionBlock, section } = this.buildSectionBlock("Saves", "ezd6-section--saves");
+        const titleRow = createElement("div", "ezd6-section__title-row");
+        const titleLabel = createElement("div", "ezd6-section__title", "Saves");
+        titleRow.append(titleLabel);
+        if (this.options.editable) {
+            const addBtn = createElement("button", "ezd6-section__add-btn", "+") as HTMLButtonElement;
+            addBtn.type = "button";
+            addBtn.title = "Add save";
+            addBtn.addEventListener("click", async () => {
+                await this.createSaveEntry();
+                this.refreshSaveList(section);
+            });
+            titleRow.appendChild(addBtn);
+        }
+        const existingTitle = sectionBlock.querySelector(".ezd6-section__title");
+        if (existingTitle) {
+            existingTitle.replaceWith(titleRow);
+        } else {
+            sectionBlock.prepend(titleRow);
+        }
+
         const list = createElement("div", "ezd6-save-list");
         this.character.saves.forEach((save) => list.appendChild(this.renderSaveRow(save)));
         section.appendChild(list);
-        return block;
+        return sectionBlock;
     }
 
     private renderSaveRow(save: Save): HTMLElement {
+        const wrapper = createElement("div", "ezd6-save-item");
         const row = createElement("div", "ezd6-save-row");
-        row.appendChild(createElement("span", "ezd6-save-row__title", `${save.title} (Target ${save.targetValue})`));
+        row.setAttribute("role", "button");
+        row.tabIndex = 0;
+        row.title = "Toggle details";
 
-        const rollBtn = createElement("button", "ezd6-roll-btn", "Roll #save");
-        rollBtn.addEventListener("click", () => this.character.rollSave(save.id));
-        row.appendChild(rollBtn);
-        return row;
+        const title = typeof save.title === "string" ? save.title.trim() || "Save" : "Save";
+        const targetValue = this.getSaveTargetValue(save);
+        const diceCount = this.getSaveDiceCount(save);
+        const iconPath = this.getSaveIcon(save);
+
+        const iconWrap = createElement("span", "ezd6-ability-icon ezd6-save-icon");
+        const icon = createElement("img", "ezd6-ability-icon__img") as HTMLImageElement;
+        icon.src = iconPath;
+        icon.alt = `${title} icon`;
+        iconWrap.appendChild(icon);
+
+        const name = createElement("span", "ezd6-save-row__title", title);
+
+        const target = createElement("div", "ezd6-save-target");
+        const targetBadge = createElement("strong", "ezd6-save-target-number", String(targetValue));
+        target.appendChild(targetBadge);
+
+        const rollBtn = createElement("button", "ezd6-task-btn ezd6-save-roll-btn") as HTMLButtonElement;
+        rollBtn.type = "button";
+        rollBtn.title = `Roll ${diceCount}d6 #target${targetValue}`.trim();
+        const diceRow = createElement("span", "ezd6-dice-stack");
+        for (let i = 0; i < diceCount; i++) {
+            const kind = i === 0 ? "grey" : "green";
+            const dieImg = createElement("img", "ezd6-die-icon") as HTMLImageElement;
+            dieImg.alt = `${kind} d6`;
+            dieImg.src = getDieImagePath(6, kind);
+            diceRow.appendChild(dieImg);
+        }
+        rollBtn.append(diceRow);
+        rollBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            this.character.rollSave(save.id);
+        });
+
+        row.append(iconWrap, target, name, rollBtn);
+
+        const detail = createElement("div", "ezd6-save-detail");
+        if (this.expandedSaveId && save.id === this.expandedSaveId) {
+            row.classList.add("is-open");
+            detail.classList.add("is-open");
+        }
+
+        const detailContent = createElement("div", "ezd6-save-detail__content");
+        const detailMain = createElement("div", "ezd6-save-detail__main");
+        detailMain.appendChild(createElement("div", "ezd6-save-detail__title", title));
+
+        const detailActions = createElement("div", "ezd6-save-detail__actions");
+        if (this.options.editable) {
+            const editBtn = createElement("button", "ezd6-equipment-edit-btn") as HTMLButtonElement;
+            editBtn.type = "button";
+            editBtn.title = "Edit save";
+            editBtn.appendChild(createElement("i", "fas fa-pen"));
+            editBtn.addEventListener("click", (event) => {
+                event.stopPropagation();
+                void this.editSave(save, wrapper);
+            });
+
+            const deleteBtn = createElement("button", "ezd6-equipment-delete-btn") as HTMLButtonElement;
+            deleteBtn.type = "button";
+            deleteBtn.title = "Delete save";
+            deleteBtn.appendChild(createElement("i", "fas fa-trash"));
+            deleteBtn.addEventListener("click", async (event) => {
+                event.stopPropagation();
+                await this.deleteSave(save.id);
+                const list = wrapper.parentElement ?? wrapper;
+                this.refreshSaveList(list);
+            });
+
+            detailActions.append(editBtn, deleteBtn);
+        }
+
+        detailContent.append(detailMain, detailActions);
+        detail.appendChild(detailContent);
+
+        const toggleDetail = () => {
+            const list = wrapper.closest(".ezd6-save-list") as HTMLElement | null;
+            if (list) {
+                list.querySelectorAll(".ezd6-save-detail.is-open").forEach((openDetail) => {
+                    if (openDetail !== detail) openDetail.classList.remove("is-open");
+                });
+                list.querySelectorAll(".ezd6-save-row.is-open").forEach((openRow) => {
+                    if (openRow !== row) openRow.classList.remove("is-open");
+                });
+            }
+            const isOpen = detail.classList.contains("is-open");
+            detail.classList.toggle("is-open", !isOpen);
+            row.classList.toggle("is-open", !isOpen);
+            this.expandedSaveId = !isOpen ? save.id : null;
+        };
+
+        row.addEventListener("click", (event) => {
+            const targetEl = event.target as HTMLElement | null;
+            if (targetEl?.closest?.(".ezd6-save-roll-btn")) return;
+            toggleDetail();
+        });
+        row.addEventListener("keydown", (event: KeyboardEvent) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            toggleDetail();
+        });
+
+        wrapper.append(row, detail);
+        return wrapper;
+    }
+
+    private getResourceDefaultValue(resource: Resource): number {
+        const direct = Number(resource.defaultValue);
+        if (Number.isFinite(direct)) return Math.max(0, Math.floor(direct));
+        const legacy = Number(resource.defaultMaxValue ?? resource.maxValue ?? 0);
+        return Number.isFinite(legacy) ? Math.max(0, Math.floor(legacy)) : 0;
+    }
+
+    private getResourceValue(resource: Resource): number {
+        const raw = Number(resource.value);
+        if (Number.isFinite(raw)) return Math.max(0, Math.floor(raw));
+        return this.getResourceDefaultValue(resource);
+    }
+
+    private getResourceIcon(resource: Resource): string {
+        const candidates = [resource.icon, resource.iconAvailable, resource.iconSpent];
+        const match = candidates.find((entry) => typeof entry === "string" && entry.trim() !== "");
+        return match ?? "systems/ezd6-new/assets/icons/resource-available.svg";
+    }
+
+    private getSaveTargetValue(save: Save): number {
+        const raw = Number(save.targetValue);
+        return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 6;
+    }
+
+    private getSaveDiceCount(save: Save): number {
+        const raw = Number(save.numberOfDice);
+        return Number.isFinite(raw) ? this.clampInt(Math.floor(raw), 1, 6) : 1;
+    }
+
+    private getSaveIcon(save: Save): string {
+        const icon = typeof save.icon === "string" ? save.icon.trim() : "";
+        return icon || "icons/svg/shield.svg";
+    }
+
+    private clampInt(value: number, min: number, max?: number): number {
+        const clamped = Math.max(min, value);
+        return Number.isFinite(max) ? Math.min(max as number, clamped) : clamped;
+    }
+
+    private coercePositiveInt(value: any, fallback: number): number {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) return fallback;
+        return Math.max(0, Math.floor(numeric));
+    }
+
+    private buildIconPickerButton(iconPath: string, altText: string): HTMLButtonElement {
+        const btn = createElement("button", "ezd6-icon-picker") as HTMLButtonElement;
+        btn.type = "button";
+        if (iconPath) {
+            const img = createElement("img", "ezd6-icon-picker__img") as HTMLImageElement;
+            img.src = iconPath;
+            img.alt = altText;
+            btn.appendChild(img);
+        } else {
+            btn.classList.add("is-empty");
+        }
+        return btn;
+    }
+
+    private updateIconButton(btn: HTMLButtonElement, path: string, altText: string) {
+        let img = btn.querySelector("img") as HTMLImageElement | null;
+        if (!img) {
+            img = createElement("img", "ezd6-icon-picker__img") as HTMLImageElement;
+            btn.appendChild(img);
+        }
+        img.src = path;
+        img.alt = altText;
+        btn.classList.remove("is-empty");
+    }
+
+    private renderDiceStack(stack: HTMLElement, count: number) {
+        stack.innerHTML = "";
+        if (count <= 0) {
+            const dash = createElement("span", "ezd6-ability-dice-empty", "-");
+            stack.appendChild(dash);
+            return;
+        }
+        for (let i = 0; i < count; i++) {
+            const img = createElement("img", "ezd6-ability-dice-icon") as HTMLImageElement;
+            img.src = getDieImagePath(6, "grey");
+            img.alt = "d6";
+            stack.appendChild(img);
+        }
+    }
+
+    private openImagePicker(current: string, onPick: (path: string) => void) {
+        const picker = new FilePicker({
+            type: "image",
+            current: current ?? "",
+            callback: (path: string) => onPick(path),
+        });
+        picker.render(true);
+    }
+
+    private async persistResources() {
+        await this.persistSystemArray("resources", this.character.resources);
+    }
+
+    private async persistSaves() {
+        await this.persistSystemArray("saves", this.character.saves);
+    }
+
+    private async persistSystemArray(key: "resources" | "saves", value: unknown) {
+        if (!this.options.actor?.update) return;
+        try {
+            await this.options.actor.update({ [`system.${key}`]: value }, CharacterSheetView.actorUpdateOptions);
+        } catch {
+            // ignore persistence errors; UI remains responsive
+        }
     }
 
     private buildLabeledField(label: string, field: HTMLElement): HTMLElement {
@@ -903,6 +1240,34 @@ export class CharacterSheetView {
         const section = createElement("div", `ezd6-section ${sectionClass}`.trim());
         block.appendChild(section);
         return { block, section };
+    }
+
+    refresh(container: HTMLElement) {
+        this.reRender(container);
+    }
+
+    refreshAbilityList(container: HTMLElement) {
+        this.refreshList(container, ".ezd6-ability-list", () =>
+            this.getAbilityItems().map((item) => this.renderAbilityRow(item))
+        );
+    }
+
+    refreshEquipmentList(container: HTMLElement) {
+        this.refreshList(container, ".ezd6-equipment-list", () =>
+            this.getEquipmentItems().map((item) => this.renderEquipmentRow(item))
+        );
+    }
+
+    refreshResourceList(container: HTMLElement) {
+        this.refreshList(container, ".ezd6-resource-list", () =>
+            this.character.resources.map((resource) => this.renderResourceRow(resource))
+        );
+    }
+
+    refreshSaveList(container: HTMLElement) {
+        this.refreshList(container, ".ezd6-save-list", () =>
+            this.character.saves.map((save) => this.renderSaveRow(save))
+        );
     }
 
     private reRender(container: HTMLElement) {
@@ -952,6 +1317,13 @@ export class CharacterSheetView {
         }
     }
 
+    private refreshList(container: HTMLElement, selector: string, buildRows: () => HTMLElement[]) {
+        const list = container.querySelector(selector) as HTMLElement | null;
+        if (!list) return;
+        list.innerHTML = "";
+        buildRows().forEach((row) => list.appendChild(row));
+    }
+
     private getAbilityItems(): any[] {
         const items = this.options.actor?.items?.filter?.((item: any) => item.type === "ability") ?? [];
         const list = Array.isArray(items) ? items.slice() : Array.from(items);
@@ -969,7 +1341,7 @@ export class CharacterSheetView {
         if (!actor?.createEmbeddedDocuments) return;
         const [created] = await actor.createEmbeddedDocuments("Item", [
             {
-                name: "New Ability",
+                name: "Ability",
                 type: "ability",
                 system: {
                     description: "",
@@ -986,7 +1358,7 @@ export class CharacterSheetView {
         if (!actor?.createEmbeddedDocuments) return;
         const [created] = await actor.createEmbeddedDocuments("Item", [
             {
-                name: "New Equipment",
+                name: "Equipment",
                 type: "equipment",
                 system: {
                     description: "",
@@ -1096,7 +1468,7 @@ export class CharacterSheetView {
     private async setEquipmentQuantity(item: any, nextValue: number, rerenderFrom: HTMLElement) {
         if (!item?.update) return;
         const next = this.coerceQuantity(nextValue);
-        await item.update({ "system.quantity": next });
+        await item.update({ "system.quantity": next }, { render: false });
         const row = rerenderFrom.querySelector(".ezd6-equipment-row") as HTMLElement | null;
         if (row) {
             const value = row.querySelector(".ezd6-qty-value") as HTMLElement | null;
@@ -1110,6 +1482,177 @@ export class CharacterSheetView {
         const numeric = Number(value);
         if (!Number.isFinite(numeric)) return 0;
         return Math.max(0, Math.floor(numeric));
+    }
+
+    private async editResource(resource: Resource, rerenderFrom: HTMLElement) {
+        await this.openTemporaryItemEditor(
+            {
+                name: typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource",
+                type: "resource",
+                img: this.getResourceIcon(resource),
+                system: { value: this.getResourceValue(resource) },
+            },
+            (item: any) => {
+                const system = item?.system ?? {};
+                const nextValue = Number(system.value ?? 1);
+                const clamped = Number.isFinite(nextValue) ? this.clampInt(Math.floor(nextValue), 1, 100) : 1;
+                resource.title = item?.name ?? resource.title;
+                resource.icon = item?.img ?? resource.icon;
+                resource.value = clamped;
+                if (!Number.isFinite(resource.defaultValue)) {
+                    resource.defaultValue = clamped;
+                }
+                void this.persistResources();
+                this.updateResourceRowUI(rerenderFrom, resource);
+            }
+        );
+    }
+
+    private async deleteResource(resourceId: string) {
+        this.character.resources = this.character.resources.filter((res) => res.id !== resourceId);
+        await this.persistResources();
+    }
+
+    private async editSave(save: Save, rerenderFrom: HTMLElement) {
+        await this.openTemporaryItemEditor(
+            {
+                name: typeof save.title === "string" ? save.title.trim() || "Save" : "Save",
+                type: "save",
+                img: this.getSaveIcon(save),
+                system: {
+                    targetValue: this.getSaveTargetValue(save),
+                    numberOfDice: this.getSaveDiceCount(save),
+                },
+            },
+            (item: any) => {
+                const system = item?.system ?? {};
+                const targetValue = Number(system.targetValue ?? 6);
+                const numberOfDice = Number(system.numberOfDice ?? 3);
+                save.title = item?.name ?? save.title;
+                save.icon = item?.img ?? save.icon;
+                save.targetValue = Number.isFinite(targetValue) ? this.clampInt(Math.floor(targetValue), 2, 6) : 6;
+                save.numberOfDice = Number.isFinite(numberOfDice) ? this.clampInt(Math.floor(numberOfDice), 1, 6) : 3;
+                void this.persistSaves();
+                this.updateSaveRowUI(rerenderFrom, save);
+            }
+        );
+    }
+
+    private async deleteSave(saveId: string) {
+        this.character.saves = this.character.saves.filter((entry) => entry.id !== saveId);
+        await this.persistSaves();
+    }
+
+    private updateResourceRowUI(wrapper: HTMLElement, resource: Resource) {
+        const row = wrapper.querySelector(".ezd6-resource-row") as HTMLElement | null;
+        const counter = row?.querySelector(".ezd6-resource-counter") as HTMLElement | null;
+        const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
+        const iconPath = this.getResourceIcon(resource);
+        const value = this.getResourceValue(resource);
+
+        const detailTitle = wrapper.querySelector(".ezd6-resource-detail__title") as HTMLElement | null;
+        if (detailTitle) detailTitle.textContent = title;
+
+        if (counter) {
+            counter.innerHTML = "";
+            if (value > 5) {
+                const count = createElement("span", "ezd6-resource-counter-number", String(value));
+                const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
+                img.src = iconPath;
+                img.alt = `${title} icon`;
+                counter.append(count, img);
+            } else {
+                for (let i = 0; i < value; i++) {
+                    const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
+                    img.src = iconPath;
+                    img.alt = `${title} icon`;
+                    counter.appendChild(img);
+                }
+            }
+        }
+    }
+
+    private updateSaveRowUI(wrapper: HTMLElement, save: Save) {
+        const row = wrapper.querySelector(".ezd6-save-row") as HTMLElement | null;
+        if (!row) return;
+        const title = typeof save.title === "string" ? save.title.trim() || "Save" : "Save";
+        const targetValue = this.getSaveTargetValue(save);
+        const diceCount = this.getSaveDiceCount(save);
+        const iconPath = this.getSaveIcon(save);
+
+        const iconImg = row.querySelector(".ezd6-ability-icon__img") as HTMLImageElement | null;
+        if (iconImg) {
+            iconImg.src = iconPath;
+            iconImg.alt = `${title} icon`;
+        }
+
+        const nameEl = row.querySelector(".ezd6-save-row__title") as HTMLElement | null;
+        if (nameEl) nameEl.textContent = title;
+
+        const targetEl = row.querySelector(".ezd6-save-target-number") as HTMLElement | null;
+        if (targetEl) targetEl.textContent = String(targetValue);
+
+        const rollBtn = row.querySelector(".ezd6-save-roll-btn") as HTMLButtonElement | null;
+        if (rollBtn) {
+            rollBtn.title = `Roll ${diceCount}d6 #target${targetValue}`.trim();
+            const stack = rollBtn.querySelector(".ezd6-dice-stack") as HTMLElement | null;
+            if (stack) {
+                stack.innerHTML = "";
+                for (let i = 0; i < diceCount; i++) {
+                    const kind = i === 0 ? "grey" : "green";
+                    const dieImg = createElement("img", "ezd6-die-icon") as HTMLImageElement;
+                    dieImg.alt = `${kind} d6`;
+                    dieImg.src = getDieImagePath(6, kind);
+                    stack.appendChild(dieImg);
+                }
+            }
+        }
+
+        const detailTitle = wrapper.querySelector(".ezd6-save-detail__title") as HTMLElement | null;
+        if (detailTitle) detailTitle.textContent = title;
+    }
+
+    private async openTemporaryItemEditor(data: Record<string, any>, onUpdate: (item: any) => void) {
+        const ItemClass = (globalThis as any).CONFIG?.Item?.documentClass ?? (globalThis as any).Item;
+        const idFactory = (foundry as any)?.utils?.randomID ?? (globalThis as any).randomID;
+        const tempData = {
+            _id: typeof idFactory === "function" ? idFactory() : `tmp-${Math.random().toString(36).slice(2, 10)}`,
+            ...data,
+        };
+        const tempItem = ItemClass ? new ItemClass(tempData, { temporary: true }) : null;
+        if (!tempItem) {
+            ui?.notifications?.error?.("Failed to open editor.");
+            return;
+        }
+        const expand = (foundry as any)?.utils?.expandObject;
+        tempItem.update = async function update(this: any, updateData: Record<string, any>) {
+            const expanded = typeof expand === "function" ? expand(updateData) : updateData;
+            this.updateSource(expanded);
+            this.prepareData?.();
+            onUpdate(this);
+            return this;
+        };
+
+        tempItem.sheet?.render?.(true);
+    }
+
+    private async createResourceEntry() {
+        this.character.addResource({
+            title: "Resource",
+            value: 1,
+            defaultValue: 1,
+            icon: "systems/ezd6-new/assets/icons/resource-available.svg",
+        });
+        await this.persistResources();
+    }
+
+    private async createSaveEntry() {
+        this.character.addSave({
+            title: "Save",
+            targetValue: 6,
+            numberOfDice: 3,
+        });
+        await this.persistSaves();
     }
 }
 

@@ -1,0 +1,26 @@
+<form class="ezd6-item-sheet ezd6-item-sheet--resource" autocomplete="off">
+  <header class="ezd6-item-header">
+    <div class="ezd6-item-icon-field">
+      <span class="ezd6-label">Icon</span>
+      <img class="ezd6-item-icon" src="{{item.img}}" data-edit="img" title="{{item.name}}">
+    </div>
+    <div class="ezd6-item-title-group">
+      <label class="ezd6-item-field">
+        <span class="ezd6-label">Name</span>
+        <input class="ezd6-item-title" type="text" name="name" value="{{item.name}}" placeholder="Resource name">
+      </label>
+    </div>
+  </header>
+
+  <section class="ezd6-item-body">
+    <div class="ezd6-item-field ezd6-item-field--quantity">
+      <span class="ezd6-label">Value</span>
+      <div class="ezd6-quantity-picker ezd6-resource-value-picker" data-count="{{item.system.value}}">
+        <button class="ezd6-qty-btn" type="button" data-delta="-1">-</button>
+        <div class="ezd6-resource-value-display"></div>
+        <button class="ezd6-qty-btn" type="button" data-delta="1">+</button>
+      </div>
+      <input type="hidden" name="system.value" value="{{item.system.value}}">
+    </div>
+  </section>
+</form>

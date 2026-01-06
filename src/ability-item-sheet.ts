@@ -58,6 +58,7 @@ export class EZD6AbilityItemSheet extends ItemSheet {
     activateListeners(html: any) {
         super.activateListeners(html);
         const root = html[0] ?? html;
+        void this.ensureDefaultName();
         this.refreshDicePicker(root);
 
         const picker = root?.querySelector?.(".ezd6-ability-dice-picker") as HTMLElement | null;
@@ -75,13 +76,20 @@ export class EZD6AbilityItemSheet extends ItemSheet {
 
             const formData = this._getSubmitData?.() ?? {};
             formData["system.numberOfDice"] = next;
-            await this.item.update(formData);
+            await this.item.update(formData, { render: false });
             this.refreshDicePicker(root, next);
         });
     }
 
     protected async _updateObject(_event: Event, formData: Record<string, any>) {
-        await this.item.update(formData);
+        await this.item.update(formData, { render: false });
+    }
+
+    private async ensureDefaultName() {
+        const current = this.item?.name ?? "";
+        if (!current || current === "New Item" || current === "New Ability") {
+            await this.item.update({ name: "Ability" });
+        }
     }
 
     private refreshDicePicker(root: HTMLElement, count?: number) {

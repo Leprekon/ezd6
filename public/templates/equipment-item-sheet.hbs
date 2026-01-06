@@ -36,14 +36,12 @@
       <span class="ezd6-label">Quantity</span>
       <input type="checkbox" name="system.quantifiable" {{checked item.system.quantifiable}}>
     </label>
-    {{#if item.system.quantifiable}}
-      <div class="ezd6-item-field ezd6-item-field--quantity">
-        <div class="ezd6-quantity-picker" data-count="{{item.system.quantity}}">
-          <button class="ezd6-qty-btn" type="button" data-delta="-1">-</button>
-          <input class="ezd6-number-input ezd6-quantity-input" type="number" min="0" step="1" name="system.quantity" value="{{item.system.quantity}}">
-          <button class="ezd6-qty-btn" type="button" data-delta="1">+</button>
-        </div>
+    <div class="ezd6-item-field ezd6-item-field--quantity {{#unless item.system.quantifiable}}is-hidden{{/unless}}">
+      <div class="ezd6-quantity-picker" data-count="{{item.system.quantity}}">
+        <button class="ezd6-qty-btn" type="button" data-delta="-1">-</button>
+        <input class="ezd6-number-input ezd6-quantity-input" type="number" min="0" step="1" name="system.quantity" value="{{item.system.quantity}}">
+        <button class="ezd6-qty-btn" type="button" data-delta="1">+</button>
       </div>
-    {{/if}}
+    </div>
   </section>
 </form>

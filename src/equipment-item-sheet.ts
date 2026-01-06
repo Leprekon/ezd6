@@ -64,16 +64,32 @@ export class EZD6EquipmentItemSheet extends ItemSheet {
     activateListeners(html: any) {
         super.activateListeners(html);
         const root = html[0] ?? html;
+        void this.ensureDefaultName();
 
         const system = (this.item as any)?.system ?? {};
         if (system.quantity == null && system.defaultQuantity != null) {
             const migrated = coerceQuantity(system.defaultQuantity);
-            this.item.update({ "system.quantity": migrated });
+            this.item.update({ "system.quantity": migrated }, { render: false });
         }
 
         this.refreshDicePicker(root);
 
         const picker = root?.querySelector?.(".ezd6-quantity-picker") as HTMLElement | null;
+        const qtyField = root?.querySelector?.(".ezd6-item-field--quantity") as HTMLElement | null;
+        const qtyToggle = root?.querySelector?.("input[name='system.quantifiable']") as HTMLInputElement | null;
+        if (qtyToggle && qtyField) {
+            const syncQtyVisibility = () => {
+                qtyField.classList.toggle("is-hidden", !qtyToggle.checked);
+            };
+            syncQtyVisibility();
+            qtyToggle.addEventListener("change", async () => {
+                const formData = this._getSubmitData?.() ?? {};
+                formData["system.quantifiable"] = qtyToggle.checked;
+                await this.item.update(formData, { render: false });
+                syncQtyVisibility();
+            });
+        }
+
         if (picker) {
             const syncPicker = (value?: number) => {
                 const next = typeof value === "number"
@@ -105,7 +121,7 @@ export class EZD6EquipmentItemSheet extends ItemSheet {
 
                 const formData = this._getSubmitData?.() ?? {};
                 formData["system.quantity"] = next;
-                await this.item.update(formData);
+                await this.item.update(formData, { render: false });
                 syncPicker(next);
             });
 
@@ -115,7 +131,7 @@ export class EZD6EquipmentItemSheet extends ItemSheet {
                     const next = coerceQuantity(input.value);
                     const formData = this._getSubmitData?.() ?? {};
                     formData["system.quantity"] = next;
-                    await this.item.update(formData);
+                    await this.item.update(formData, { render: false });
                     syncPicker(next);
                 };
                 input.addEventListener("change", commit);
@@ -138,7 +154,7 @@ export class EZD6EquipmentItemSheet extends ItemSheet {
 
             const formData = this._getSubmitData?.() ?? {};
             formData["system.numberOfDice"] = next;
-            await this.item.update(formData);
+            await this.item.update(formData, { render: false });
             this.refreshDicePicker(root, next);
         });
     }
@@ -148,7 +164,14 @@ export class EZD6EquipmentItemSheet extends ItemSheet {
             formData["system.quantity"] = coerceQuantity(formData["system.quantity"]);
         }
 
-        await this.item.update(formData);
+        await this.item.update(formData, { render: false });
+    }
+
+    private async ensureDefaultName() {
+        const current = this.item?.name ?? "";
+        if (!current || current === "New Item" || current === "New Equipment") {
+            await this.item.update({ name: "Equipment" });
+        }
     }
 
     private refreshDicePicker(root: HTMLElement, count?: number) {
