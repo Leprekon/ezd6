@@ -8,10 +8,16 @@ import {
     extractKeyword,
     getDieImagePath,
 } from "./ezd6-core";
-import { Character } from "./character";
+import { Character, DEFAULT_RESOURCE_ICON } from "./character";
+import { getTagOptions, normalizeTag } from "./ui/sheet-utils";
 
 const SOCKET_NAMESPACE = "system.ezd6-new";
 const processedMessages = new Set<string>();
+const actorUpdateHooks = new Map<string, number>();
+const KARMA_TAG = "#karma";
+const STRESS_TAG = "#stress";
+
+const ACTOR_UPDATE_OPTIONS = { render: false, diff: false };
 
 function hasProcessedMessage(msgId: string): boolean {
     return processedMessages.has(msgId);
@@ -33,6 +39,146 @@ function resolveChatMessage(msg: any): any | null {
     if (resolved && typeof resolved.update === "function") return resolved;
 
     return null;
+}
+
+type ResourceCandidate =
+    | { source: "system"; data: any; index: number }
+    | { source: "item"; item: any };
+
+function normalizeResourceTag(raw: unknown): string {
+    if (typeof raw === "number" && Number.isInteger(raw)) {
+        return normalizeTag(String(raw), getTagOptions());
+    }
+    if (typeof raw !== "string") return "";
+    const trimmed = raw.trim();
+    if (!trimmed) return "";
+    return normalizeTag(trimmed, getTagOptions());
+}
+
+function getResourceValue(resource: any): number {
+    const rawCurrent = Number(resource?.value);
+    const rawFallback = Number(resource?.defaultValue ?? resource?.defaultMaxValue ?? resource?.maxValue ?? 0);
+    if (Number.isFinite(rawCurrent)) return rawCurrent;
+    if (Number.isFinite(rawFallback)) return rawFallback;
+    return 0;
+}
+
+function getCandidateValue(candidate: ResourceCandidate): number {
+    if (candidate.source === "item") {
+        const raw = Number(candidate.item?.system?.value);
+        return Number.isFinite(raw) ? raw : 0;
+    }
+    return getResourceValue(candidate.data);
+}
+
+function getResourceIcon(resource: any): string {
+    const candidates = [resource?.icon, resource?.iconAvailable, resource?.iconSpent];
+    const match = candidates.find((entry) => typeof entry === "string" && entry.trim() !== "");
+    return match ?? DEFAULT_RESOURCE_ICON;
+}
+
+function getCandidateIcon(candidate: ResourceCandidate): string {
+    if (candidate.source === "item") {
+        const img = candidate.item?.img;
+        return typeof img === "string" && img.trim() ? img : DEFAULT_RESOURCE_ICON;
+    }
+    return getResourceIcon(candidate.data);
+}
+
+function getCandidateTag(candidate: ResourceCandidate): string {
+    if (candidate.source === "item") {
+        return normalizeResourceTag(candidate.item?.system?.tag ?? "");
+    }
+    return normalizeResourceTag(candidate.data?.rollKeyword ?? candidate.data?.tag ?? "");
+}
+
+function getChatMessageActor(msg: any): any | null {
+    const speaker = msg?.speaker ?? msg?.data?.speaker;
+    const actorId = speaker?.actor;
+    if (actorId && game.actors?.get) {
+        const actor = game.actors.get(actorId);
+        if (actor) return actor;
+    }
+
+    const tokenId = speaker?.token;
+    const sceneId = speaker?.scene ?? canvas?.scene?.id;
+    const scene = sceneId && game.scenes?.get ? game.scenes.get(sceneId) : null;
+    const token = tokenId ? scene?.tokens?.get(tokenId) : null;
+    return token?.actor ?? null;
+}
+
+function getActorResourceCandidates(actor: any): ResourceCandidate[] {
+    const system = actor?.system ?? actor?.data?.system ?? {};
+    const systemResources = Array.isArray(system.resources)
+        ? system.resources.map((data: any, index: number) => ({ source: "system", data, index } as ResourceCandidate))
+        : [];
+    const itemResources = Array.isArray(actor?.items)
+        ? actor.items
+            .filter((item: any) => item?.type === "resource")
+            .map((item: any) => ({ source: "item", item } as ResourceCandidate))
+        : [];
+    return systemResources.concat(itemResources);
+}
+
+function findDiceChangeResource(
+    actor: any
+): { mode: "karma" | "stress"; resource: ResourceCandidate } | null {
+    const resources = getActorResourceCandidates(actor);
+    if (!resources.length) return null;
+
+    for (const resource of resources) {
+        const tag = getCandidateTag(resource);
+        if (tag === KARMA_TAG) {
+            return { mode: "karma", resource };
+        }
+        if (tag === STRESS_TAG) {
+            return { mode: "stress", resource };
+        }
+    }
+
+    return null;
+}
+
+async function adjustActorResource(actor: any, candidate: ResourceCandidate, delta: number): Promise<number | null> {
+    if (!actor?.update) return null;
+
+    if (candidate.source === "item") {
+        const raw = Number(candidate.item?.system?.value);
+        const current = Number.isFinite(raw) ? raw : 0;
+        const nextValue = Math.max(0, Math.floor(current + delta));
+        try {
+            await candidate.item.update({ "system.value": nextValue }, ACTOR_UPDATE_OPTIONS);
+        } catch (err) {
+            console.warn("EZD6 resource item update failed", err);
+            return null;
+        }
+        return nextValue;
+    }
+
+    const systemResources = Array.isArray(actor?.system?.resources) ? actor.system.resources.slice() : [];
+    if (candidate.index < 0 || candidate.index >= systemResources.length) return null;
+    const current = getResourceValue(systemResources[candidate.index]);
+    const nextValue = Math.max(0, Math.floor(current + delta));
+    const nextResource = { ...systemResources[candidate.index], value: nextValue };
+    systemResources[candidate.index] = nextResource;
+    try {
+        await actor.update({ "system.resources": systemResources }, ACTOR_UPDATE_OPTIONS);
+    } catch (err) {
+        console.warn("EZD6 resource update failed", err);
+        return null;
+    }
+
+    return nextValue;
+}
+
+function getDiceChangeState(actor: any) {
+    const match = actor ? findDiceChangeResource(actor) : null;
+    if (!match) {
+        return { match: null, iconHtml: "", disabled: false };
+    }
+    const disabled = match.mode === "karma" && getCandidateValue(match.resource) <= 0;
+    const iconHtml = `<img src="${getCandidateIcon(match.resource)}" alt="${getCandidateTag(match.resource) || match.mode}" class="ezd6-dice-change-icon${disabled ? " ezd6-dice-change-icon--disabled" : ""}">`;
+    return { match, iconHtml, disabled };
 }
 
 interface EZD6State {
@@ -222,6 +368,8 @@ function buildController(msg: any) {
     const baseState = buildInitialStateFromMessage(msg);
     if (!baseState) return null;
 
+    const actor = getChatMessageActor(msg);
+
     let originalDice = baseState.originalDice;
     let deltaDice = baseState.deltaDice;
     let burnedOnes = baseState.burnedOnes;
@@ -335,18 +483,22 @@ function buildController(msg: any) {
         if (canBurn) buttons.push(`<button class=\"ezd6-button ezd6-burn1-btn\">Burn ${dieIcon1}</button>`);
         else if (onlyOnes) return "";
 
+        const diceChangeState = getDiceChangeState(actor);
+        const diceChangeDisabledAttr = diceChangeState.disabled ? " disabled" : "";
+        const renderBuffButton = () => `<button class="ezd6-button ezd6-buff-btn"${diceChangeDisabledAttr}><span class="ezd6-buff-label">+1</span>${diceChangeState.iconHtml}</button>`;
+
         if (activeIsFromConfirmations()) {
             const activeV = getActiveValue();
             const onesBlock = parsedState.rule.oneAlwaysFail && parsedState.hasOnes;
 
             if (parsedState.rule.allowKarma && !onesBlock && activeV >= 2 && activeV < parsedState.rule.critValue) {
-                buttons.push(`<button class=\"ezd6-button ezd6-buff-btn\">+1</button>`);
+                buttons.push(renderBuffButton());
             }
             if (parsedState.rule.allowConfirm && !onesBlock && activeV >= parsedState.rule.critValue) {
                 buttons.push(`<button class=\"ezd6-button ezd6-confirm-btn\">Confirm ${critIcon}</button>`);
             }
         } else {
-            if (parsedState.canKarma) buttons.push(`<button class=\"ezd6-button ezd6-buff-btn\">+1</button>`);
+            if (parsedState.canKarma) buttons.push(renderBuffButton());
             if (parsedState.canConfirm) buttons.push(`<button class=\"ezd6-button ezd6-confirm-btn\">Confirm ${critIcon}</button>`);
         }
 
@@ -365,6 +517,35 @@ function buildController(msg: any) {
         if (!root) return;
         const controls = root.querySelector('.ezd6-buttons');
         if (controls) controls.remove();
+    }
+
+    function updateBuffButtonState(root: HTMLElement | null) {
+        if (!root) return;
+        const button = root.querySelector('.ezd6-buff-btn') as HTMLButtonElement | null;
+        const icon = root.querySelector('.ezd6-dice-change-icon') as HTMLElement | null;
+        if (!button || !icon || !actor) return;
+
+        const diceChangeState = getDiceChangeState(actor);
+        if (!diceChangeState.match || diceChangeState.match.mode !== "karma") {
+            button.disabled = false;
+            icon.classList.remove("ezd6-dice-change-icon--disabled");
+            return;
+        }
+
+        button.disabled = diceChangeState.disabled;
+        icon.classList.toggle("ezd6-dice-change-icon--disabled", diceChangeState.disabled);
+    }
+
+    function registerActorResourceWatcher() {
+        if (!actor?.id || !msg?.id) return;
+        if (actorUpdateHooks.has(msg.id)) return;
+        const hookId = Hooks.on("updateActor", (updated: any, diff: any) => {
+            if (updated?.id !== actor.id) return;
+            if (!diff?.system?.resources) return;
+            const root = findChatMessageElement(msg.id);
+            updateBuffButtonState(root);
+        });
+        actorUpdateHooks.set(msg.id, hookId);
     }
 
     async function persistAndRender(options: { forceDomOnly?: boolean; canModify: boolean; targetRoot?: HTMLElement | null }) {
@@ -414,6 +595,15 @@ function buildController(msg: any) {
         $root.find('.ezd6-buff-btn').off('click').on('click', async (ev: any) => {
             ev.preventDefault();
             try {
+                const diceChangeState = getDiceChangeState(actor);
+                if (diceChangeState.match?.mode === "karma") {
+                    const current = getCandidateValue(diceChangeState.match.resource);
+                    if (current <= 0) return;
+                    await adjustActorResource(actor, diceChangeState.match.resource, -1);
+                } else if (diceChangeState.match?.mode === "stress") {
+                    await adjustActorResource(actor, diceChangeState.match.resource, 1);
+                }
+
                 const current = getActiveValue();
                 const res = await EZD6.RollAPI.modifyResult(null, current, 1, keyword);
                 setActiveValue(res.value);
@@ -466,6 +656,9 @@ function buildController(msg: any) {
                 console.error('EZD6 burn1 failed', e);
             }
         });
+
+        updateBuffButtonState(root);
+        registerActorResourceWatcher();
 
         return true;
     }
@@ -583,5 +776,10 @@ export function registerChatMessageHooks() {
         if (!resolved?.id) return;
 
         releaseProcessedMessage(resolved.id);
+        const hookId = actorUpdateHooks.get(resolved.id);
+        if (hookId !== undefined) {
+            Hooks.off("updateActor", hookId);
+            actorUpdateHooks.delete(resolved.id);
+        }
     });
 }

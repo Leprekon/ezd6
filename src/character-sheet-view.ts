@@ -236,7 +236,7 @@ export class CharacterSheetView {
                 className: "ezd6-task-btn",
                 title: `${task.label} (${task.formula})`,
                 kinds: [...task.dice],
-                onClick: () => this.character.rollTask(task.label, task.formula),
+                onClick: () => this.character.rollTask(task.label, task.formula, this.getChatSpeaker()),
             });
             buttons.appendChild(btn);
         });
@@ -262,7 +262,7 @@ export class CharacterSheetView {
                 className: "ezd6-task-btn",
                 title: magick.label,
                 kinds: Array.from({ length: magick.dice }, () => "grey" as const),
-                onClick: () => this.character.rollMagick(magick.dice),
+                onClick: () => this.character.rollMagick(magick.dice, this.getChatSpeaker()),
             });
             buttons.appendChild(btn);
         });
@@ -669,7 +669,7 @@ export class CharacterSheetView {
             kinds: buildStandardRollKinds(diceCount),
             onClick: (event) => {
                 event.stopPropagation();
-                this.character.rollSave(save.id);
+                this.character.rollSave(save.id, this.getChatSpeaker());
             },
         });
 
@@ -876,7 +876,7 @@ export class CharacterSheetView {
         const roll = new Roll(`${diceCount}d6`, {});
         await roll.evaluate();
         const flavor = `${title} ${tag}`.trim();
-        await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
+        await roll.toMessage({ flavor, speaker: this.getChatSpeaker() });
     }
 
     private renderResourceCounter(counter: HTMLElement, resource: Resource, maxIcons: number = 6) {
@@ -1407,13 +1407,17 @@ export class CharacterSheetView {
         return getTagOptions();
     }
 
+    private getChatSpeaker(): any {
+        return ChatMessage.getSpeaker?.({ actor: this.options.actor }) ?? ChatMessage.getSpeaker?.();
+    }
+
     private async postAbilityMessage(item: any, description: string) {
         if (!item) return;
         const contentPieces = [
             `<strong>${item.name ?? "Ability"}</strong>`,
             description ? `<div>${description}</div>` : "",
         ];
-        await ChatMessage.create({ content: contentPieces.join(""), speaker: ChatMessage.getSpeaker?.() });
+        await ChatMessage.create({ content: contentPieces.join(""), speaker: this.getChatSpeaker() });
     }
 
     private async postEquipmentMessage(item: any, description: string, quantity: number, isQuantifiable: boolean) {
@@ -1426,7 +1430,7 @@ export class CharacterSheetView {
             tag ? `<div>${tag}</div>` : "",
             details,
         ];
-        await ChatMessage.create({ content: contentPieces.join(""), speaker: ChatMessage.getSpeaker?.() });
+        await ChatMessage.create({ content: contentPieces.join(""), speaker: this.getChatSpeaker() });
     }
 
     private async postResourceMessage(resource: Resource) {
@@ -1437,7 +1441,7 @@ export class CharacterSheetView {
             `<strong>${title}</strong>`,
             description ? `<div>${description}</div>` : "",
         ];
-        await ChatMessage.create({ content: contentPieces.join(""), speaker: ChatMessage.getSpeaker?.() });
+        await ChatMessage.create({ content: contentPieces.join(""), speaker: this.getChatSpeaker() });
     }
 
     private async rollAbilityItem(item: any, numberOfDice: number, tag: string, description: string) {
@@ -1447,7 +1451,7 @@ export class CharacterSheetView {
             const flavor = `${item.name ?? "Ability"} ${this.normalizeAbilityTag(tag)}`.trim();
             const roll = new Roll(formula, {});
             await roll.evaluate();
-            await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
+            await roll.toMessage({ flavor, speaker: this.getChatSpeaker() });
             return;
         }
 
@@ -1455,7 +1459,7 @@ export class CharacterSheetView {
             `<strong>${item.name ?? "Ability"}</strong>`,
             description ? `<div>${description}</div>` : "",
         ];
-        await ChatMessage.create({ content: contentPieces.join(""), speaker: ChatMessage.getSpeaker?.() });
+        await ChatMessage.create({ content: contentPieces.join(""), speaker: this.getChatSpeaker() });
     }
 
     private async rollEquipmentItem(
@@ -1472,7 +1476,7 @@ export class CharacterSheetView {
             const flavor = `${item.name ?? "Equipment"} ${this.normalizeAbilityTag(tag)}`.trim();
             const roll = new Roll(formula, {});
             await roll.evaluate();
-            await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
+            await roll.toMessage({ flavor, speaker: this.getChatSpeaker() });
             return;
         }
 
@@ -1482,7 +1486,7 @@ export class CharacterSheetView {
             description ? `<div>${description}</div>` : "",
             qtyLine,
         ];
-        await ChatMessage.create({ content: contentPieces.join(""), speaker: ChatMessage.getSpeaker?.() });
+        await ChatMessage.create({ content: contentPieces.join(""), speaker: this.getChatSpeaker() });
     }
 
     private async setEquipmentQuantity(item: any, nextValue: number, rerenderFrom: HTMLElement) {
@@ -1591,7 +1595,7 @@ export class CharacterSheetView {
             `<strong>${title}</strong>`,
             description ? `<div>${description}</div>` : "",
         ];
-        await ChatMessage.create({ content: contentPieces.join(""), speaker: ChatMessage.getSpeaker?.() });
+        await ChatMessage.create({ content: contentPieces.join(""), speaker: this.getChatSpeaker() });
     }
 
     private async deleteSave(saveId: string, container?: HTMLElement) {

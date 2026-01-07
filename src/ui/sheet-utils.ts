@@ -2,7 +2,7 @@ import { getDieImagePath } from "../ezd6-core";
 
 type DieKind = "grey" | "green" | "red";
 
-const DEFAULT_TAG_OPTIONS = ["#task", "#default", "#attack", "#brutal", "#magick", "#miracle"];
+const DEFAULT_TAG_OPTIONS = ["#task", "#default", "#attack", "#brutal", "#magick", "#miracle", "#karma", "#stress"];
 
 export const clampDimension = (value: number, min?: number, max?: number) => {
     let next = value;
@@ -31,6 +31,16 @@ export const getTagOptions = (): string[] => {
         custom = [];
     }
     return [...new Set([...DEFAULT_TAG_OPTIONS, ...custom])];
+};
+
+export const getTagOptionMap = (): Record<string, string> => {
+    const options = getTagOptions();
+    const map: Record<string, string> = {};
+    options.forEach((tag) => {
+        const normalized = normalizeTag(tag, options);
+        map[normalized] = normalized;
+    });
+    return map;
 };
 
 export const normalizeTag = (tag: string, options: string[] = getTagOptions()): string => {

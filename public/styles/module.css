@@ -98,6 +98,19 @@
   box-sizing: border-box;
 }
 
+.ezd6-dice-change-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  border: none;
+  box-shadow: none;
+}
+
+.ezd6-dice-change-icon--disabled {
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
 .ezd6-die-icon {
   height: 24px;
   width: 24px;

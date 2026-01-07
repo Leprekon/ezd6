@@ -1,5 +1,5 @@
 // src/ability-item-sheet.ts
-import { clampDimension, getTagOptions } from "./ui/sheet-utils";
+import { clampDimension, getTagOptionMap, getTagOptions, normalizeTag } from "./ui/sheet-utils";
 
 export class EZD6AbilityItemSheet extends ItemSheet {
     static get defaultOptions() {
@@ -38,7 +38,7 @@ export class EZD6AbilityItemSheet extends ItemSheet {
 
     getData(options?: any) {
         const data = super.getData(options) as any;
-        data.tagOptions = getTagOptions();
+        data.tagOptions = getTagOptionMap();
         return data;
     }
 
@@ -69,6 +69,9 @@ export class EZD6AbilityItemSheet extends ItemSheet {
     }
 
     protected async _updateObject(_event: Event, formData: Record<string, any>) {
+        if ("system.tag" in formData) {
+            formData["system.tag"] = normalizeTag(formData["system.tag"], getTagOptions());
+        }
         await this.item.update(formData, { render: false });
     }
 

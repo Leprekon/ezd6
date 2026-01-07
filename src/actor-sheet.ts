@@ -1,7 +1,7 @@
 // src/actor-sheet.ts
 import { Character } from "./character";
 import { CharacterSheetView } from "./character-sheet-view";
-import { clampDimension } from "./ui/sheet-utils";
+import { clampDimension, getTagOptions, normalizeTag } from "./ui/sheet-utils";
 import { DescriptionEditorController } from "./sheet/description-editor";
 import { getDescriptionEditor } from "./sheet/description-editor-utils";
 import { captureScrollState, restoreScrollState, ScrollState } from "./sheet/scroll-state";
@@ -12,6 +12,7 @@ export class EZD6CharacterSheet extends ActorSheet {
     private descriptionController: DescriptionEditorController | null = null;
     private pendingScrollRestore: ScrollState = [];
     private itemUpdateHookId: number | null = null;
+    private actorUpdateHookId: number | null = null;
 
     static get defaultOptions() {
         return foundry.utils.mergeObject(super.defaultOptions, {
@@ -67,6 +68,9 @@ export class EZD6CharacterSheet extends ActorSheet {
         }
 
         this.syncFromActor();
+        if (this.normalizeResourceTags()) {
+            void this.actor?.update?.({ "system.resources": this.character.resources });
+        }
         if (this.character.ensureDefaultResources()) {
             void this.actor?.update?.({ "system.resources": this.character.resources });
         }
@@ -95,6 +99,7 @@ export class EZD6CharacterSheet extends ActorSheet {
         }
         this.descriptionController.bind(html, this.actor);
         this.registerItemUpdateHook();
+        this.registerActorUpdateHook();
 
     }
 
@@ -114,6 +119,21 @@ export class EZD6CharacterSheet extends ActorSheet {
         this.character.abilities = Array.isArray(system.abilities) ? system.abilities : [];
         this.character.resources = Array.isArray(system.resources) ? system.resources : [];
         this.character.saves = Array.isArray(system.saves) ? system.saves : [];
+    }
+
+    private normalizeResourceTags(): boolean {
+        if (!this.character) return false;
+        const options = getTagOptions();
+        let changed = false;
+        this.character.resources = this.character.resources.map((resource) => {
+            const raw = resource?.rollKeyword ?? resource?.tag;
+            if (raw == null) return resource;
+            const normalized = normalizeTag(String(raw), options);
+            if (normalized === resource.rollKeyword) return resource;
+            changed = true;
+            return { ...resource, rollKeyword: normalized };
+        });
+        return changed;
     }
 
     private async resolveDroppedItem(data: any): Promise<any | null> {
@@ -189,6 +209,10 @@ export class EZD6CharacterSheet extends ActorSheet {
             Hooks.off("updateItem", this.itemUpdateHookId);
             this.itemUpdateHookId = null;
         }
+        if (this.actorUpdateHookId !== null) {
+            Hooks.off("updateActor", this.actorUpdateHookId);
+            this.actorUpdateHookId = null;
+        }
         return super.close(options);
     }
 
@@ -207,6 +231,19 @@ export class EZD6CharacterSheet extends ActorSheet {
             } else {
                 this.view?.refreshEquipmentList(root);
             }
+        });
+    }
+
+    private registerActorUpdateHook() {
+        if (this.actorUpdateHookId !== null) return;
+        const actorId = this.actor?.id;
+        this.actorUpdateHookId = Hooks.on("updateActor", (actor: any, diff: any) => {
+            if (!actorId || actor?.id !== actorId) return;
+            if (!diff?.system?.resources) return;
+            this.syncFromActor();
+            const root = this.getSheetRoot();
+            if (!root) return;
+            this.view?.refreshResourceList(root);
         });
     }
 

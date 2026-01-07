@@ -1,5 +1,5 @@
 // src/resource-item-sheet.ts
-import { clampDimension, getTagOptions } from "./ui/sheet-utils";
+import { clampDimension, getTagOptionMap, getTagOptions, normalizeTag } from "./ui/sheet-utils";
 
 export class EZD6ResourceItemSheet extends ItemSheet {
     static get defaultOptions() {
@@ -23,7 +23,7 @@ export class EZD6ResourceItemSheet extends ItemSheet {
 
     getData(options?: any) {
         const data = super.getData(options) as any;
-        data.tagOptions = getTagOptions();
+        data.tagOptions = getTagOptionMap();
         return data;
     }
 
@@ -94,6 +94,9 @@ export class EZD6ResourceItemSheet extends ItemSheet {
     }
 
     protected async _updateObject(_event: Event, formData: Record<string, any>) {
+        if ("system.tag" in formData) {
+            formData["system.tag"] = normalizeTag(formData["system.tag"], getTagOptions());
+        }
         const rawValue = Number(formData["system.value"]);
         formData["system.value"] = this.clampValue(rawValue, 1);
         const rawMaxValue = Number(formData["system.maxValue"]);

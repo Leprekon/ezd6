@@ -202,7 +202,7 @@ export class Character {
         res.value = Math.max(0, Math.floor(current + delta));
     }
 
-    async rollAbility(abilityId: string) {
+    async rollAbility(abilityId: string, speaker?: any) {
         const ability = this.abilities.find((a) => a.id === abilityId);
         if (!ability) return;
 
@@ -212,17 +212,17 @@ export class Character {
             const flavor = `${ability.title} #${keyword}`;
             const roll = new Roll(formula, {});
             await roll.evaluate();
-            await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
+            await roll.toMessage({ flavor, speaker: speaker ?? ChatMessage.getSpeaker?.() });
         } else {
             const contentPieces = [
                 `<strong>${ability.title}</strong>`,
                 ability.description ? `<div>${ability.description}</div>` : "",
             ];
-            await ChatMessage.create({ content: contentPieces.join(""), speaker: ChatMessage.getSpeaker?.() });
+            await ChatMessage.create({ content: contentPieces.join(""), speaker: speaker ?? ChatMessage.getSpeaker?.() });
         }
     }
 
-    async rollSave(saveId: string) {
+    async rollSave(saveId: string, speaker?: any) {
         const save = this.saves.find((s) => s.id === saveId);
         if (!save) return;
         const diceCount = Number.isFinite(save.numberOfDice) ? Math.max(0, Math.floor(save.numberOfDice)) : 0;
@@ -230,21 +230,21 @@ export class Character {
         await roll.evaluate();
         const target = Number.isFinite(save.targetValue) && save.targetValue > 0 ? save.targetValue : 6;
         const flavor = `${save.title} #target${target}`;
-        await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
+        await roll.toMessage({ flavor, speaker: speaker ?? ChatMessage.getSpeaker?.() });
     }
 
-    async rollTask(label: string, formula: string) {
+    async rollTask(label: string, formula: string, speaker?: any) {
         const roll = new Roll(formula, {});
         await roll.evaluate();
         const flavor = `${label} #task`;
-        await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
+        await roll.toMessage({ flavor, speaker: speaker ?? ChatMessage.getSpeaker?.() });
     }
 
-    async rollMagick(diceCount: number) {
+    async rollMagick(diceCount: number, speaker?: any) {
         const roll = new Roll(`${diceCount}d6`, {});
         await roll.evaluate();
         const flavor = `Magick ${diceCount}d6 #magick`;
-        await roll.toMessage({ flavor, speaker: ChatMessage.getSpeaker?.() });
+        await roll.toMessage({ flavor, speaker: speaker ?? ChatMessage.getSpeaker?.() });
     }
 
     ensureDefaultResources(): boolean {
