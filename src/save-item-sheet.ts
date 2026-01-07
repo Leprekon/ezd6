@@ -1,10 +1,5 @@
 // src/save-item-sheet.ts
-const clampDimension = (value: number, min?: number, max?: number) => {
-    let next = value;
-    if (Number.isFinite(min)) next = Math.max(min as number, next);
-    if (Number.isFinite(max)) next = Math.min(max as number, next);
-    return next;
-};
+import { clampDimension } from "./ui/sheet-utils";
 
 export class EZD6SaveItemSheet extends ItemSheet {
     static get defaultOptions() {

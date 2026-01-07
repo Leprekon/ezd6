@@ -5,7 +5,8 @@ import { EZD6AbilityItemSheet } from "./ability-item-sheet";
 import { EZD6EquipmentItemSheet } from "./equipment-item-sheet";
 import { EZD6ResourceItemSheet } from "./resource-item-sheet";
 import { EZD6SaveItemSheet } from "./save-item-sheet";
-export { Character, CharacterSheetView, Ability, Resource, Save, DiceChangeBehavior } from "./character";
+export { Character, Ability, Resource, Save, DiceChangeBehavior } from "./character";
+export { CharacterSheetView } from "./character-sheet-view";
 
 registerChatMessageHooks();
 

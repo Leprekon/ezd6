@@ -1,10 +1,5 @@
 // src/resource-item-sheet.ts
-const clampDimension = (value: number, min?: number, max?: number) => {
-    let next = value;
-    if (Number.isFinite(min)) next = Math.max(min as number, next);
-    if (Number.isFinite(max)) next = Math.min(max as number, next);
-    return next;
-};
+import { clampDimension, getTagOptions } from "./ui/sheet-utils";
 
 export class EZD6ResourceItemSheet extends ItemSheet {
     static get defaultOptions() {
@@ -28,15 +23,7 @@ export class EZD6ResourceItemSheet extends ItemSheet {
 
     getData(options?: any) {
         const data = super.getData(options) as any;
-        const predefined = ["#task", "#default", "#attack", "#brutal", "#magick", "#miracle"];
-        let custom: string[] = [];
-        try {
-            const stored = game?.settings?.get?.("ezd6-new", "customTags");
-            if (Array.isArray(stored)) custom = stored.filter((tag) => typeof tag === "string");
-        } catch {
-            custom = [];
-        }
-        data.tagOptions = [...new Set([...predefined, ...custom])];
+        data.tagOptions = getTagOptions();
         return data;
     }
 
