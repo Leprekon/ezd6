@@ -183,7 +183,13 @@ export class CharacterSheetView {
         }
 
         const list = createElement("div", "ezd6-ability-list");
-        this.getAbilityItems().forEach((item) => list.appendChild(this.renderAbilityRow(item)));
+        this.enableDragReorder(list, "ability");
+        this.appendCategorizedRows(
+            list,
+            this.getAbilityItems(),
+            (item) => item?.system?.category ?? "",
+            (item) => this.renderAbilityRow(item)
+        );
         section.appendChild(list);
 
         return sectionBlock;
@@ -209,7 +215,13 @@ export class CharacterSheetView {
         }
 
         const list = createElement("div", "ezd6-equipment-list");
-        this.getEquipmentItems().forEach((item) => list.appendChild(this.renderEquipmentRow(item)));
+        this.enableDragReorder(list, "equipment");
+        this.appendCategorizedRows(
+            list,
+            this.getEquipmentItems(),
+            (item) => item?.system?.category ?? "",
+            (item) => this.renderEquipmentRow(item)
+        );
         section.appendChild(list);
 
         return sectionBlock;
@@ -269,6 +281,10 @@ export class CharacterSheetView {
                 : "";
         const description = typeof system.description === "string" ? system.description : "";
         const wrapper = createElement("div", "ezd6-ability-item");
+        if (item?.id) {
+            wrapper.dataset.itemId = item.id;
+        }
+        wrapper.draggable = Boolean(this.options.editable);
         const row = createElement("div", "ezd6-ability-row");
         row.setAttribute("role", "button");
         row.tabIndex = 0;
@@ -278,6 +294,7 @@ export class CharacterSheetView {
         const icon = createElement("img", "ezd6-ability-icon__img") as HTMLImageElement;
         icon.src = item?.img || "icons/svg/item-bag.svg";
         icon.alt = item?.name ?? "Ability icon";
+        icon.draggable = false;
         iconWrap.appendChild(icon);
 
         const title = createElement("span", "ezd6-ability-row__title", item?.name ?? "Ability");
@@ -370,6 +387,10 @@ export class CharacterSheetView {
         );
 
         const wrapper = createElement("div", "ezd6-equipment-item");
+        if (item?.id) {
+            wrapper.dataset.itemId = item.id;
+        }
+        wrapper.draggable = Boolean(this.options.editable);
         const row = createElement("div", "ezd6-equipment-row");
         if (!isQuantifiable) {
             row.classList.add("ezd6-equipment-row--no-qty");
@@ -382,6 +403,7 @@ export class CharacterSheetView {
         const icon = createElement("img", "ezd6-equipment-icon__img") as HTMLImageElement;
         icon.src = item?.img || "icons/svg/item-bag.svg";
         icon.alt = item?.name ?? "Equipment icon";
+        icon.draggable = false;
         iconWrap.appendChild(icon);
 
         const title = createElement("span", "ezd6-equipment-row__title", item?.name ?? "Equipment");
@@ -514,6 +536,7 @@ export class CharacterSheetView {
         }
 
         const list = createElement("div", "ezd6-resource-list");
+        this.enableDragReorder(list, "resource");
         this.character.resources.forEach((resource) => list.appendChild(this.renderResourceRow(resource)));
         this.updateResourceRollWidth(list);
         this.updateResourceCounterLimits(list);
@@ -524,6 +547,8 @@ export class CharacterSheetView {
     private renderResourceRow(resource: Resource): HTMLElement {
         const wrapper = createElement("div", "ezd6-resource-item");
         wrapper.dataset.resourceId = resource.id;
+        wrapper.dataset.itemId = resource.id;
+        wrapper.draggable = Boolean(this.options.editable);
         const row = createElement("div", "ezd6-resource-row");
         row.setAttribute("role", "button");
         row.tabIndex = 0;
@@ -605,6 +630,7 @@ export class CharacterSheetView {
         }
 
         const list = createElement("div", "ezd6-save-list");
+        this.enableDragReorder(list, "save");
         this.character.saves.forEach((save) => list.appendChild(this.renderSaveRow(save)));
         section.appendChild(list);
         return sectionBlock;
@@ -612,6 +638,8 @@ export class CharacterSheetView {
 
     private renderSaveRow(save: Save): HTMLElement {
         const wrapper = createElement("div", "ezd6-save-item");
+        wrapper.dataset.itemId = save.id;
+        wrapper.draggable = Boolean(this.options.editable);
         const row = createElement("div", "ezd6-save-row");
         row.setAttribute("role", "button");
         row.tabIndex = 0;
@@ -626,6 +654,7 @@ export class CharacterSheetView {
         const icon = createElement("img", "ezd6-ability-icon__img") as HTMLImageElement;
         icon.src = iconPath;
         icon.alt = `${title} icon`;
+        icon.draggable = false;
         iconWrap.appendChild(icon);
 
         const name = createElement("span", "ezd6-save-row__title", title);
@@ -871,6 +900,7 @@ export class CharacterSheetView {
                 const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
                 img.src = iconPath;
                 img.alt = `${title} icon`;
+                img.draggable = false;
                 counter.append(count, img);
                 return;
             }
@@ -880,6 +910,7 @@ export class CharacterSheetView {
                 const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
                 img.src = iconPath;
                 img.alt = `${title} icon`;
+                img.draggable = false;
                 counter.appendChild(img);
             }
             const missing = Math.max(0, maxValue - currentValue);
@@ -888,6 +919,7 @@ export class CharacterSheetView {
                 const img = createElement("img", "ezd6-resource-icon ezd6-resource-icon--faded") as HTMLImageElement;
                 img.src = iconPath;
                 img.alt = `${title} icon`;
+                img.draggable = false;
                 counter.appendChild(img);
             }
             return;
@@ -897,6 +929,7 @@ export class CharacterSheetView {
             const img = createElement("img", "ezd6-resource-icon ezd6-resource-icon--faded") as HTMLImageElement;
             img.src = iconPath;
             img.alt = `${title} icon`;
+            img.draggable = false;
             counter.appendChild(img);
             return;
         }
@@ -906,6 +939,7 @@ export class CharacterSheetView {
             const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
             img.src = iconPath;
             img.alt = `${title} icon`;
+            img.draggable = false;
             counter.append(count, img);
             return;
         }
@@ -915,6 +949,7 @@ export class CharacterSheetView {
             const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
             img.src = iconPath;
             img.alt = `${title} icon`;
+            img.draggable = false;
             counter.appendChild(img);
         }
     }
@@ -1049,19 +1084,80 @@ export class CharacterSheetView {
         return { block, section };
     }
 
+    private normalizeCategory(raw: unknown): string {
+        if (typeof raw !== "string") return "";
+        return raw.trim();
+    }
+
+    private renderCategoryDivider(category: string): HTMLElement {
+        const divider = createElement("div", "ezd6-category-divider", category);
+        divider.dataset.category = category;
+        divider.setAttribute("role", "separator");
+        return divider;
+    }
+
+    private buildCategorizedRows(
+        items: any[],
+        getCategory: (item: any) => string,
+        renderRow: (item: any) => HTMLElement
+    ): HTMLElement[] {
+        const uncategorized: any[] = [];
+        const grouped = new Map<string, any[]>();
+
+        items.forEach((item) => {
+            const category = this.normalizeCategory(getCategory(item));
+            if (!category) {
+                uncategorized.push(item);
+                return;
+            }
+            const bucket = grouped.get(category) ?? [];
+            bucket.push(item);
+            grouped.set(category, bucket);
+        });
+
+        const rows: HTMLElement[] = [];
+        uncategorized.forEach((item) => rows.push(renderRow(item)));
+
+        const categories = Array.from(grouped.keys())
+            .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+        categories.forEach((category) => {
+            rows.push(this.renderCategoryDivider(category));
+            grouped.get(category)?.forEach((item) => rows.push(renderRow(item)));
+        });
+
+        return rows;
+    }
+
+    private appendCategorizedRows(
+        list: HTMLElement,
+        items: any[],
+        getCategory: (item: any) => string,
+        renderRow: (item: any) => HTMLElement
+    ) {
+        this.buildCategorizedRows(items, getCategory, renderRow).forEach((row) => list.appendChild(row));
+    }
+
     refresh(container: HTMLElement) {
         this.reRender(container);
     }
 
     refreshAbilityList(container: HTMLElement) {
         this.refreshList(container, ".ezd6-ability-list", () =>
-            this.getAbilityItems().map((item) => this.renderAbilityRow(item))
+            this.buildCategorizedRows(
+                this.getAbilityItems(),
+                (item) => item?.system?.category ?? "",
+                (item) => this.renderAbilityRow(item)
+            )
         );
     }
 
     refreshEquipmentList(container: HTMLElement) {
         this.refreshList(container, ".ezd6-equipment-list", () =>
-            this.getEquipmentItems().map((item) => this.renderEquipmentRow(item))
+            this.buildCategorizedRows(
+                this.getEquipmentItems(),
+                (item) => item?.system?.category ?? "",
+                (item) => this.renderEquipmentRow(item)
+            )
         );
     }
 
@@ -1133,16 +1229,136 @@ export class CharacterSheetView {
         buildRows().forEach((row) => list.appendChild(row));
     }
 
+    private enableDragReorder(list: HTMLElement, type: "ability" | "equipment" | "resource" | "save") {
+        if (!this.options.editable) return;
+        const selector = type === "ability"
+            ? ".ezd6-ability-item"
+            : type === "equipment"
+                ? ".ezd6-equipment-item"
+                : type === "resource"
+                    ? ".ezd6-resource-item"
+                    : ".ezd6-save-item";
+        let dragged: HTMLElement | null = null;
+
+        list.addEventListener("dragstart", (event) => {
+            const target = (event.target as HTMLElement | null)?.closest(selector) as HTMLElement | null;
+            if (!target) return;
+            dragged = target;
+            target.classList.add("is-dragging");
+            if (event.dataTransfer) {
+                event.dataTransfer.effectAllowed = "move";
+                const id = target.dataset.itemId ?? "";
+                event.dataTransfer.setData("text/plain", id);
+            }
+        });
+
+        list.addEventListener("dragend", () => {
+            if (!dragged) return;
+            dragged.classList.remove("is-dragging");
+            dragged = null;
+        });
+
+        list.addEventListener("dragover", (event) => {
+            if (!dragged) return;
+            event.preventDefault();
+            const targetEl = event.target as HTMLElement | null;
+            if (!targetEl) return;
+            const target = targetEl.closest(selector) as HTMLElement | null;
+            const divider = targetEl.closest(".ezd6-category-divider") as HTMLElement | null;
+            const rectSource = target ?? divider;
+            if (rectSource) {
+                if (rectSource === dragged) return;
+                const rect = rectSource.getBoundingClientRect();
+                const shouldInsertAfter = event.clientY > rect.top + rect.height / 2;
+                if (shouldInsertAfter) {
+                    rectSource.after(dragged);
+                } else {
+                    rectSource.before(dragged);
+                }
+                return;
+            }
+            if (targetEl === list) {
+                list.appendChild(dragged);
+            }
+        });
+
+        list.addEventListener("drop", async (event) => {
+            if (!dragged) return;
+            event.preventDefault();
+            if (type === "ability" || type === "equipment") {
+                await this.persistItemSort(list, selector);
+            } else {
+                await this.persistSystemSort(list, selector, type);
+            }
+        });
+    }
+
+    private async persistItemSort(list: HTMLElement, selector: string) {
+        const actor = this.options.actor;
+        if (!actor?.updateEmbeddedDocuments) return;
+        const updates: Array<{ _id: string; sort: number; "system.category": string }> = [];
+        let sortIndex = 0;
+        let currentCategory = "";
+        Array.from(list.children).forEach((node) => {
+            const el = node as HTMLElement;
+            if (el.classList.contains("ezd6-category-divider")) {
+                currentCategory = this.normalizeCategory(el.dataset.category ?? "");
+                return;
+            }
+            if (!el.matches(selector)) return;
+            const id = el.dataset.itemId;
+            if (!id) return;
+            updates.push({
+                _id: id,
+                sort: sortIndex * 10,
+                "system.category": currentCategory,
+            });
+            sortIndex += 1;
+        });
+        if (!updates.length) return;
+        try {
+            await actor.updateEmbeddedDocuments("Item", updates);
+        } catch {
+            // ignore drag failures; list still reflects order until refresh
+        }
+    }
+
+    private async persistSystemSort(
+        list: HTMLElement,
+        selector: string,
+        type: "resource" | "save"
+    ) {
+        const orderedIds = Array.from(list.querySelectorAll(selector))
+            .map((node) => (node as HTMLElement).dataset.itemId)
+            .filter((id): id is string => Boolean(id));
+        if (!orderedIds.length) return;
+        const target = type === "resource" ? this.character.resources : this.character.saves;
+        const byId = new Map(target.map((entry) => [entry.id, entry]));
+        const seen = new Set(orderedIds);
+        const reordered = orderedIds
+            .map((id) => byId.get(id))
+            .filter((entry): entry is Resource | Save => Boolean(entry));
+        const remainder = target.filter((entry) => !seen.has(entry.id));
+        const next = reordered.concat(remainder);
+        if (type === "resource") {
+            this.character.resources = next as Resource[];
+            await this.persistResources();
+        } else {
+            this.character.saves = next as Save[];
+            await this.persistSaves();
+        }
+    }
+
     private getAbilityItems(): any[] {
         const items = this.options.actor?.items?.filter?.((item: any) => item.type === "ability") ?? [];
         const list = Array.isArray(items) ? items.slice() : Array.from(items);
-        return list.sort((a: any, b: any) => (a.sort ?? 0) - (b.sort ?? 0) || (a.name ?? "").localeCompare(b.name ?? ""));
+        return list.sort((a: any, b: any) => (a.sort ?? 0) - (b.sort ?? 0));
     }
 
     private getEquipmentItems(): any[] {
         const items = this.options.actor?.items?.filter?.((item: any) => item.type === "equipment") ?? [];
         const list = Array.isArray(items) ? items.slice() : Array.from(items);
-        return list.sort((a: any, b: any) => (a.sort ?? 0) - (b.sort ?? 0) || (a.name ?? "").localeCompare(b.name ?? ""));
+        return list.sort((a: any, b: any) => (a.sort ?? 0) - (b.sort ?? 0));
     }
 
     private async createAbilityItem() {
@@ -1156,6 +1372,7 @@ export class CharacterSheetView {
                     description: "",
                     numberOfDice: 0,
                     tag: "",
+                    category: "",
                 },
             },
         ]);
@@ -1175,6 +1392,7 @@ export class CharacterSheetView {
                     quantity: 1,
                     numberOfDice: 0,
                     tag: "",
+                    category: "",
                 },
             },
         ]);
@@ -1473,6 +1691,7 @@ export class CharacterSheetView {
         if (iconImg) {
             iconImg.src = iconPath;
             iconImg.alt = `${title} icon`;
+            iconImg.draggable = false;
         }
 
         const nameEl = row.querySelector(".ezd6-save-row__title") as HTMLElement | null;
@@ -1491,6 +1710,7 @@ export class CharacterSheetView {
                     const dieImg = createElement("img", "ezd6-die-icon") as HTMLImageElement;
                     dieImg.alt = `${kind} d6`;
                     dieImg.src = getDieImagePath(6, kind);
+                    dieImg.draggable = false;
                     stack.appendChild(dieImg);
                 });
             }

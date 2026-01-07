@@ -52,6 +52,7 @@ export const createDiceStack = (kinds: DieKind[], className = "ezd6-dice-stack")
         const dieImg = createElement("img", "ezd6-die-icon") as HTMLImageElement;
         dieImg.alt = `${kind} d6`;
         dieImg.src = getDieImagePath(6, kind);
+        dieImg.draggable = false;
         diceRow.appendChild(dieImg);
     });
     return diceRow;

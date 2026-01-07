@@ -22,7 +22,8 @@
       "ability": {
         "description": "",
         "numberOfDice": 0,
-        "tag": "#task"
+        "tag": "#task",
+        "category": ""
       },
       "resource": {
         "value": 1
@@ -36,7 +37,8 @@
         "quantifiable": false,
         "quantity": 1,
         "numberOfDice": 0,
-        "tag": "#task"
+        "tag": "#task",
+        "category": ""
       }
     },
     "ability": {

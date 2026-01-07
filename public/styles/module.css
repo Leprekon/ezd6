@@ -224,13 +224,14 @@
 .ezd6-name-input {
   font-family: "Neucha", "Comic Sans MS", cursive;
   font-size: 30px;
-  line-height: 1.1;
+  line-height: 50px;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 12px;
-  padding: 12px;
+  padding: 0 12px;
   background: rgba(255, 255, 255, 0.7);
   box-shadow: none;
   width: 100%;
+  height: 50px;
 }
 
 .ezd6-section {
@@ -504,6 +505,33 @@
   font-weight: 700;
 }
 
+.ezd6-category-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+  font-weight: 800;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.ezd6-category-divider::before {
+  content: "";
+  width: 16px;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.2);
+  flex: 0 0 auto;
+}
+
+.ezd6-category-divider::after {
+  content: "";
+  height: 1px;
+  background: rgba(0, 0, 0, 0.2);
+  flex: 1 1 auto;
+}
+
 .ezd6-ability-list,
 .ezd6-equipment-list,
 .ezd6-resource-list,
@@ -530,6 +558,20 @@
   flex-direction: column;
   gap: 0;
   align-items: stretch;
+}
+
+.ezd6-ability-item[draggable="true"],
+.ezd6-equipment-item[draggable="true"],
+.ezd6-resource-item[draggable="true"],
+.ezd6-save-item[draggable="true"] {
+  cursor: grab;
+}
+
+.ezd6-ability-item.is-dragging,
+.ezd6-equipment-item.is-dragging,
+.ezd6-resource-item.is-dragging,
+.ezd6-save-item.is-dragging {
+  opacity: 0.6;
 }
 
 .ezd6-ability-row,
@@ -1370,6 +1412,11 @@
   justify-content: space-between;
 }
 
+.ezd6-item-title-group .ezd6-text-input {
+  height: 40px;
+  line-height: 40px;
+}
+
 .ezd6-item-title-group select.ezd6-text-input {
   height: 40px;
   line-height: 40px;
@@ -1409,6 +1456,15 @@
 
 .ezd6-item-body .ezd6-textarea {
   background: rgba(255, 255, 255, 0.7);
+}
+
+.ezd6-item-body .ezd6-text-input {
+  height: 40px;
+  line-height: 40px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0 12px;
 }
 
 .ezd6-ability-dice-picker,
