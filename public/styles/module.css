@@ -1109,6 +1109,10 @@
   display: none;
 }
 
+.ezd6-item-field.is-hidden {
+  display: none;
+}
+
 .ezd6-roll-btn {
   border: none;
   background: #ededed;
@@ -1148,6 +1152,33 @@
 
 .ezd6-task-btn:hover {
   transform: scale(1.08);
+}
+
+.ezd6-resource-replenish-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.ezd6-resource-replenish-btn:disabled {
+  cursor: default;
+}
+
+.ezd6-resource-replenish-btn:disabled:hover {
+  transform: none;
+}
+
+.ezd6-resource-replenish-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border: none;
+  box-shadow: none;
+}
+
+.ezd6-resource-replenish-icon--disabled {
+  filter: grayscale(100%);
+  opacity: 0.5;
 }
 
 .ezd6-task-btn--placeholder {

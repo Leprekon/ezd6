@@ -41,6 +41,26 @@
       </div>
       <input type="hidden" name="system.maxValue" value="{{item.system.maxValue}}">
     </div>
+    <label class="ezd6-item-field">
+      <span class="ezd6-label">Replenish logic</span>
+      <select class="ezd6-text-input" name="system.replenishLogic">
+        {{selectOptions replenishLogicOptions selected=item.system.replenishLogic}}
+      </select>
+    </label>
+    <label class="ezd6-item-field ezd6-item-field--replenish {{#unless replenishEnabled}}is-hidden{{/unless}}">
+      <span class="ezd6-label">Replenish tag</span>
+      <select class="ezd6-text-input" name="system.replenishTag">
+        {{selectOptions tagOptions selected=item.system.replenishTag}}
+      </select>
+    </label>
+    <div class="ezd6-item-field ezd6-item-field--quantity ezd6-item-field--replenish {{#unless replenishEnabled}}is-hidden{{/unless}}">
+      <span class="ezd6-label">Replenish cost</span>
+      <div class="ezd6-quantity-picker ezd6-replenish-cost-picker" data-count="{{item.system.replenishCost}}">
+        <button class="ezd6-qty-btn" type="button" data-delta="-1">-</button>
+        <input class="ezd6-number-input ezd6-quantity-input" type="number" min="1" max="100" step="1" name="system.replenishCost" value="{{item.system.replenishCost}}">
+        <button class="ezd6-qty-btn" type="button" data-delta="1">+</button>
+      </div>
+    </div>
     <div class="ezd6-item-field ezd6-item-field--dice">
       <span class="ezd6-label">Dice to roll</span>
       <div class="ezd6-ability-dice-picker ezd6-resource-dice-picker" data-count="{{item.system.numberOfDice}}">

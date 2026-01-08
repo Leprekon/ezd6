@@ -21,6 +21,9 @@ export interface Resource {
     numberOfDice?: number;
     usedForDiceBurn?: boolean;
     diceChangeBehavior?: DiceChangeBehavior;
+    replenishLogic?: "disabled" | "reset" | "restore";
+    replenishTag?: string;
+    replenishCost?: number;
     value: number;
     defaultValue: number;
     maxValue?: number;
@@ -130,6 +133,9 @@ export class Character {
             numberOfDice: partial.numberOfDice ?? 0,
             usedForDiceBurn: partial.usedForDiceBurn ?? false,
             diceChangeBehavior: partial.diceChangeBehavior ?? "none",
+            replenishLogic: partial.replenishLogic ?? "disabled",
+            replenishTag: partial.replenishTag ?? "",
+            replenishCost: partial.replenishCost ?? 1,
             value: partial.value ?? partial.defaultValue ?? 0,
             defaultValue: partial.defaultValue ?? 0,
             maxValue: partial.maxValue,

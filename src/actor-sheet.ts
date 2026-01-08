@@ -127,11 +127,21 @@ export class EZD6CharacterSheet extends ActorSheet {
         let changed = false;
         this.character.resources = this.character.resources.map((resource) => {
             const raw = resource?.rollKeyword ?? resource?.tag;
-            if (raw == null) return resource;
-            const normalized = normalizeTag(String(raw), options);
-            if (normalized === resource.rollKeyword) return resource;
-            changed = true;
-            return { ...resource, rollKeyword: normalized };
+            const normalized = raw == null ? null : normalizeTag(String(raw), options);
+            const next: any = { ...resource };
+            if (normalized != null && normalized !== resource.rollKeyword) {
+                next.rollKeyword = normalized;
+                changed = true;
+            }
+            if (resource?.replenishTag != null) {
+                const rawReplenish = String(resource.replenishTag ?? "").trim();
+                const normalizedReplenish = rawReplenish ? normalizeTag(rawReplenish, options) : "";
+                if (normalizedReplenish !== resource.replenishTag) {
+                    next.replenishTag = normalizedReplenish;
+                    changed = true;
+                }
+            }
+            return next as any;
         });
         return changed;
     }
@@ -164,6 +174,15 @@ export class EZD6CharacterSheet extends ActorSheet {
                         const rawDice = Number(system.numberOfDice ?? 0);
                         const numberOfDice = Number.isFinite(rawDice) ? Math.max(0, Math.min(3, Math.floor(rawDice))) : 0;
                         const rollKeyword = typeof system.tag === "string" ? system.tag : "default";
+                        const replenishLogic = system.replenishLogic === "reset" || system.replenishLogic === "restore"
+                            ? system.replenishLogic
+                            : "disabled";
+                        const rawReplenishTag = typeof system.replenishTag === "string" ? system.replenishTag : "";
+                        const replenishTag = rawReplenishTag.trim()
+                            ? normalizeTag(rawReplenishTag, getTagOptions())
+                            : "";
+                        const rawCost = Number(system.replenishCost ?? 1);
+                        const replenishCost = Number.isFinite(rawCost) ? Math.max(1, Math.min(100, Math.floor(rawCost))) : 1;
                         this.character.addResource({
                             title: item.name ?? "Resource",
                             icon: item.img ?? undefined,
@@ -173,6 +192,9 @@ export class EZD6CharacterSheet extends ActorSheet {
                             description,
                             numberOfDice,
                             rollKeyword,
+                            replenishLogic: replenishLogic === "reset" || replenishLogic === "restore" ? replenishLogic : "disabled",
+                            replenishTag,
+                            replenishCost,
                         });
                         await this.actor?.update?.({ "system.resources": this.character.resources });
                         return;

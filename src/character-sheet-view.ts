@@ -61,6 +61,13 @@ const MAGICK_ROLLS = [
     },
 ] as const;
 
+type ResourceReplenishState = {
+    visible: boolean;
+    mode: "reset" | "restore" | null;
+    disabled: boolean;
+    target: Resource | null;
+};
+
 export class CharacterSheetView {
     private expandedAbilityId: string | null = null;
     private expandedEquipmentId: string | null = null;
@@ -812,6 +819,111 @@ export class CharacterSheetView {
         return Number.isFinite(raw) ? this.clampInt(Math.floor(raw), 0, 3) : 0;
     }
 
+    private getResourceTag(resource: Resource): string {
+        const raw = (resource as any)?.rollKeyword ?? (resource as any)?.tag ?? "default";
+        return this.normalizeAbilityTag(String(raw));
+    }
+
+    private getResourceReplenishLogic(raw: any): "disabled" | "reset" | "restore" {
+        const logic = typeof raw === "string" ? raw : "disabled";
+        if (logic === "reset" || logic === "restore") return logic;
+        return "disabled";
+    }
+
+    private getResourceReplenishTag(resource: Resource): string {
+        const raw = (resource as any)?.replenishTag ?? "";
+        const trimmed = String(raw).trim();
+        if (!trimmed) return "";
+        return this.normalizeAbilityTag(trimmed);
+    }
+
+    private getResourceReplenishCost(resource: Resource): number {
+        const raw = Number((resource as any)?.replenishCost ?? 1);
+        if (!Number.isFinite(raw)) return 1;
+        return this.clampInt(Math.floor(raw), 1, 100);
+    }
+
+    private getReplenishTargetResource(resource: Resource): Resource | null {
+        const targetTag = this.getResourceReplenishTag(resource);
+        if (!targetTag) return null;
+        return this.character.resources.find((entry) => {
+            if (entry.id === resource.id) return false;
+            return this.getResourceTag(entry) === targetTag;
+        }) ?? null;
+    }
+
+    private getResourceReplenishState(resource: Resource): ResourceReplenishState {
+        const logic = this.getResourceReplenishLogic(resource?.replenishLogic);
+        const maxValue = this.getResourceMaxValue(resource);
+        if (logic === "disabled" || maxValue <= 0) {
+            return { visible: false, mode: null, disabled: true, target: null };
+        }
+        const target = this.getReplenishTargetResource(resource);
+        if (!target) {
+            return { visible: false, mode: null, disabled: true, target: null };
+        }
+        const current = this.getResourceValue(resource);
+        const targetValue = this.getResourceValue(target);
+        const cost = this.getResourceReplenishCost(resource);
+        if (logic === "reset") {
+            const visible = current >= maxValue;
+            return { visible, mode: visible ? "reset" : null, disabled: targetValue < cost, target };
+        }
+        const visible = current < maxValue;
+        return { visible, mode: visible ? "restore" : null, disabled: targetValue < cost, target };
+    }
+
+    private canShowReplenishButton(
+        resource: Resource,
+        state: ResourceReplenishState,
+        diceCount: number,
+        currentValue: number
+    ): boolean {
+        if (diceCount > 0 && currentValue > 0) return false;
+        return state.visible && Boolean(state.mode && state.target);
+    }
+
+    private buildReplenishTitle(mode: "reset" | "restore", cost: number, targetTag: string): string {
+        const label = mode === "reset" ? "Reset" : "Restore 1";
+        return `${label} by spending ${cost} ${targetTag}`.trim();
+    }
+
+    private async applyReplenishAction(
+        resource: Resource,
+        state: ResourceReplenishState,
+        slot: HTMLElement
+    ) {
+        if (!state.mode || !state.target) return;
+        const cost = this.getResourceReplenishCost(resource);
+        const target = state.target;
+        const targetValue = this.getResourceValue(target);
+        if (targetValue < cost) return;
+
+        if (state.mode === "reset") {
+            resource.value = 0;
+        } else {
+            const maxValue = this.getResourceMaxValue(resource);
+            const current = this.getResourceValue(resource);
+            resource.value = Math.min(maxValue, current + 1);
+        }
+
+        this.character.adjustResource(target.id, -cost);
+        const wrapper = slot.closest(".ezd6-resource-item") as HTMLElement | null;
+        if (wrapper) {
+            this.updateResourceRowUI(wrapper, resource);
+        }
+        const root = wrapper?.closest(".ezd6-sheet") as HTMLElement | null;
+        if (root) {
+            const targetRow = root.querySelector(
+                `.ezd6-resource-item[data-resource-id="${target.id}"]`
+            ) as HTMLElement | null;
+            if (targetRow) {
+                this.updateResourceRowUI(targetRow, target);
+            }
+        }
+        await this.persistResources();
+    }
+
     private getResourceIcon(resource: Resource): string {
         const candidates = [resource.icon, resource.iconAvailable, resource.iconSpent];
         const match = candidates.find((entry) => typeof entry === "string" && entry.trim() !== "");
@@ -957,6 +1069,34 @@ export class CharacterSheetView {
     private renderResourceRoll(slot: HTMLElement, resource: Resource) {
         slot.innerHTML = "";
         const diceCount = this.getResourceDiceCount(resource);
+        const currentValue = this.getResourceValue(resource);
+        const replenishState = this.getResourceReplenishState(resource);
+        if (this.canShowReplenishButton(resource, replenishState, diceCount, currentValue)) {
+            const target = replenishState.target;
+            const cost = this.getResourceReplenishCost(resource);
+            const targetTag = this.getResourceTag(target);
+            const targetIcon = this.getResourceIcon(target);
+            const btn = createElement("button", "ezd6-task-btn ezd6-resource-replenish-btn") as HTMLButtonElement;
+            const icon = createElement("img", "ezd6-resource-replenish-icon") as HTMLImageElement;
+            btn.type = "button";
+            btn.disabled = replenishState.disabled;
+            btn.title = this.buildReplenishTitle(replenishState.mode ?? "reset", cost, targetTag);
+            icon.src = targetIcon;
+            icon.alt = targetTag || "Replenish";
+            icon.draggable = false;
+            if (btn.disabled) {
+                icon.classList.add("ezd6-resource-replenish-icon--disabled");
+            }
+            btn.appendChild(icon);
+            btn.addEventListener("click", async (event) => {
+                event.stopPropagation();
+                if (btn.disabled) return;
+                await this.applyReplenishAction(resource, replenishState, slot);
+            });
+            slot.appendChild(btn);
+            return;
+        }
+
         if (diceCount <= 0) return;
         const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
         const tag = this.normalizeAbilityTag(resource.rollKeyword ?? "default");
@@ -1520,6 +1660,9 @@ export class CharacterSheetView {
                     description: resource.description ?? "",
                     numberOfDice: this.getResourceDiceCount(resource),
                     tag: resource.rollKeyword ?? "default",
+                    replenishLogic: resource.replenishLogic ?? "disabled",
+                    replenishTag: resource.replenishTag ?? "",
+                    replenishCost: this.getResourceReplenishCost(resource),
                 },
             },
             (item: any) => {
@@ -1532,18 +1675,25 @@ export class CharacterSheetView {
                 const nextDice = Number(system.numberOfDice ?? 0);
                 const clampedDice = Number.isFinite(nextDice) ? this.clampInt(Math.floor(nextDice), 0, 3) : 0;
                 const nextTag = typeof system.tag === "string" ? system.tag : "default";
-                resource.title = item?.name ?? resource.title;
-                resource.icon = item?.img ?? resource.icon;
-                resource.value = clamped;
-                resource.maxValue = clampedMax;
-                resource.description = nextDescription;
-                resource.numberOfDice = clampedDice;
-                resource.rollKeyword = nextTag;
-                if (!Number.isFinite(resource.defaultValue)) {
-                    resource.defaultValue = clamped;
+                const nextReplenishLogic = this.getResourceReplenishLogic(system.replenishLogic);
+                const nextReplenishTag = typeof system.replenishTag === "string" ? system.replenishTag : "";
+                const nextReplenishCost = this.getResourceReplenishCost(system);
+                const targetResource = this.character.resources.find((entry) => entry.id === resource.id) ?? resource;
+                targetResource.title = item?.name ?? targetResource.title;
+                targetResource.icon = item?.img ?? targetResource.icon;
+                targetResource.value = clamped;
+                targetResource.maxValue = clampedMax;
+                targetResource.description = nextDescription;
+                targetResource.numberOfDice = clampedDice;
+                targetResource.rollKeyword = nextTag;
+                targetResource.replenishLogic = nextReplenishLogic;
+                targetResource.replenishTag = nextReplenishTag;
+                targetResource.replenishCost = nextReplenishCost;
+                if (!Number.isFinite(targetResource.defaultValue)) {
+                    targetResource.defaultValue = clamped;
                 }
                 void this.persistResources();
-                this.updateResourceRowUI(rerenderFrom, resource);
+                this.updateResourceRowUI(rerenderFrom, targetResource);
             }
         );
     }
@@ -1576,13 +1726,14 @@ export class CharacterSheetView {
                 const targetValue = Number(system.targetValue ?? 6);
                 const numberOfDice = Number(system.numberOfDice ?? 3);
                 const nextDescription = typeof system.description === "string" ? system.description : "";
-                save.title = item?.name ?? save.title;
-                save.icon = item?.img ?? save.icon;
-                save.targetValue = Number.isFinite(targetValue) ? this.clampInt(Math.floor(targetValue), 2, 6) : 6;
-                save.numberOfDice = Number.isFinite(numberOfDice) ? this.clampInt(Math.floor(numberOfDice), 1, 6) : 3;
-                save.description = nextDescription;
+                const targetSave = this.character.saves.find((entry) => entry.id === save.id) ?? save;
+                targetSave.title = item?.name ?? targetSave.title;
+                targetSave.icon = item?.img ?? targetSave.icon;
+                targetSave.targetValue = Number.isFinite(targetValue) ? this.clampInt(Math.floor(targetValue), 2, 6) : 6;
+                targetSave.numberOfDice = Number.isFinite(numberOfDice) ? this.clampInt(Math.floor(numberOfDice), 1, 6) : 3;
+                targetSave.description = nextDescription;
                 void this.persistSaves();
-                this.updateSaveRowUI(rerenderFrom, save);
+                this.updateSaveRowUI(rerenderFrom, targetSave);
             }
         );
     }
@@ -1670,14 +1821,24 @@ export class CharacterSheetView {
             const count = this.getResourceDiceCount(resource);
             return Math.max(max, count);
         }, 0);
+        const hasReplenish = this.character.resources.some(
+            (resource) => {
+                const diceCount = this.getResourceDiceCount(resource);
+                const currentValue = this.getResourceValue(resource);
+                const state = this.getResourceReplenishState(resource);
+                return this.canShowReplenishButton(resource, state, diceCount, currentValue);
+            }
+        );
+        const maxRollWidth = maxDice > 0 ? (maxDice * 26) + 12 : 0;
+        const replenishWidth = hasReplenish ? 38 : 0;
+        const width = Math.max(maxRollWidth, replenishWidth);
         list.dataset.ezd6MaxDice = String(maxDice);
-        if (maxDice <= 0) {
+        if (width <= 0) {
             list.style.setProperty("--resource-roll-width", "0px");
             list.style.setProperty("--resource-row-pad-right", "0px");
             list.style.setProperty("--resource-roll-pad", "0px");
             return;
         }
-        const width = maxDice > 0 ? (maxDice * 26) + 12 : 0;
         list.style.setProperty("--resource-roll-width", `${Math.max(0, width)}px`);
         list.style.setProperty("--resource-row-pad-right", "0px");
         list.style.setProperty("--resource-roll-pad", "8px");

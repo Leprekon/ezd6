@@ -26,7 +26,14 @@
         "category": ""
       },
       "resource": {
-        "value": 1
+        "value": 1,
+        "maxValue": 0,
+        "numberOfDice": 0,
+        "description": "",
+        "tag": "#default",
+        "replenishLogic": "disabled",
+        "replenishTag": "",
+        "replenishCost": 1
       },
       "save": {
         "targetValue": 6,
