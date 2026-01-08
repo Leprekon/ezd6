@@ -2,7 +2,24 @@ import { getDieImagePath } from "../ezd6-core";
 
 type DieKind = "grey" | "green" | "red";
 
-const DEFAULT_TAG_OPTIONS = ["#task", "#default", "#attack", "#brutal", "#magick", "#miracle", "#karma", "#stress"];
+const DEFAULT_TAG_OPTIONS = [
+    "#task",
+    "#default",
+    "#attack",
+    "#brutal",
+    "#magick",
+    "#miracle",
+    "#karma",
+    "#stress",
+    "#health",
+    "#heroDie",
+    "#fliptOfFate",
+    "#anythingBut1",
+    "#target3",
+    "#target4",
+    "#target5",
+    "#target6",
+];
 
 export const clampDimension = (value: number, min?: number, max?: number) => {
     let next = value;

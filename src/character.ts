@@ -234,7 +234,8 @@ export class Character {
         const diceCount = Number.isFinite(save.numberOfDice) ? Math.max(0, Math.floor(save.numberOfDice)) : 0;
         const roll = new Roll(`${diceCount}d6`, {});
         await roll.evaluate();
-        const target = Number.isFinite(save.targetValue) && save.targetValue > 0 ? save.targetValue : 6;
+        const rawTarget = Number(save.targetValue);
+        const target = Number.isFinite(rawTarget) && rawTarget > 0 ? Math.floor(rawTarget) : 6;
         const flavor = `${save.title} #target${target}`;
         await roll.toMessage({ flavor, speaker: speaker ?? ChatMessage.getSpeaker?.() });
     }

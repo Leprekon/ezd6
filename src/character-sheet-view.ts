@@ -1,9 +1,8 @@
-import { getDieImagePath } from "./ezd6-core";
+import { getDieImagePath, resolveKeywordRule } from "./ezd6-core";
 import { Character, Resource, Save, DEFAULT_RESOURCE_ICON, isLockedResource } from "./character";
 import {
     buildDetailContent,
     buildStandardRollKinds,
-    createDiceStack,
     createElement,
     createRollButton,
     getTagOptions,
@@ -43,23 +42,6 @@ const TASK_ROLLS = [
         dice: ["grey", "green", "green"] as const,
     },
 ] as const;
-const MAGICK_ROLLS = [
-    {
-        id: "magick-1",
-        label: "1 die",
-        dice: 1,
-    },
-    {
-        id: "magick-2",
-        label: "2 dice",
-        dice: 2,
-    },
-    {
-        id: "magick-3",
-        label: "3 dice",
-        dice: 3,
-    },
-] as const;
 
 type ResourceReplenishState = {
     visible: boolean;
@@ -95,13 +77,12 @@ export class CharacterSheetView {
 
         left.append(
             this.renderAvatarSection(),
-            this.renderNameSection(),
             this.renderResourceSection(),
             this.renderSavesSection(),
         );
         right.append(
+            this.renderNameSection(),
             this.renderTaskSection(),
-            this.renderMagickSection(),
             this.renderAbilitySections(),
             this.renderEquipmentSection(),
         );
@@ -244,32 +225,6 @@ export class CharacterSheetView {
                 title: `${task.label} (${task.formula})`,
                 kinds: [...task.dice],
                 onClick: () => this.character.rollTask(task.label, task.formula, this.getChatSpeaker()),
-            });
-            buttons.appendChild(btn);
-        });
-
-        section.appendChild(buttons);
-        return block;
-    }
-
-    private renderMagickSection(): HTMLElement {
-        const { block, section } = this.buildSectionBlock("Magick", "ezd6-section--magick");
-
-        const buttons = createElement("div", "ezd6-task-buttons");
-        const placeholderDice = [3, 2];
-        placeholderDice.forEach((count) => {
-            const placeholder = createElement("button", "ezd6-task-btn ezd6-task-btn--placeholder");
-            placeholder.type = "button";
-            placeholder.tabIndex = -1;
-            placeholder.append(createDiceStack(Array.from({ length: count }, () => "grey" as const)));
-            buttons.appendChild(placeholder);
-        });
-        MAGICK_ROLLS.forEach((magick) => {
-            const btn = createRollButton({
-                className: "ezd6-task-btn",
-                title: magick.label,
-                kinds: Array.from({ length: magick.dice }, () => "grey" as const),
-                onClick: () => this.character.rollMagick(magick.dice, this.getChatSpeaker()),
             });
             buttons.appendChild(btn);
         });
@@ -674,9 +629,13 @@ export class CharacterSheetView {
             className: "ezd6-task-btn ezd6-save-roll-btn",
             title: `Roll ${diceCount}d6 #target${targetValue}`.trim(),
             kinds: buildStandardRollKinds(diceCount),
-            onClick: (event) => {
+            onClick: async (event) => {
                 event.stopPropagation();
-                this.character.rollSave(save.id, this.getChatSpeaker());
+                const keyword = `target${targetValue}`;
+                const performRoll = async (rolledDiceCount: number) => {
+                    await this.rollSaveWithDice(save, rolledDiceCount);
+                };
+                await this.maybePromptPowerRoll(keyword, diceCount, performRoll);
             },
         });
 
@@ -980,14 +939,25 @@ export class CharacterSheetView {
         });
     }
 
-    private async rollResource(resource: Resource) {
-        const diceCount = this.getResourceDiceCount(resource);
+    private async rollResource(resource: Resource, diceCountOverride?: number) {
+        const override = Number.isFinite(diceCountOverride) ? Math.floor(diceCountOverride as number) : null;
+        const diceCount = override !== null ? Math.max(0, override) : this.getResourceDiceCount(resource);
         if (diceCount <= 0) return;
         const tag = this.normalizeAbilityTag(resource.rollKeyword ?? "default");
         const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
         const roll = new Roll(`${diceCount}d6`, {});
         await roll.evaluate();
         const flavor = `${title} ${tag}`.trim();
+        await roll.toMessage({ flavor, speaker: this.getChatSpeaker() });
+    }
+
+    private async rollSaveWithDice(save: Save, diceCountOverride?: number) {
+        const override = Number.isFinite(diceCountOverride) ? Math.floor(diceCountOverride as number) : null;
+        const diceCount = override !== null ? this.clampInt(override, 1, 6) : this.getSaveDiceCount(save);
+        const roll = new Roll(`${diceCount}d6`, {});
+        await roll.evaluate();
+        const target = this.getSaveTargetValue(save);
+        const flavor = `${save.title} #target${target}`.trim();
         await roll.toMessage({ flavor, speaker: this.getChatSpeaker() });
     }
 
@@ -1068,15 +1038,18 @@ export class CharacterSheetView {
 
     private renderResourceRoll(slot: HTMLElement, resource: Resource) {
         slot.innerHTML = "";
+        slot.classList.remove("has-replenish");
         const diceCount = this.getResourceDiceCount(resource);
         const currentValue = this.getResourceValue(resource);
         const replenishState = this.getResourceReplenishState(resource);
         if (this.canShowReplenishButton(resource, replenishState, diceCount, currentValue)) {
+            slot.classList.add("has-replenish");
             const target = replenishState.target;
             const cost = this.getResourceReplenishCost(resource);
             const targetTag = this.getResourceTag(target);
             const targetIcon = this.getResourceIcon(target);
             const btn = createElement("button", "ezd6-task-btn ezd6-resource-replenish-btn") as HTMLButtonElement;
+            const iconWrap = createElement("span", "ezd6-icon-slash");
             const icon = createElement("img", "ezd6-resource-replenish-icon") as HTMLImageElement;
             btn.type = "button";
             btn.disabled = replenishState.disabled;
@@ -1087,7 +1060,8 @@ export class CharacterSheetView {
             if (btn.disabled) {
                 icon.classList.add("ezd6-resource-replenish-icon--disabled");
             }
-            btn.appendChild(icon);
+            iconWrap.appendChild(icon);
+            btn.appendChild(iconWrap);
             btn.addEventListener("click", async (event) => {
                 event.stopPropagation();
                 if (btn.disabled) return;
@@ -1100,19 +1074,23 @@ export class CharacterSheetView {
         if (diceCount <= 0) return;
         const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
         const tag = this.normalizeAbilityTag(resource.rollKeyword ?? "default");
+        const keyword = this.getKeywordFromTag(resource.rollKeyword ?? "default");
         const rollBtn = createRollButton({
             className: "ezd6-task-btn ezd6-resource-roll-btn",
             title: `Roll ${diceCount}d6 ${tag}`.trim(),
             kinds: buildStandardRollKinds(diceCount),
             onClick: async (event) => {
                 event.stopPropagation();
-                await this.rollResource(resource);
-                this.character.adjustResource(resource.id, -1);
-                const wrapper = slot.closest(".ezd6-resource-item") as HTMLElement | null;
-                if (wrapper) {
-                    this.updateResourceRowUI(wrapper, resource);
-                }
-                await this.persistResources();
+                const performRoll = async (rolledDiceCount: number) => {
+                    await this.rollResource(resource, rolledDiceCount);
+                    this.character.adjustResource(resource.id, -1);
+                    const wrapper = slot.closest(".ezd6-resource-item") as HTMLElement | null;
+                    if (wrapper) {
+                        this.updateResourceRowUI(wrapper, resource);
+                    }
+                    await this.persistResources();
+                };
+                await this.maybePromptPowerRoll(keyword, diceCount, performRoll);
             },
         });
         slot.appendChild(rollBtn);
@@ -1551,6 +1529,67 @@ export class CharacterSheetView {
         return ChatMessage.getSpeaker?.({ actor: this.options.actor }) ?? ChatMessage.getSpeaker?.();
     }
 
+    private getKeywordFromTag(tag: string): string {
+        const normalized = this.normalizeAbilityTag(tag);
+        const raw = normalized.startsWith("#") ? normalized.slice(1) : normalized;
+        return raw.toLowerCase();
+    }
+
+    private async maybePromptPowerRoll(
+        keyword: string,
+        defaultDiceCount: number,
+        roll: (diceCount: number) => Promise<void>
+    ) {
+        const rule = resolveKeywordRule(keyword);
+        if (!rule.rollPower) {
+            await roll(defaultDiceCount);
+            return;
+        }
+        const picked = await this.showPowerRollDialog(rule.rollDialogue);
+        if (picked === null) return;
+        await roll(picked);
+    }
+
+    private async showPowerRollDialog(dialogue: string): Promise<number | null> {
+        return await new Promise<number | null>((resolve) => {
+            const dialog = new Dialog({
+                title: "Power Roll",
+                content: `<div class="ezd6-power-roll-dialogue"></div>`,
+                buttons: {},
+                render: (html: any) => {
+                    const root = html?.[0] as HTMLElement | undefined;
+                    const container = root?.querySelector(".ezd6-power-roll-dialogue") as HTMLElement | null;
+                    if (!container) return;
+                    container.innerHTML = "";
+                    const trimmed = (dialogue ?? "").trim();
+                    if (trimmed) {
+                        const text = createElement("div", "ezd6-power-roll-dialogue__text");
+                        text.innerHTML = trimmed;
+                        container.appendChild(text);
+                    }
+                    const buttons = createElement("div", "ezd6-task-buttons");
+                    [1, 2, 3].forEach((diceCount) => {
+                        const btn = createRollButton({
+                            className: "ezd6-task-btn ezd6-power-roll-btn",
+                            title: `${diceCount} die${diceCount === 1 ? "" : "s"}`,
+                            kinds: Array.from({ length: diceCount }, () => "grey" as const),
+                            onClick: (event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                resolve(diceCount);
+                                dialog.close();
+                            },
+                        });
+                        buttons.appendChild(btn);
+                    });
+                    container.appendChild(buttons);
+                },
+                close: () => resolve(null),
+            });
+            dialog.render(true);
+        });
+    }
+
     private async postAbilityMessage(item: any, description: string) {
         if (!item) return;
         const contentPieces = [
@@ -1587,11 +1626,16 @@ export class CharacterSheetView {
     private async rollAbilityItem(item: any, numberOfDice: number, tag: string, description: string) {
         if (!item) return;
         if (numberOfDice > 0) {
-            const formula = `${numberOfDice}d6`;
-            const flavor = `${item.name ?? "Ability"} ${this.normalizeAbilityTag(tag)}`.trim();
-            const roll = new Roll(formula, {});
-            await roll.evaluate();
-            await roll.toMessage({ flavor, speaker: this.getChatSpeaker() });
+            const normalizedTag = this.normalizeAbilityTag(tag);
+            const keyword = this.getKeywordFromTag(tag);
+            const rollWithDice = async (diceCount: number) => {
+                const formula = `${diceCount}d6`;
+                const flavor = `${item.name ?? "Ability"} ${normalizedTag}`.trim();
+                const roll = new Roll(formula, {});
+                await roll.evaluate();
+                await roll.toMessage({ flavor, speaker: this.getChatSpeaker() });
+            };
+            await this.maybePromptPowerRoll(keyword, numberOfDice, rollWithDice);
             return;
         }
 
@@ -1612,11 +1656,16 @@ export class CharacterSheetView {
     ) {
         if (!item) return;
         if (numberOfDice > 0) {
-            const formula = `${numberOfDice}d6`;
-            const flavor = `${item.name ?? "Equipment"} ${this.normalizeAbilityTag(tag)}`.trim();
-            const roll = new Roll(formula, {});
-            await roll.evaluate();
-            await roll.toMessage({ flavor, speaker: this.getChatSpeaker() });
+            const normalizedTag = this.normalizeAbilityTag(tag);
+            const keyword = this.getKeywordFromTag(tag);
+            const rollWithDice = async (diceCount: number) => {
+                const formula = `${diceCount}d6`;
+                const flavor = `${item.name ?? "Equipment"} ${normalizedTag}`.trim();
+                const roll = new Roll(formula, {});
+                await roll.evaluate();
+                await roll.toMessage({ flavor, speaker: this.getChatSpeaker() });
+            };
+            await this.maybePromptPowerRoll(keyword, numberOfDice, rollWithDice);
             return;
         }
 

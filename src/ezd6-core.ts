@@ -1,19 +1,53 @@
 // src/ezd6-core.ts
 export interface KeywordRule {
+    allowKarma?: boolean;
+    allowConfirm?: boolean;
+    critValue?: number;
+    oneAlwaysFail?: boolean;
+    allowBurnOnes?: boolean;
+    rollDialogue?: string;
+    rollPower?: boolean;
+}
+
+export interface ResolvedKeywordRule {
     allowKarma: boolean;
     allowConfirm: boolean;
     critValue: number;
-    oneAlwaysFail?: boolean;
-    allowBurnOnes?: boolean;
+    oneAlwaysFail: boolean;
+    allowBurnOnes: boolean;
+    rollDialogue: string;
+    rollPower: boolean;
 }
+
+const BASE_KEYWORD_RULE: ResolvedKeywordRule = {
+    allowKarma: true,
+    allowConfirm: true,
+    critValue: 6,
+    oneAlwaysFail: false,
+    allowBurnOnes: false,
+    rollDialogue: "",
+    rollPower: false,
+};
 
 export const KeywordRules: Record<string, KeywordRule> = {
     default:  { allowKarma: true,  allowConfirm: true,  critValue: 6 },
-    magick:   { allowKarma: false, allowConfirm: false, critValue: 6, oneAlwaysFail: true, allowBurnOnes: true },
-    miracle:  { allowKarma: false, allowConfirm: false, critValue: 6, oneAlwaysFail: true },
+    magick:   { allowKarma: false, allowConfirm: false, critValue: 6, oneAlwaysFail: true, allowBurnOnes: true, rollPower: true, rollDialogue: "Choose power level" },
+    miracle:  { allowKarma: false, allowConfirm: false, critValue: 6, oneAlwaysFail: true, rollPower: true, rollDialogue: "Choose prayer urgency" },
     attack:   { allowKarma: true,  allowConfirm: true,  critValue: 6 },
-    brutal:   { allowKarma: true,  allowConfirm: true,  critValue: 5 }
+    brutal:   { allowKarma: true,  allowConfirm: true,  critValue: 5 },
+    fliptoffate: {allowKarma: false,  allowConfirm: false,  critValue: 4},
+    anythingbut1: {allowKarma: false,  allowConfirm: false,  critValue: 2},
+    target3: {allowKarma: true,  allowConfirm: false,  critValue: 3},
+    target4: {allowKarma: true,  allowConfirm: false,  critValue: 4},
+    target5: {allowKarma: true,  allowConfirm: false,  critValue: 5},
+    target6: {allowKarma: true,  allowConfirm: false,  critValue: 6},
 };
+
+export function resolveKeywordRule(keyword: string): ResolvedKeywordRule {
+    const fallback = KeywordRules.default ?? {};
+    const override = KeywordRules[keyword] ?? {};
+    return { ...BASE_KEYWORD_RULE, ...fallback, ...override };
+}
 
 export function extractKeyword(msgContent: string): string | null {
     if (!msgContent) return null;
@@ -59,7 +93,7 @@ export interface ParsedRoll {
     canKarma: boolean;
     canConfirm: boolean;
     hasOnes: boolean;
-    rule: KeywordRule;
+    rule: ResolvedKeywordRule;
     resultIndex: number | null;
 }
 
@@ -72,7 +106,7 @@ export function evaluateDice(
     lockedResultIndex?: number | null,
     initialAllCrit?: boolean
 ): ParsedRoll {
-    const rule = KeywordRules[keyword] ?? KeywordRules.default;
+    const rule = resolveKeywordRule(keyword);
     const critValue = rule.critValue;
     const rolledAllCrit = initialAllCrit ?? false;
 

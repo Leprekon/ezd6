@@ -2,20 +2,21 @@
 import {
     EZD6,
     ParsedRoll,
-    KeywordRules,
     chooseDieKindForValue,
     evaluateDice,
     extractKeyword,
     getDieImagePath,
+    resolveKeywordRule,
 } from "./ezd6-core";
 import { Character, DEFAULT_RESOURCE_ICON } from "./character";
 import { getTagOptions, normalizeTag } from "./ui/sheet-utils";
 
 const SOCKET_NAMESPACE = "system.ezd6-new";
 const processedMessages = new Set<string>();
-const actorUpdateHooks = new Map<string, number>();
+const actorUpdateHooks = new Map<string, { actor: number; item: number }>();
 const KARMA_TAG = "#karma";
 const STRESS_TAG = "#stress";
+const HEALTH_TAG = "#health";
 
 const ACTOR_UPDATE_OPTIONS = { render: false, diff: false };
 
@@ -139,6 +140,12 @@ function findDiceChangeResource(
     return null;
 }
 
+function findHealthResource(actor: any): ResourceCandidate | null {
+    const resources = getActorResourceCandidates(actor);
+    if (!resources.length) return null;
+    return resources.find((resource) => getCandidateTag(resource) === HEALTH_TAG) ?? null;
+}
+
 async function adjustActorResource(actor: any, candidate: ResourceCandidate, delta: number): Promise<number | null> {
     if (!actor?.update) return null;
 
@@ -174,11 +181,12 @@ async function adjustActorResource(actor: any, candidate: ResourceCandidate, del
 function getDiceChangeState(actor: any) {
     const match = actor ? findDiceChangeResource(actor) : null;
     if (!match) {
-        return { match: null, iconHtml: "", disabled: false };
+        return { match: null, iconSrc: "", iconAlt: "", disabled: false };
     }
     const disabled = match.mode === "karma" && getCandidateValue(match.resource) <= 0;
-    const iconHtml = `<img src="${getCandidateIcon(match.resource)}" alt="${getCandidateTag(match.resource) || match.mode}" class="ezd6-dice-change-icon${disabled ? " ezd6-dice-change-icon--disabled" : ""}">`;
-    return { match, iconHtml, disabled };
+    const iconSrc = getCandidateIcon(match.resource);
+    const iconAlt = getCandidateTag(match.resource) || match.mode;
+    return { match, iconSrc, iconAlt, disabled };
 }
 
 interface EZD6State {
@@ -345,7 +353,7 @@ function buildInitialStateFromMessage(msg: any): EZD6State | null {
     const contentModeMatch = content.match(/(\d+)d6(kl|kh)?/i);
     const mode = (flagsState?.mode ?? (formulaModeMatch && formulaModeMatch[1])?.toLowerCase() ?? (contentModeMatch && contentModeMatch[2])?.toLowerCase()) as "kh" | "kl" | undefined;
 
-    const rule = KeywordRules[keyword] ?? KeywordRules.default;
+    const rule = resolveKeywordRule(keyword);
     const initialAllCrit = typeof flagsState?.initialAllCrit === "boolean"
         ? flagsState.initialAllCrit
         : (fromRoll.length > 0 ? fromRoll.every((v: number) => v >= rule.critValue) : false);
@@ -480,12 +488,39 @@ function buildController(msg: any) {
         const dieIcon1 = `<img src=\"${getDieImagePath(1, "red")}\" alt=\"1\" class=\"ezd6-die-icon\">`;
         const critIcon = `<img src=\"${getDieImagePath(parsedState.rule.critValue, "green")}\" alt=\"${parsedState.rule.critValue}\" class=\"ezd6-die-icon\">`;
 
-        if (canBurn) buttons.push(`<button class=\"ezd6-button ezd6-burn1-btn\">Burn ${dieIcon1}</button>`);
+        if (canBurn) {
+            const healthResource = actor ? findHealthResource(actor) : null;
+            const healthValue = healthResource ? getCandidateValue(healthResource) : null;
+            const burnDisabled = healthResource ? healthValue <= 0 : false;
+            const burnDisabledAttr = burnDisabled ? " disabled" : "";
+            const spendHiddenClass = healthResource ? "" : " is-hidden";
+            const burnDieClass = `ezd6-die-icon ezd6-burn1-die${burnDisabled ? " ezd6-die-icon--disabled" : ""}`;
+            const burnIconClass = `ezd6-dice-change-icon ezd6-burn1-resource${burnDisabled ? " ezd6-dice-change-icon--disabled" : ""}`;
+            const burnIconSrc = healthResource ? getCandidateIcon(healthResource) : DEFAULT_RESOURCE_ICON;
+            const burnIconAlt = healthResource ? (getCandidateTag(healthResource) || "health") : "health";
+            const burnLabel = `<span class="ezd6-burn1-label">Burn ` +
+                `<img src="${getDieImagePath(1, "red")}" alt="1" class="${burnDieClass}">` +
+                `</span>` +
+                `<span class="ezd6-burn1-spend${spendHiddenClass}">` +
+                `<span class="ezd6-icon-slash">` +
+                `<img src="${burnIconSrc}" alt="${burnIconAlt}" class="${burnIconClass}">` +
+                `</span></span>`;
+            buttons.push(`<button class=\"ezd6-button ezd6-burn1-btn\"${burnDisabledAttr}>${burnLabel}</button>`);
+        }
         else if (onlyOnes) return "";
 
         const diceChangeState = getDiceChangeState(actor);
         const diceChangeDisabledAttr = diceChangeState.disabled ? " disabled" : "";
-        const renderBuffButton = () => `<button class="ezd6-button ezd6-buff-btn"${diceChangeDisabledAttr}><span class="ezd6-buff-label">+1</span>${diceChangeState.iconHtml}</button>`;
+        const iconHiddenClass = diceChangeState.match ? "" : " is-hidden";
+        const slashClass = diceChangeState.match?.mode === "karma" ? " ezd6-icon-slash" : "";
+        const iconClass = `ezd6-dice-change-icon ezd6-buff-icon${diceChangeState.disabled ? " ezd6-dice-change-icon--disabled" : ""}`;
+        const iconHtml = diceChangeState.match
+            ? `<img src="${diceChangeState.iconSrc}" alt="${diceChangeState.iconAlt}" class="${iconClass}">`
+            : "";
+        const renderBuffButton = () => `<button class="ezd6-button ezd6-buff-btn"${diceChangeDisabledAttr}>` +
+            `<span class="ezd6-buff-label-wrap"><span class="ezd6-buff-label">+1</span></span>` +
+            `<span class="ezd6-buff-icon-wrap${slashClass}${iconHiddenClass}">${iconHtml}</span>` +
+            `</button>`;
 
         if (activeIsFromConfirmations()) {
             const activeV = getActiveValue();
@@ -522,18 +557,59 @@ function buildController(msg: any) {
     function updateBuffButtonState(root: HTMLElement | null) {
         if (!root) return;
         const button = root.querySelector('.ezd6-buff-btn') as HTMLButtonElement | null;
-        const icon = root.querySelector('.ezd6-dice-change-icon') as HTMLElement | null;
-        if (!button || !icon || !actor) return;
+        const iconWrap = button?.querySelector('.ezd6-buff-icon-wrap') as HTMLElement | null;
+        const icon = button?.querySelector('.ezd6-buff-icon') as HTMLImageElement | null;
+        if (!button || !iconWrap || !actor) return;
 
         const diceChangeState = getDiceChangeState(actor);
         if (!diceChangeState.match || diceChangeState.match.mode !== "karma") {
             button.disabled = false;
-            icon.classList.remove("ezd6-dice-change-icon--disabled");
+            iconWrap.classList.remove("ezd6-icon-slash");
+            iconWrap.classList.toggle("is-hidden", !diceChangeState.match);
+            if (icon) {
+                if (diceChangeState.match) {
+                    icon.src = diceChangeState.iconSrc;
+                    icon.alt = diceChangeState.iconAlt;
+                }
+                icon.classList.remove("ezd6-dice-change-icon--disabled");
+            }
             return;
         }
 
         button.disabled = diceChangeState.disabled;
-        icon.classList.toggle("ezd6-dice-change-icon--disabled", diceChangeState.disabled);
+        iconWrap.classList.add("ezd6-icon-slash");
+        iconWrap.classList.remove("is-hidden");
+        if (icon) {
+            icon.src = diceChangeState.iconSrc;
+            icon.alt = diceChangeState.iconAlt;
+            icon.classList.toggle("ezd6-dice-change-icon--disabled", diceChangeState.disabled);
+        }
+    }
+
+    function updateBurnButtonState(root: HTMLElement | null) {
+        if (!root || !actor) return;
+        const burnBtn = root.querySelector('.ezd6-burn1-btn') as HTMLButtonElement | null;
+        if (!burnBtn) return;
+        const dieIcon = burnBtn.querySelector('.ezd6-burn1-die') as HTMLElement | null;
+        const spendSpan = burnBtn.querySelector('.ezd6-burn1-spend') as HTMLElement | null;
+        const resourceIcon = burnBtn.querySelector('.ezd6-burn1-resource') as HTMLImageElement | null;
+        const healthResource = findHealthResource(actor);
+        if (!healthResource) {
+            burnBtn.disabled = false;
+            dieIcon?.classList.remove("ezd6-die-icon--disabled");
+            spendSpan?.classList.add("is-hidden");
+            return;
+        }
+        const current = getCandidateValue(healthResource);
+        const disabled = current <= 0;
+        burnBtn.disabled = disabled;
+        if (dieIcon) dieIcon.classList.toggle("ezd6-die-icon--disabled", disabled);
+        if (spendSpan) spendSpan.classList.remove("is-hidden");
+        if (resourceIcon) {
+            resourceIcon.src = getCandidateIcon(healthResource);
+            resourceIcon.alt = getCandidateTag(healthResource) || "health";
+            resourceIcon.classList.toggle("ezd6-dice-change-icon--disabled", disabled);
+        }
     }
 
     function registerActorResourceWatcher() {
@@ -541,11 +617,20 @@ function buildController(msg: any) {
         if (actorUpdateHooks.has(msg.id)) return;
         const hookId = Hooks.on("updateActor", (updated: any, diff: any) => {
             if (updated?.id !== actor.id) return;
-            if (!diff?.system?.resources) return;
+            if (!diff?.system?.resources && !diff?.items) return;
             const root = findChatMessageElement(msg.id);
             updateBuffButtonState(root);
+            updateBurnButtonState(root);
         });
-        actorUpdateHooks.set(msg.id, hookId);
+        const itemHookId = Hooks.on("updateItem", (item: any, diff: any) => {
+            if (item?.parent?.id !== actor.id) return;
+            if (item?.type !== "resource") return;
+            if (!diff?.system?.value && !diff?.system?.tag) return;
+            const root = findChatMessageElement(msg.id);
+            updateBuffButtonState(root);
+            updateBurnButtonState(root);
+        });
+        actorUpdateHooks.set(msg.id, { actor: hookId, item: itemHookId });
     }
 
     async function persistAndRender(options: { forceDomOnly?: boolean; canModify: boolean; targetRoot?: HTMLElement | null }) {
@@ -637,10 +722,20 @@ function buildController(msg: any) {
         $root.find('.ezd6-burn1-btn').off('click').on('click', async (ev: any) => {
             ev.preventDefault();
             try {
+                const healthResource = actor ? findHealthResource(actor) : null;
+                if (healthResource) {
+                    const current = getCandidateValue(healthResource);
+                    if (current <= 0) return;
+                    const next = await adjustActorResource(actor, healthResource, -1);
+                    if (next === null) return;
+                }
+
                 const idx = parsedState.dice.findIndex((d, i) => d.value === 1 && !burnedOnes[i]);
                 if (idx >= 0) {
-                    const ok = Character.consumeHealth();
-                    if (!ok) return;
+                    if (!healthResource) {
+                        const ok = Character.consumeHealth();
+                        if (!ok) return;
+                    }
 
                     burnedOnes[idx] = true;
                     deltaDice[idx] = 0;
@@ -658,6 +753,7 @@ function buildController(msg: any) {
         });
 
         updateBuffButtonState(root);
+        updateBurnButtonState(root);
         registerActorResourceWatcher();
 
         return true;
@@ -776,9 +872,10 @@ export function registerChatMessageHooks() {
         if (!resolved?.id) return;
 
         releaseProcessedMessage(resolved.id);
-        const hookId = actorUpdateHooks.get(resolved.id);
-        if (hookId !== undefined) {
-            Hooks.off("updateActor", hookId);
+        const hookIds = actorUpdateHooks.get(resolved.id);
+        if (hookIds) {
+            Hooks.off("updateActor", hookIds.actor);
+            Hooks.off("updateItem", hookIds.item);
             actorUpdateHooks.delete(resolved.id);
         }
     });

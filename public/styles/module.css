@@ -111,6 +111,85 @@
   opacity: 0.5;
 }
 
+.ezd6-die-icon--disabled {
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
+.ezd6-burn1-btn .ezd6-burn1-die,
+.ezd6-burn1-btn .ezd6-burn1-resource {
+  vertical-align: middle;
+}
+
+.ezd6-burn1-btn {
+  position: relative;
+  justify-content: center;
+}
+
+.ezd6-burn1-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+}
+
+.ezd6-burn1-spend {
+  position: absolute;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.ezd6-icon-slash {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ezd6-icon-slash::after {
+  content: "";
+  position: absolute;
+  width: 140%;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.85);
+  transform: rotate(-35deg);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.ezd6-buff-btn {
+  position: relative;
+  justify-content: center;
+}
+
+.ezd6-buff-label-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+}
+
+.ezd6-buff-icon-wrap {
+  position: absolute;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ezd6-buff-icon-wrap.is-hidden {
+  display: none;
+}
+
+
+.ezd6-burn1-spend.is-hidden {
+  display: none;
+}
+
 .ezd6-die-icon {
   height: 24px;
   width: 24px;
@@ -1158,6 +1237,25 @@
   border: none;
   background: transparent;
   padding: 0;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ezd6-resource-replenish-btn:hover {
+  transform: scale(1.08);
+  filter: none;
+  box-shadow: none;
+  outline: none;
+}
+
+.ezd6-resource-replenish-btn:focus,
+.ezd6-resource-replenish-btn:focus-visible,
+.ezd6-resource-replenish-btn:active {
+  box-shadow: none;
+  outline: none;
 }
 
 .ezd6-resource-replenish-btn:disabled {
@@ -1169,8 +1267,8 @@
 }
 
 .ezd6-resource-replenish-icon {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
   border: none;
   box-shadow: none;
@@ -1184,6 +1282,68 @@
 .ezd6-task-btn--placeholder {
   visibility: hidden;
   pointer-events: none;
+}
+
+.ezd6-power-roll-dialogue {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+.ezd6-power-roll-dialogue__text {
+  font-family: "Neucha", "Comic Sans MS", cursive;
+  font-size: 20px;
+  line-height: 1.35;
+  font-weight: 800;
+  color: rgba(0, 0, 0, 0.82);
+  text-align: center;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+
+.ezd6-power-roll-dialogue__text p {
+  margin: 0 0 8px;
+}
+
+.ezd6-power-roll-dialogue__text p:last-child {
+  margin-bottom: 0;
+}
+
+.ezd6-power-roll-dialogue .ezd6-task-buttons {
+  justify-content: center;
+  gap: 12px;
+  padding-top: 4px;
+  padding-bottom: 10px;
+}
+
+.ezd6-power-roll-btn {
+  padding: 0;
+  background: transparent;
+  border: none;
+  line-height: 0;
+}
+
+.dialog .ezd6-power-roll-dialogue .ezd6-task-btn {
+  padding: 0;
+  background: transparent;
+  border: none;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  box-shadow: none;
+  line-height: 0;
+}
+
+.dialog .ezd6-power-roll-dialogue .ezd6-task-btn:hover {
+  transform: scale(1.12);
+  filter: drop-shadow(0 0 6px rgba(160, 35, 35, 0.4));
 }
 
 .ezd6-icon-btn,
@@ -1249,6 +1409,15 @@
   padding-right: var(--resource-roll-pad, 0px);
   width: 100%;
   min-width: var(--resource-roll-width, 0px);
+}
+
+.ezd6-resource-roll-slot.has-replenish {
+  justify-content: center;
+  padding-right: 0;
+}
+
+.ezd6-resource-roll-slot.has-replenish .ezd6-resource-replenish-btn {
+  transform: translateX(-2px);
 }
 
 .ezd6-resource-counter {
