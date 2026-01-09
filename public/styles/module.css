@@ -997,6 +997,8 @@
 
 .ezd6-ability-tag,
 .ezd6-equipment-tag,
+.ezd6-resource-tag,
+.ezd6-save-tag,
 .ezd6-equipment-qty-badge {
   font-weight: 700;
   font-size: 12px;
@@ -1369,6 +1371,29 @@
   align-items: center;
   gap: 3px;
   flex-wrap: nowrap;
+  position: relative;
+}
+
+.ezd6-resource-counter::after {
+  content: attr(data-resource-name);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 1), 0 0 5px rgba(0, 0, 0, 1), 0 0 10px rgba(0, 0, 0, 1), 0 0 16px rgba(0, 0, 0, 0.98), 0 0 24px rgba(0, 0, 0, 0.95), 0 0 32px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  transition: opacity 0.2s ease;
+}
+
+.ezd6-resource-counter:hover::after {
+  opacity: 1;
 }
 
 .ezd6-resource-icon {
@@ -1392,6 +1417,7 @@
   align-items: center;
   justify-content: stretch;
   padding: 0 var(--resource-row-pad-right, 8px) 0 8px;
+  overflow: visible;
 }
 
 .ezd6-resource-row .ezd6-qty-btn {
@@ -1417,6 +1443,14 @@
 }
 
 .ezd6-resource-roll-slot.has-replenish .ezd6-resource-replenish-btn {
+  transform: translateX(-2px);
+}
+
+.ezd6-resource-roll-slot.has-replenish .ezd6-resource-replenish-btn:hover {
+  transform: translateX(-2px) scale(1.08);
+}
+
+.ezd6-resource-roll-slot.has-replenish .ezd6-resource-replenish-btn:disabled:hover {
   transform: translateX(-2px);
 }
 

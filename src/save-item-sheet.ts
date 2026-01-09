@@ -1,6 +1,9 @@
 // src/save-item-sheet.ts
 import { clampDimension } from "./ui/sheet-utils";
 
+const DEFAULT_SAVE_ICON = "icons/svg/shield.svg";
+const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
+
 export class EZD6SaveItemSheet extends ItemSheet {
     static get defaultOptions() {
         return foundry.utils.mergeObject(super.defaultOptions, {
@@ -40,6 +43,7 @@ export class EZD6SaveItemSheet extends ItemSheet {
         super.activateListeners(html);
         const root = html[0] ?? html;
         void this.ensureDefaultName();
+        void this.ensureDefaultIcon();
         this.refreshDicePicker(root);
         this.refreshTargetPicker(root);
 
@@ -182,6 +186,13 @@ export class EZD6SaveItemSheet extends ItemSheet {
         const current = this.item?.name ?? "";
         if (!current || current === "New Item" || current === "New Save") {
             await this.item.update({ name: "Save" });
+        }
+    }
+
+    private async ensureDefaultIcon() {
+        const current = this.item?.img ?? "";
+        if (!current || current === LEGACY_DEFAULT_ICON) {
+            await this.item.update({ img: DEFAULT_SAVE_ICON });
         }
     }
 }

@@ -1,6 +1,9 @@
 // src/ability-item-sheet.ts
 import { clampDimension, getTagOptionMap, getTagOptions, normalizeTag } from "./ui/sheet-utils";
 
+const DEFAULT_ABILITY_ICON = "icons/svg/explosion.svg";
+const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
+
 export class EZD6AbilityItemSheet extends ItemSheet {
     static get defaultOptions() {
         return foundry.utils.mergeObject(super.defaultOptions, {
@@ -46,6 +49,7 @@ export class EZD6AbilityItemSheet extends ItemSheet {
         super.activateListeners(html);
         const root = html[0] ?? html;
         void this.ensureDefaultName();
+        void this.ensureDefaultIcon();
         this.refreshDicePicker(root);
 
         const picker = root?.querySelector?.(".ezd6-ability-dice-picker") as HTMLElement | null;
@@ -79,6 +83,13 @@ export class EZD6AbilityItemSheet extends ItemSheet {
         const current = this.item?.name ?? "";
         if (!current || current === "New Item" || current === "New Ability") {
             await this.item.update({ name: "Ability" });
+        }
+    }
+
+    private async ensureDefaultIcon() {
+        const current = this.item?.img ?? "";
+        if (!current || current === LEGACY_DEFAULT_ICON) {
+            await this.item.update({ img: DEFAULT_ABILITY_ICON });
         }
     }
 

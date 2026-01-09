@@ -1,5 +1,5 @@
 import { getDieImagePath, resolveKeywordRule } from "./ezd6-core";
-import { Character, Resource, Save, DEFAULT_RESOURCE_ICON, isLockedResource } from "./character";
+import { Character, Resource, Save, DEFAULT_AVATAR, DEFAULT_RESOURCE_ICON, isLockedResource } from "./character";
 import {
     buildDetailContent,
     buildStandardRollKinds,
@@ -9,6 +9,8 @@ import {
     normalizeTag,
     wireExpandableRow,
 } from "./ui/sheet-utils";
+
+const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
 
 const TASK_ROLLS = [
     {
@@ -95,7 +97,7 @@ export class CharacterSheetView {
         const { block, section } = this.buildSectionBlock("Avatar", "ezd6-section--avatar");
         const avatarWrapper = createElement("div", "ezd6-avatar");
         const avatar = createElement("img", "ezd6-avatar__img") as HTMLImageElement;
-        const placeholder = "systems/ezd6-new/assets/avatars/placeholder.png";
+        const placeholder = DEFAULT_AVATAR;
         avatar.alt = "Avatar";
         avatar.src = this.character.avatarUrl ?? placeholder;
         if (this.character.avatarUrl) {
@@ -254,7 +256,10 @@ export class CharacterSheetView {
 
         const iconWrap = createElement("span", "ezd6-ability-icon");
         const icon = createElement("img", "ezd6-ability-icon__img") as HTMLImageElement;
-        icon.src = item?.img || "icons/svg/item-bag.svg";
+        const abilityIcon = item?.img && item.img !== LEGACY_DEFAULT_ICON
+            ? item.img
+            : "icons/svg/explosion.svg";
+        icon.src = abilityIcon;
         icon.alt = item?.name ?? "Ability icon";
         icon.draggable = false;
         iconWrap.appendChild(icon);
@@ -664,7 +669,7 @@ export class CharacterSheetView {
     }
 
     private buildResourceDetailContent(resource: Resource, wrapper: HTMLElement): HTMLElement {
-        const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
+        const tag = this.getResourceTag(resource);
         const messageBtn = createElement("button", "ezd6-resource-msg-btn") as HTMLButtonElement;
         messageBtn.type = "button";
         messageBtn.title = "Post resource to chat";
@@ -699,10 +704,11 @@ export class CharacterSheetView {
             }
         }
 
+        const tagSpan = createElement("span", "ezd6-resource-tag", tag);
         return buildDetailContent({
             prefix: "ezd6-resource",
-            title,
             description: resource.description ?? "",
+            metaItems: [tagSpan],
             messageButton: messageBtn,
             actionButtons,
             actionsSingleClass: "is-single",
@@ -710,7 +716,8 @@ export class CharacterSheetView {
     }
 
     private buildSaveDetailContent(save: Save, wrapper: HTMLElement): HTMLElement {
-        const title = typeof save.title === "string" ? save.title.trim() || "Save" : "Save";
+        const targetValue = this.getSaveTargetValue(save);
+        const tag = `#target${targetValue}`;
         const messageBtn = createElement("button", "ezd6-save-msg-btn") as HTMLButtonElement;
         messageBtn.type = "button";
         messageBtn.title = "Post save to chat";
@@ -744,10 +751,11 @@ export class CharacterSheetView {
             actionButtons.push(editBtn, deleteBtn);
         }
 
+        const tagSpan = createElement("span", "ezd6-save-tag", tag);
         return buildDetailContent({
             prefix: "ezd6-save",
-            title,
             description: save.description ?? "",
+            metaItems: [tagSpan],
             messageButton: messageBtn,
             actionButtons,
         });
@@ -885,7 +893,11 @@ export class CharacterSheetView {
 
     private getResourceIcon(resource: Resource): string {
         const candidates = [resource.icon, resource.iconAvailable, resource.iconSpent];
-        const match = candidates.find((entry) => typeof entry === "string" && entry.trim() !== "");
+        const match = candidates.find((entry) => {
+            if (typeof entry !== "string") return false;
+            const trimmed = entry.trim();
+            return trimmed !== "" && trimmed !== LEGACY_DEFAULT_ICON;
+        });
         return match ?? DEFAULT_RESOURCE_ICON;
     }
 
@@ -964,6 +976,7 @@ export class CharacterSheetView {
     private renderResourceCounter(counter: HTMLElement, resource: Resource, maxIcons: number = 6) {
         counter.innerHTML = "";
         const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
+        counter.dataset.resourceName = title;
         const iconPath = this.getResourceIcon(resource);
         const currentValue = this.getResourceValue(resource);
         const maxValue = this.getResourceMaxValue(resource);
@@ -1108,7 +1121,8 @@ export class CharacterSheetView {
 
     private getSaveIcon(save: Save): string {
         const icon = typeof save.icon === "string" ? save.icon.trim() : "";
-        return icon || "icons/svg/shield.svg";
+        if (!icon || icon === LEGACY_DEFAULT_ICON) return "icons/svg/shield.svg";
+        return icon;
     }
 
     private clampInt(value: number, min: number, max?: number): number {
@@ -1810,11 +1824,7 @@ export class CharacterSheetView {
     private updateResourceRowUI(wrapper: HTMLElement, resource: Resource) {
         const row = wrapper.querySelector(".ezd6-resource-row") as HTMLElement | null;
         const counter = row?.querySelector(".ezd6-resource-counter") as HTMLElement | null;
-        const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
         const value = this.getResourceValue(resource);
-
-        const detailTitle = wrapper.querySelector(".ezd6-resource-detail__title") as HTMLElement | null;
-        if (detailTitle) detailTitle.textContent = title;
 
         if (counter) {
             const stored = Number(counter.dataset.maxIcons || "0");
@@ -1929,9 +1939,6 @@ export class CharacterSheetView {
                 });
             }
         }
-
-        const detailTitle = wrapper.querySelector(".ezd6-save-detail__title") as HTMLElement | null;
-        if (detailTitle) detailTitle.textContent = title;
 
         const detail = wrapper.querySelector(".ezd6-save-detail") as HTMLElement | null;
         if (detail) {

@@ -1,6 +1,9 @@
 // src/resource-item-sheet.ts
 import { clampDimension, getTagOptionMap, getTagOptions, normalizeTag } from "./ui/sheet-utils";
 
+const DEFAULT_RESOURCE_ICON = "icons/svg/d20-black.svg";
+const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
+
 export class EZD6ResourceItemSheet extends ItemSheet {
     static get defaultOptions() {
         return foundry.utils.mergeObject(super.defaultOptions, {
@@ -40,6 +43,7 @@ export class EZD6ResourceItemSheet extends ItemSheet {
         super.activateListeners(html);
         const root = html[0] ?? html;
         void this.ensureDefaultName();
+        void this.ensureDefaultIcon();
         this.refreshPicker(root, "value");
         this.refreshPicker(root, "maxValue");
         this.refreshDicePicker(root);
@@ -201,6 +205,13 @@ export class EZD6ResourceItemSheet extends ItemSheet {
     private getReplenishCost(): number {
         const raw = Number((this.item as any)?.system?.replenishCost ?? 1);
         return this.clampReplenishCost(Number.isFinite(raw) ? raw : 1);
+    }
+
+    private async ensureDefaultIcon() {
+        const current = this.item?.img ?? "";
+        if (!current || current === LEGACY_DEFAULT_ICON) {
+            await this.item.update({ img: DEFAULT_RESOURCE_ICON });
+        }
     }
 
     private clampReplenishCost(value: number): number {

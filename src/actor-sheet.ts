@@ -1,5 +1,5 @@
 // src/actor-sheet.ts
-import { Character } from "./character";
+import { Character, DEFAULT_AVATAR, LEGACY_AVATAR_PLACEHOLDER } from "./character";
 import { CharacterSheetView } from "./character-sheet-view";
 import { clampDimension, getTagOptions, normalizeTag } from "./ui/sheet-utils";
 import { DescriptionEditorController } from "./sheet/description-editor";
@@ -113,7 +113,10 @@ export class EZD6CharacterSheet extends ActorSheet {
         const system = (this.actor as any)?.system ?? {};
 
         const actorAny = this.actor as any;
-        this.character.avatarUrl = system.avatarUrl ?? actorAny?.img ?? null;
+        const rawAvatar = system.avatarUrl ?? actorAny?.img ?? null;
+        this.character.avatarUrl = rawAvatar && rawAvatar !== LEGACY_AVATAR_PLACEHOLDER && rawAvatar !== DEFAULT_AVATAR
+            ? rawAvatar
+            : null;
         this.character.name = actorAny?.name ?? "";
         this.character.description = system.description ?? "";
         this.character.abilities = Array.isArray(system.abilities) ? system.abilities : [];

@@ -41,7 +41,9 @@ export interface Save {
 }
 
 const DEFAULT_ABILITY_CATEGORIES = ["Inclinations", "Aspects", "Equipment"] as const;
-export const DEFAULT_RESOURCE_ICON = "icons/svg/item-bag.svg";
+export const DEFAULT_RESOURCE_ICON = "icons/svg/d20-black.svg";
+export const DEFAULT_AVATAR = "systems/ezd6-new/assets/avatars/ezd6-avatar.png";
+export const LEGACY_AVATAR_PLACEHOLDER = "systems/ezd6-new/assets/avatars/placeholder.png";
 const STRIKES_RESOURCE_ID = "res-strikes";
 const STRIKES_RESOURCE_TITLE = "Strikes";
 const STRIKES_RESOURCE_ICON = "systems/ezd6-new/assets/icons/strike.png";
@@ -264,6 +266,7 @@ export class Character {
                 id: STRIKES_RESOURCE_ID,
                 title: STRIKES_RESOURCE_TITLE,
                 icon: STRIKES_RESOURCE_ICON,
+                rollKeyword: "health",
                 value: 3,
                 defaultValue: 3,
                 maxValue: 3,
