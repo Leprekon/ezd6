@@ -1,4 +1,4 @@
-<form class="ezd6-item-sheet ezd6-item-sheet--ability" autocomplete="off">
+<form class="ezd6-item-sheet {{sheetClass}}" autocomplete="off">
   <header class="ezd6-item-header">
     <div class="ezd6-item-icon-field">
       <span class="ezd6-label">Icon</span>
@@ -7,7 +7,7 @@
     <div class="ezd6-item-title-group">
       <label class="ezd6-item-field">
         <span class="ezd6-label">Title</span>
-        <input class="ezd6-item-title" type="text" name="name" value="{{item.name}}" placeholder="Ability title">
+        <input class="ezd6-item-title" type="text" name="name" value="{{item.name}}" placeholder="{{itemTitlePlaceholder}}">
       </label>
       <label class="ezd6-item-field">
         <span class="ezd6-label">Tag</span>
@@ -21,7 +21,7 @@
   <section class="ezd6-item-body">
     <label class="ezd6-item-field">
       <span class="ezd6-label">Description</span>
-      <textarea class="ezd6-textarea" name="system.description" placeholder="Describe the ability">{{item.system.description}}</textarea>
+      <textarea class="ezd6-textarea" name="system.description" placeholder="{{itemDescriptionPlaceholder}}">{{item.system.description}}</textarea>
     </label>
     <label class="ezd6-item-field">
       <span class="ezd6-label">Category</span>

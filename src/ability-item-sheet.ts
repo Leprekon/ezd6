@@ -1,131 +1,20 @@
 // src/ability-item-sheet.ts
-import { clampDimension, getTagOptionMap, getTagOptions, normalizeTag } from "./ui/sheet-utils";
+import { buildAbilityLikeSheetOptions, EZD6AbilityLikeItemSheet } from "./ability-like-item-sheet";
 
-const DEFAULT_ABILITY_ICON = "icons/svg/explosion.svg";
-const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
-
-export class EZD6AbilityItemSheet extends ItemSheet {
+export class EZD6AbilityItemSheet extends EZD6AbilityLikeItemSheet {
     static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            classes: ["ezd6-item-sheet", "ezd6-item-sheet--ability"],
-            width: 460,
-            height: 520,
-            minWidth: 480,
-            maxWidth: 660,
-            minHeight: 420,
-            maxHeight: 760,
-            resizable: true,
-            submitOnChange: true,
-            submitOnClose: true,
-        });
+        return buildAbilityLikeSheetOptions(super.defaultOptions, "ezd6-item-sheet--ability");
     }
 
-    get template() {
-        return "systems/ezd6-new/templates/ability-item-sheet.hbs";
+    protected getItemLabel(): string {
+        return "Ability";
     }
 
-    setPosition(position: any = {}) {
-        const minWidth = this.options.minWidth as number | undefined;
-        const maxWidth = this.options.maxWidth as number | undefined;
-        const minHeight = this.options.minHeight as number | undefined;
-        const maxHeight = this.options.maxHeight as number | undefined;
-        const width = Number.isFinite(position.width) ? position.width : this.position?.width;
-        const height = Number.isFinite(position.height) ? position.height : this.position?.height;
-
-        return super.setPosition({
-            ...position,
-            width: Number.isFinite(width) ? clampDimension(width, minWidth, maxWidth) : width,
-            height: Number.isFinite(height) ? clampDimension(height, minHeight, maxHeight) : height,
-        });
+    protected getSheetClass(): string {
+        return "ezd6-item-sheet--ability";
     }
 
-    getData(options?: any) {
-        const data = super.getData(options) as any;
-        data.tagOptions = getTagOptionMap();
-        return data;
-    }
-
-    activateListeners(html: any) {
-        super.activateListeners(html);
-        const root = html[0] ?? html;
-        void this.ensureDefaultName();
-        void this.ensureDefaultIcon();
-        this.refreshDicePicker(root);
-
-        const picker = root?.querySelector?.(".ezd6-ability-dice-picker") as HTMLElement | null;
-        if (!picker) return;
-        picker.addEventListener("click", async (event: Event) => {
-            const target = event.target as HTMLElement | null;
-            const btn = target?.closest?.(".ezd6-ability-dice-btn") as HTMLElement | null;
-            if (!btn) return;
-            event.preventDefault();
-
-            const delta = Number(btn.dataset.delta) || 0;
-            const current = Number((this.item as any)?.system?.numberOfDice ?? 0) || 0;
-            const next = Math.min(5, Math.max(0, current + delta));
-            if (next === current) return;
-
-            const formData = this._getSubmitData?.() ?? {};
-            formData["system.numberOfDice"] = next;
-            await this.item.update(formData, { render: false });
-            this.refreshDicePicker(root, next);
-        });
-    }
-
-    protected async _updateObject(_event: Event, formData: Record<string, any>) {
-        if ("system.tag" in formData) {
-            formData["system.tag"] = normalizeTag(formData["system.tag"], getTagOptions());
-        }
-        await this.item.update(formData, { render: false });
-    }
-
-    private async ensureDefaultName() {
-        const current = this.item?.name ?? "";
-        if (!current || current === "New Item" || current === "New Ability") {
-            await this.item.update({ name: "Ability" });
-        }
-    }
-
-    private async ensureDefaultIcon() {
-        const current = this.item?.img ?? "";
-        if (!current || current === LEGACY_DEFAULT_ICON) {
-            await this.item.update({ img: DEFAULT_ABILITY_ICON });
-        }
-    }
-
-    private refreshDicePicker(root: HTMLElement, count?: number) {
-        const picker = root?.querySelector?.(".ezd6-ability-dice-picker") as HTMLElement | null;
-        if (!picker) return;
-        const value = typeof count === "number"
-            ? count
-            : Number((this.item as any)?.system?.numberOfDice ?? picker.dataset.count ?? 0) || 0;
-        picker.dataset.count = String(value);
-
-        const stack = picker.querySelector(".ezd6-ability-dice-stack") as HTMLElement | null;
-        if (stack) {
-            stack.innerHTML = "";
-            if (value <= 0) {
-                const dash = document.createElement("span");
-                dash.className = "ezd6-ability-dice-empty";
-                dash.textContent = "-";
-                stack.appendChild(dash);
-            } else {
-                for (let i = 0; i < value; i++) {
-                    const img = document.createElement("img");
-                    img.className = "ezd6-ability-dice-icon";
-                    img.src = "systems/ezd6-new/assets/dice/grey/d6-6.png";
-                    img.alt = "d6";
-                    stack.appendChild(img);
-                }
-            }
-        }
-
-        const input = root?.querySelector?.("input[name='system.numberOfDice']") as HTMLInputElement | null;
-        if (input) input.value = String(value);
-
-        const decBtn = picker.querySelector(".ezd6-ability-dice-btn[data-delta='-1']") as HTMLButtonElement | null;
-        const incBtn = picker.querySelector(".ezd6-ability-dice-btn[data-delta='1']") as HTMLButtonElement | null;
-        if (decBtn) decBtn.disabled = value <= 0;
-        if (incBtn) incBtn.disabled = value >= 5;
+    protected getDefaultIcon(): string {
+        return "icons/magic/symbols/cog-orange-red.webp";
     }
 }

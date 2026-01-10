@@ -155,7 +155,7 @@ export class Character {
             description: partial.description ?? "",
             icon: partial.icon,
             targetValue: partial.targetValue ?? 6,
-            numberOfDice: partial.numberOfDice ?? 3,
+            numberOfDice: partial.numberOfDice ?? 1,
         };
         this.saves.push(save);
         return save;

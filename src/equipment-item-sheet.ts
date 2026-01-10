@@ -1,6 +1,9 @@
 // src/equipment-item-sheet.ts
 import { clampDimension, getTagOptionMap, getTagOptions, normalizeTag } from "./ui/sheet-utils";
 
+const DEFAULT_EQUIPMENT_ICON = "icons/containers/bags/coinpouch-simple-leather-tan.webp";
+const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
+
 const coerceQuantity = (value: unknown) => {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return 0;
@@ -52,6 +55,7 @@ export class EZD6EquipmentItemSheet extends ItemSheet {
         super.activateListeners(html);
         const root = html[0] ?? html;
         void this.ensureDefaultName();
+        void this.ensureDefaultIcon();
 
         const system = (this.item as any)?.system ?? {};
         if (system.quantity == null && system.defaultQuantity != null) {
@@ -161,6 +165,13 @@ export class EZD6EquipmentItemSheet extends ItemSheet {
         const current = this.item?.name ?? "";
         if (!current || current === "New Item" || current === "New Equipment") {
             await this.item.update({ name: "Equipment" });
+        }
+    }
+
+    private async ensureDefaultIcon() {
+        const current = this.item?.img ?? "";
+        if (!current || current === LEGACY_DEFAULT_ICON) {
+            await this.item.update({ img: DEFAULT_EQUIPMENT_ICON });
         }
     }
 

@@ -16,10 +16,16 @@
     }
   },
   "Item": {
-    "types": ["ability", "resource", "save", "equipment"],
+    "types": ["ability", "aspect", "resource", "save", "equipment"],
     "templates": {
       "base": {},
       "ability": {
+        "description": "",
+        "numberOfDice": 0,
+        "tag": "#task",
+        "category": ""
+      },
+      "aspect": {
         "description": "",
         "numberOfDice": 0,
         "tag": "#task",
@@ -37,7 +43,7 @@
       },
       "save": {
         "targetValue": 6,
-        "numberOfDice": 3
+        "numberOfDice": 1
       },
       "equipment": {
         "description": "",
@@ -51,6 +57,10 @@
     "ability": {
       "label": "Ability",
       "templates": ["base", "ability"]
+    },
+    "aspect": {
+      "label": "Aspect",
+      "templates": ["base", "aspect"]
     },
     "equipment": {
       "label": "Equipment",

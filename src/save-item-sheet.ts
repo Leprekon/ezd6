@@ -1,7 +1,7 @@
 // src/save-item-sheet.ts
 import { clampDimension } from "./ui/sheet-utils";
 
-const DEFAULT_SAVE_ICON = "icons/svg/shield.svg";
+const DEFAULT_SAVE_ICON = "icons/equipment/shield/heater-steel-worn.webp";
 const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
 
 export class EZD6SaveItemSheet extends ItemSheet {

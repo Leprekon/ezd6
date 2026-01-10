@@ -206,13 +206,13 @@ export class EZD6CharacterSheet extends ActorSheet {
                         if (!this.character) this.character = new Character();
                         const system = (item as any)?.system ?? {};
                         const targetValue = Number(system.targetValue ?? 6);
-                        const numberOfDice = Number(system.numberOfDice ?? 3);
+                        const numberOfDice = Number(system.numberOfDice ?? 1);
                         const description = typeof system.description === "string" ? system.description : "";
                         this.character.addSave({
                             title: item.name ?? "Save",
                             icon: item.img ?? undefined,
                             targetValue: Number.isFinite(targetValue) ? Math.max(2, Math.floor(targetValue)) : 6,
-                            numberOfDice: Number.isFinite(numberOfDice) ? Math.max(1, Math.floor(numberOfDice)) : 3,
+                            numberOfDice: Number.isFinite(numberOfDice) ? Math.max(1, Math.floor(numberOfDice)) : 1,
                             description,
                         });
                         await this.actor?.update?.({ "system.saves": this.character.saves });
@@ -247,12 +247,14 @@ export class EZD6CharacterSheet extends ActorSheet {
         this.itemUpdateHookId = Hooks.on("updateItem", (item: any) => {
             if (!actorId || item?.parent?.id !== actorId) return;
             const type = item?.type;
-            if (type !== "ability" && type !== "equipment") return;
+            if (type !== "ability" && type !== "aspect" && type !== "equipment") return;
             this.syncFromActor();
             const root = this.getSheetRoot();
             if (!root) return;
             if (type === "ability") {
                 this.view?.refreshAbilityList(root);
+            } else if (type === "aspect") {
+                this.view?.refreshAspectList(root);
             } else {
                 this.view?.refreshEquipmentList(root);
             }

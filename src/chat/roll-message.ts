@@ -7,9 +7,9 @@ import {
     extractKeyword,
     getDieImagePath,
     resolveKeywordRule,
-} from "./ezd6-core";
-import { Character, DEFAULT_RESOURCE_ICON } from "./character";
-import { getTagOptions, normalizeTag } from "./ui/sheet-utils";
+} from "../ezd6-core";
+import { Character, DEFAULT_RESOURCE_ICON } from "../character";
+import { getTagOptions, normalizeTag } from "../ui/sheet-utils";
 import {
     SOCKET_NAMESPACE,
     applyChatHeaderEnhancements,

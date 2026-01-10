@@ -2,6 +2,7 @@
 import { registerChatMessageHooks, registerResourceChangeChatHooks } from "./chat";
 import { EZD6CharacterSheet } from "./actor-sheet";
 import { EZD6AbilityItemSheet } from "./ability-item-sheet";
+import { EZD6AspectItemSheet } from "./aspect-item-sheet";
 import { EZD6EquipmentItemSheet } from "./equipment-item-sheet";
 import { EZD6ResourceItemSheet } from "./resource-item-sheet";
 import { EZD6SaveItemSheet } from "./save-item-sheet";
@@ -34,6 +35,10 @@ Hooks.once("init", () => {
     });
     Items.registerSheet("ezd6-new", EZD6AbilityItemSheet, {
         types: ["ability"],
+        makeDefault: true,
+    });
+    Items.registerSheet("ezd6-new", EZD6AspectItemSheet, {
+        types: ["aspect"],
         makeDefault: true,
     });
     Items.registerSheet("ezd6-new", EZD6EquipmentItemSheet, {

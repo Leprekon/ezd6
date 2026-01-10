@@ -825,6 +825,7 @@
 }
 
 .ezd6-ability-list,
+.ezd6-aspect-list,
 .ezd6-equipment-list,
 .ezd6-resource-list,
 .ezd6-save-list {
@@ -833,6 +834,7 @@
 }
 
 .ezd6-ability-list,
+.ezd6-aspect-list,
 .ezd6-equipment-list {
   gap: 4px;
 }
