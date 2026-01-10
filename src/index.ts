@@ -1,5 +1,5 @@
 // src/index.ts
-import { registerChatMessageHooks } from "./chat-message";
+import { registerChatMessageHooks, registerResourceChangeChatHooks } from "./chat";
 import { EZD6CharacterSheet } from "./actor-sheet";
 import { EZD6AbilityItemSheet } from "./ability-item-sheet";
 import { EZD6EquipmentItemSheet } from "./equipment-item-sheet";
@@ -10,6 +10,7 @@ export { Character, Ability, Resource, Save, DiceChangeBehavior } from "./charac
 export { CharacterSheetView } from "./character-sheet-view";
 
 registerChatMessageHooks();
+registerResourceChangeChatHooks();
 
 Hooks.on("preCreateActor", (document: any, data: any) => {
     if (document?.type !== "character") return;

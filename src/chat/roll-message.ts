@@ -1,4 +1,4 @@
-// src/chat-message.ts
+// src/chat/roll-message.ts
 import {
     EZD6,
     ParsedRoll,
@@ -10,8 +10,16 @@ import {
 } from "./ezd6-core";
 import { Character, DEFAULT_RESOURCE_ICON } from "./character";
 import { getTagOptions, normalizeTag } from "./ui/sheet-utils";
+import {
+    SOCKET_NAMESPACE,
+    applyChatHeaderEnhancements,
+    canCurrentUserModifyMessage,
+    getChatMessageActor,
+    resolveChatMessage,
+    safeUpdateChatMessage,
+    stripChatMessageFlavor,
+} from "./chat-message-helpers";
 
-const SOCKET_NAMESPACE = "system.ezd6-new";
 const processedMessages = new Set<string>();
 const actorUpdateHooks = new Map<string, { actor: number; item: number }>();
 const KARMA_TAG = "#karma";
@@ -32,15 +40,6 @@ function releaseProcessedMessage(msgId: string) {
     processedMessages.delete(msgId);
 }
 
-function resolveChatMessage(msg: any): any | null {
-    if (!msg) return null;
-    if (typeof msg.update === "function" && msg.id) return msg;
-
-    const resolved = game.messages?.get?.(msg.id ?? msg._id ?? msg._source?._id ?? msg._source?.id);
-    if (resolved && typeof resolved.update === "function") return resolved;
-
-    return null;
-}
 
 type ResourceCandidate =
     | { source: "system"; data: any; index: number }
@@ -93,20 +92,6 @@ function getCandidateTag(candidate: ResourceCandidate): string {
     return normalizeResourceTag(candidate.data?.rollKeyword ?? candidate.data?.tag ?? "");
 }
 
-function getChatMessageActor(msg: any): any | null {
-    const speaker = msg?.speaker ?? msg?.data?.speaker;
-    const actorId = speaker?.actor;
-    if (actorId && game.actors?.get) {
-        const actor = game.actors.get(actorId);
-        if (actor) return actor;
-    }
-
-    const tokenId = speaker?.token;
-    const sceneId = speaker?.scene ?? canvas?.scene?.id;
-    const scene = sceneId && game.scenes?.get ? game.scenes.get(sceneId) : null;
-    const token = tokenId ? scene?.tokens?.get(tokenId) : null;
-    return token?.actor ?? null;
-}
 
 function getActorResourceCandidates(actor: any): ResourceCandidate[] {
     const system = actor?.system ?? actor?.data?.system ?? {};
@@ -200,59 +185,6 @@ interface EZD6State {
     initialAllCrit: boolean;
 }
 
-function safeUpdateChatMessage(msg: any, data: any) {
-    return (async () => {
-        try {
-            const target = resolveChatMessage(msg);
-            if (!target) return;
-
-            if (target?.isOwner || target?.isAuthor || game.user?.isGM) {
-                await target.update(data);
-                return;
-            }
-
-            const gmOnline = (game.users ?? []).some((u: any) => u.isGM && u.active);
-            if (!gmOnline) {
-                ui?.notifications?.warn("EZD6: Unable to update the roll because no GM is currently online.");
-                console.warn("EZD6: Unable to update the roll because no GM is currently online.", { msgId: msg?.id });
-                return;
-            }
-
-            game.socket?.emit(SOCKET_NAMESPACE, {
-                action: "updateMessage",
-                msgId: target.id,
-                data,
-            });
-        } catch (err) {
-            console.error("EZD6 safeUpdateChatMessage failed", err);
-        }
-    })();
-}
-
-function canCurrentUserModifyMessage(msg: any): boolean {
-    try {
-        if (!msg || !game.user) return false;
-
-        let allowed: boolean | null = null;
-
-        if (typeof msg.canUserModify === "function") {
-            allowed = !!msg.canUserModify(game.user, "update");
-        }
-
-        if (allowed === null && typeof msg.testUserPermission === "function") {
-            allowed = !!msg.testUserPermission(game.user, "update");
-        }
-
-        if (allowed === null) {
-            allowed = !!(msg.isOwner || msg.isAuthor || game.user.isGM);
-        }
-
-        return allowed;
-    } catch (err) {
-        console.error("EZD6 canCurrentUserModifyMessage failed", err);
-        return false;
-    }
-}
 
 function findChatMessageElement(msgId: string): HTMLElement | null {
     return document.querySelector(`[data-message-id="${msgId}"]`) as HTMLElement | null;
@@ -543,9 +475,29 @@ function buildController(msg: any) {
         return `<div class=\"ezd6-buttons\">${buttons.join("")}</div>`;
     }
 
+    function renderRollMeta(): string {
+        const escape = (foundry as any)?.utils?.escapeHTML ?? ((value: string) => value);
+        const rawFlavor = msg?.flavor ?? msg?.data?.flavor ?? "";
+        const flavor = typeof rawFlavor === "string" ? rawFlavor.trim() : "";
+        const safeKeyword = keyword && String(keyword).trim() ? String(keyword).trim() : "default";
+        const keywordTag = `#${safeKeyword}`;
+        const cleaned = flavor
+            ? flavor.replace(new RegExp(`#${safeKeyword}\\b`, "ig"), "").replace(/\s+/g, " ").trim()
+            : "";
+        const description = cleaned || flavor || "Roll";
+        return `<div class="ezd6-chat-subhead">` +
+            `<div class="ezd6-chat-subhead__left">` +
+            `<div class="ezd6-roll-desc">${escape(description)}</div>` +
+            `</div>` +
+            `<div class="ezd6-chat-subhead__right">` +
+            `<div class="ezd6-chat-tag">${escape(keywordTag)}</div>` +
+            `</div>` +
+            `</div>`;
+    }
+
     function renderContainerHtml(canModify: boolean): string {
         const buttons = canModify ? renderButtons() : "";
-        return `<div class=\"ezd6-container\">${renderOriginalRow()}${renderCrits()}${buttons}</div>`;
+        return `<div class=\"ezd6-container\">${renderRollMeta()}${renderOriginalRow()}${renderCrits()}${buttons}</div>`;
     }
 
     function stripButtonsForViewOnly(root: HTMLElement | null) {
@@ -823,6 +775,14 @@ export function registerChatMessageHooks() {
 
             await controller.persistAndRender({ canModify, forceDomOnly });
             scrollChatToBottomSoon();
+            const root = findChatMessageElement(resolved.id);
+            applyChatHeaderEnhancements(root, {
+                actor: getChatMessageActor(resolved),
+                speaker: resolved?.speaker ?? resolved?.data?.speaker,
+                userName: resolved?.author?.name ?? null,
+                moveMeta: true,
+            });
+            stripChatMessageFlavor(root);
 
             function bindHandlersIfReady(): boolean {
                 const root = findChatMessageElement(resolved.id);
@@ -862,6 +822,13 @@ export function registerChatMessageHooks() {
             const root = (html as any)[0] ?? html;
             controller.persistAndRender({ forceDomOnly: true, canModify, targetRoot: root });
             controller.bindHandlers(root, canModify);
+            applyChatHeaderEnhancements(root as HTMLElement, {
+                actor: getChatMessageActor(msg),
+                speaker: msg?.speaker ?? msg?.data?.speaker,
+                userName: msg?.author?.name ?? null,
+                moveMeta: true,
+            });
+            stripChatMessageFlavor(root as HTMLElement);
         } catch (err) {
             console.error('EZD6 renderChatMessage failed:', err);
         }
