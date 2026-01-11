@@ -94,6 +94,7 @@ export const createRollButton = (options: {
     const btn = createElement("button", options.className) as HTMLButtonElement;
     btn.type = "button";
     btn.title = options.title;
+    btn.dataset.ezd6IntentDisabled = "0";
     btn.append(createDiceStack(options.kinds));
     btn.addEventListener("click", (event) => options.onClick(event));
     return btn;

@@ -26,7 +26,7 @@ export function getChatMessageActor(msg: any): any | null {
     const token = tokenId ? scene?.tokens?.get(tokenId) : null;
     if (token?.actor) return token.actor;
 
-    const userId = msg?.user?.id ?? msg?.data?.user ?? speaker?.user;
+    const userId = msg?.author?.id ?? msg?.data?.author ?? msg?.data?.user ?? speaker?.user;
     const user = userId && game.users?.get ? game.users.get(userId) : msg?.user ?? null;
     return user?.character ?? null;
 }

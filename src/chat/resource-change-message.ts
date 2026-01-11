@@ -177,12 +177,14 @@ export function registerResourceChangeChatHooks() {
         requestAnimationFrame(() => applyResourceChangeCounters(root as HTMLElement));
     });
 
-    Hooks.on("updateActor", (actor: any, diff: any) => {
+    Hooks.on("updateActor", (actor: any, diff: any, _options: any, userId: string) => {
+        if (userId !== game.user?.id) return;
         if (!diff?.system?.resources) return;
         handleSystemResourceChange(actor);
     });
 
-    Hooks.on("updateItem", (item: any, diff: any) => {
+    Hooks.on("updateItem", (item: any, diff: any, _options: any, userId: string) => {
+        if (userId !== game.user?.id) return;
         if (item?.type !== "resource") return;
         if (!diff?.system || !Object.prototype.hasOwnProperty.call(diff.system, "value")) return;
         handleItemResourceChange(item);

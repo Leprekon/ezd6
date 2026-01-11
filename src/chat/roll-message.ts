@@ -9,6 +9,7 @@ import {
     resolveKeywordRule,
 } from "../ezd6-core";
 import { Character, DEFAULT_RESOURCE_ICON } from "../character";
+import { renderResourceCounter } from "../ui/resource-counter";
 import { getTagOptions, normalizeTag } from "../ui/sheet-utils";
 import {
     SOCKET_NAMESPACE,
@@ -19,6 +20,7 @@ import {
     safeUpdateChatMessage,
     stripChatMessageFlavor,
 } from "./chat-message-helpers";
+import { EZD6_META_FLAG, EzD6ChatMeta, isEzD6ChatMeta } from "./chat-meta";
 
 const processedMessages = new Set<string>();
 const actorUpdateHooks = new Map<string, { actor: number; item: number }>();
@@ -44,6 +46,8 @@ function releaseProcessedMessage(msgId: string) {
 type ResourceCandidate =
     | { source: "system"; data: any; index: number }
     | { source: "item"; item: any };
+
+type MessageMeta = EzD6ChatMeta & { showTitle: boolean };
 
 function normalizeResourceTag(raw: unknown): string {
     if (typeof raw === "number" && Number.isInteger(raw)) {
@@ -253,6 +257,118 @@ function scrollChatToBottomSoon() {
             // ignore
         }
     }, 60);
+}
+
+function readMessageMeta(msg: any, fallbackKeyword?: string): MessageMeta {
+    const raw = msg?.flags?.[EZD6_META_FLAG];
+    const hasMeta = isEzD6ChatMeta(raw);
+    const meta = hasMeta ? raw : null;
+    const rawType = meta?.type ?? null;
+    const rawTitle = typeof meta?.title === "string" ? meta.title.trim() : "";
+    const rawDescription = typeof meta?.description === "string" ? meta.description.trim() : "";
+    const rawTag = typeof meta?.tag === "string" ? meta.tag.trim() : "";
+    const rawIcon = typeof meta?.icon === "string" ? meta.icon.trim() : "";
+    const rawKind = meta?.kind ?? "generic";
+
+    const rawFlavor = msg?.flavor ?? msg?.data?.flavor ?? "";
+    const flavor = typeof rawFlavor === "string" ? rawFlavor.trim() : "";
+    const safeKeyword = fallbackKeyword && String(fallbackKeyword).trim()
+        ? String(fallbackKeyword).trim()
+        : "default";
+    const keywordTag = `#${safeKeyword.startsWith("#") ? safeKeyword.slice(1) : safeKeyword}`;
+    const cleaned = flavor
+        ? flavor.replace(new RegExp(`#${safeKeyword}\\b`, "ig"), "").replace(/\s+/g, " ").trim()
+        : "";
+    const fallbackTitle = cleaned || flavor || "Roll";
+
+    const type = rawType ?? "roll";
+    return {
+        type,
+        title: rawTitle || fallbackTitle,
+        description: rawDescription,
+        tag: rawTag || (type === "roll" ? keywordTag : ""),
+        icon: rawIcon,
+        showTitle: hasMeta,
+        kind: rawKind,
+        resourceValue: Number.isFinite(meta?.resourceValue) ? Number(meta?.resourceValue) : undefined,
+        resourceMax: Number.isFinite(meta?.resourceMax) ? Number(meta?.resourceMax) : undefined,
+        resourceIcon: typeof meta?.resourceIcon === "string" ? meta.resourceIcon : undefined,
+        saveTarget: Number.isFinite(meta?.saveTarget) ? Number(meta?.saveTarget) : undefined,
+        equipmentQty: Number.isFinite(meta?.equipmentQty) ? Number(meta?.equipmentQty) : undefined,
+    };
+}
+
+function renderMessageMeta(meta: MessageMeta): string {
+    const escape = (foundry as any)?.utils?.escapeHTML ?? ((value: string) => value);
+    const title = escape(meta.title);
+    const desc = meta.description ? `<div class="ezd6-roll-desc">${meta.description}</div>` : "";
+    const descCard = desc ? `<div class="ezd6-chat-desc-card">${desc}</div>` : "";
+    if (!meta.showTitle) {
+        const leftTag = meta.tag ? `<div class="ezd6-chat-tag">${escape(meta.tag)}</div>` : "";
+        return `<div class="ezd6-chat-subhead">` +
+            `${leftTag}` +
+            `<div class="ezd6-chat-subhead__left"></div>` +
+            `<div class="ezd6-chat-subhead__right"></div>` +
+            `</div>` +
+            `${descCard}`;
+    }
+
+    const tag = meta.tag ? `<div class="ezd6-chat-tag">${escape(meta.tag)}</div>` : "";
+    const icon = meta.icon
+        ? `<div class="ezd6-chat-icon"><img src="${escape(meta.icon)}" alt=""></div>`
+        : "";
+    return `<div class="ezd6-chat-subhead">` +
+        `${icon}` +
+        `<div class="ezd6-chat-subhead__left">` +
+        `<div class="ezd6-roll-title">${title}</div>` +
+        `</div>` +
+        `<div class="ezd6-chat-subhead__right">` +
+        `${tag}` +
+        `</div>` +
+        `</div>` +
+        `${descCard}`;
+}
+
+function getResourceIconLimit(counter: HTMLElement): number {
+    let width = counter.clientWidth;
+    if (width <= 0) return 6;
+    const style = getComputedStyle(counter);
+    const gap = Number.parseFloat(style.gap || style.columnGap || "3") || 3;
+    const iconSize = 32;
+    const unit = iconSize + gap;
+    const count = Math.floor((width + gap) / unit);
+    return Math.max(1, count);
+}
+
+function applyInfoResourceCounters(root: HTMLElement | null) {
+    if (!root) return;
+    const counters = root.querySelectorAll(".ezd6-chat-resource-counter");
+    if (!counters.length) return;
+    requestAnimationFrame(() => {
+        counters.forEach((node) => {
+            const counter = node as HTMLElement;
+            const current = Number(counter.dataset.current ?? "0");
+            const max = Number(counter.dataset.max ?? "0");
+            const icon = counter.dataset.icon ?? "";
+            const title = counter.dataset.title ?? "Resource";
+            const width = counter.clientWidth;
+            const prevWidth = Number(counter.dataset.ezd6Width ?? "-1");
+            const prevKey = counter.dataset.ezd6Key ?? "";
+            const nextKey = `${current}:${max}:${icon}:${title}`;
+            if (counter.dataset.ezd6Rendered === "1" && prevWidth === width && prevKey === nextKey) return;
+            const limit = getResourceIconLimit(counter);
+            renderResourceCounter(counter, {
+                title,
+                iconPath: icon || DEFAULT_RESOURCE_ICON,
+                currentValue: current,
+                maxValue: max,
+                maxIcons: limit,
+            });
+            counter.dataset.ezd6Rendered = "1";
+            counter.dataset.ezd6Width = String(width);
+            counter.dataset.ezd6Key = nextKey;
+        });
+    });
 }
 
 function buildInitialStateFromMessage(msg: any): EZD6State | null {
@@ -476,28 +592,13 @@ function buildController(msg: any) {
     }
 
     function renderRollMeta(): string {
-        const escape = (foundry as any)?.utils?.escapeHTML ?? ((value: string) => value);
-        const rawFlavor = msg?.flavor ?? msg?.data?.flavor ?? "";
-        const flavor = typeof rawFlavor === "string" ? rawFlavor.trim() : "";
-        const safeKeyword = keyword && String(keyword).trim() ? String(keyword).trim() : "default";
-        const keywordTag = `#${safeKeyword}`;
-        const cleaned = flavor
-            ? flavor.replace(new RegExp(`#${safeKeyword}\\b`, "ig"), "").replace(/\s+/g, " ").trim()
-            : "";
-        const description = cleaned || flavor || "Roll";
-        return `<div class="ezd6-chat-subhead">` +
-            `<div class="ezd6-chat-subhead__left">` +
-            `<div class="ezd6-roll-desc">${escape(description)}</div>` +
-            `</div>` +
-            `<div class="ezd6-chat-subhead__right">` +
-            `<div class="ezd6-chat-tag">${escape(keywordTag)}</div>` +
-            `</div>` +
-            `</div>`;
+        const meta = readMessageMeta(msg, keyword);
+        return renderMessageMeta(meta);
     }
 
     function renderContainerHtml(canModify: boolean): string {
         const buttons = canModify ? renderButtons() : "";
-        return `<div class=\"ezd6-container\">${renderRollMeta()}${renderOriginalRow()}${renderCrits()}${buttons}</div>`;
+        return `<div class=\"ezd6-container ezd6-chat--roll\">${renderRollMeta()}${renderOriginalRow()}${renderCrits()}${buttons}</div>`;
     }
 
     function stripButtonsForViewOnly(root: HTMLElement | null) {
@@ -717,6 +818,65 @@ function buildController(msg: any) {
     };
 }
 
+function buildInfoRenderer(msg: any) {
+    const meta = readMessageMeta(msg);
+    if (meta.type !== "info") return null;
+
+    function renderContainerHtml(): string {
+        let infoRow = "";
+        if (meta.kind === "resource") {
+            const current = Number.isFinite(meta.resourceValue) ? Math.max(0, Math.floor(meta.resourceValue as number)) : 0;
+            const max = Number.isFinite(meta.resourceMax) ? Math.max(0, Math.floor(meta.resourceMax as number)) : 0;
+            const icon = meta.resourceIcon || meta.icon || DEFAULT_RESOURCE_ICON;
+            infoRow = `<div class="ezd6-info-row ezd6-info-row--resource">` +
+                `<div class="ezd6-resource-counter ezd6-chat-resource-counter" data-current="${current}" data-max="${max}" data-icon="${icon}" data-title="${meta.title}"></div>` +
+                `</div>`;
+        } else if (meta.kind === "save") {
+            const target = Number.isFinite(meta.saveTarget) ? Math.max(0, Math.floor(meta.saveTarget as number)) : 0;
+            infoRow = `<div class="ezd6-info-row ezd6-info-row--save">` +
+                `<span class="ezd6-info-label">Target:</span>` +
+                `<div class="ezd6-save-target"><strong class="ezd6-save-target-number">${target}</strong></div>` +
+                `</div>`;
+        } else if (meta.kind === "equipment") {
+            const qty = Number.isFinite(meta.equipmentQty) ? Math.max(0, Math.floor(meta.equipmentQty as number)) : 0;
+            infoRow = `<div class="ezd6-info-row ezd6-info-row--equip">` +
+                `<span class="ezd6-info-label">Quantity:</span>` +
+                `<span class="ezd6-info-value">${qty}</span>` +
+                `</div>`;
+        }
+        return `<div class="ezd6-container ezd6-chat--info">${renderMessageMeta(meta)}${infoRow}</div>`;
+    }
+
+    async function persistAndRender(options: { forceDomOnly?: boolean; canModify: boolean; targetRoot?: HTMLElement | null }) {
+        const { forceDomOnly = false, targetRoot = null } = options;
+        const html = renderContainerHtml();
+
+        if (forceDomOnly) {
+            const root = targetRoot ?? findChatMessageElement(msg.id);
+            const contentEl = root?.querySelector(".message-content");
+            if (contentEl) contentEl.innerHTML = html;
+            applyInfoResourceCounters(root ?? null);
+            return;
+        }
+
+        const flags = {
+            ...(msg.flags ?? {}),
+            ezd6Processed: true,
+        };
+
+        await safeUpdateChatMessage(msg, { content: html, flags });
+    }
+
+    function bindHandlers(_root: HTMLElement | null, _canModify: boolean): boolean {
+        return true;
+    }
+
+    return {
+        persistAndRender,
+        bindHandlers,
+    };
+}
+
 export function registerChatMessageHooks() {
     Hooks.once("ready", () => {
         const chatLog = document.querySelector('#chat-log');
@@ -761,7 +921,11 @@ export function registerChatMessageHooks() {
                 return;
             }
 
-            const controller = buildController(resolved);
+            const resolvedMeta = resolved?.flags?.[EZD6_META_FLAG];
+            const infoRenderer = isEzD6ChatMeta(resolvedMeta) && resolvedMeta.type === "info"
+                ? buildInfoRenderer(resolved)
+                : null;
+            const controller = infoRenderer ?? buildController(resolved);
             if (!controller) return;
 
             const canModify = canCurrentUserModifyMessage(resolved);
@@ -783,6 +947,7 @@ export function registerChatMessageHooks() {
                 moveMeta: true,
             });
             stripChatMessageFlavor(root);
+            applyInfoResourceCounters(root ?? null);
 
             function bindHandlersIfReady(): boolean {
                 const root = findChatMessageElement(resolved.id);
@@ -816,7 +981,11 @@ export function registerChatMessageHooks() {
             if (!msg.flags?.ezd6Processed) return;
 
             const canModify = canCurrentUserModifyMessage(msg);
-            const controller = buildController(msg);
+            const msgMeta = msg?.flags?.[EZD6_META_FLAG];
+            const infoRenderer = isEzD6ChatMeta(msgMeta) && msgMeta.type === "info"
+                ? buildInfoRenderer(msg)
+                : null;
+            const controller = infoRenderer ?? buildController(msg);
             if (!controller) return;
 
             const root = (html as any)[0] ?? html;
@@ -829,6 +998,7 @@ export function registerChatMessageHooks() {
                 moveMeta: true,
             });
             stripChatMessageFlavor(root as HTMLElement);
+            applyInfoResourceCounters(root as HTMLElement);
         } catch (err) {
             console.error('EZD6 renderChatMessage failed:', err);
         }

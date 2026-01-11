@@ -74,17 +74,22 @@ export class EZD6CharacterSheet extends ActorSheet {
         if (this.character.ensureDefaultResources()) {
             void this.actor?.update?.({ "system.resources": this.character.resources });
         }
+        const canEdit = this.isEditable;
         this.view = new CharacterSheetView(this.character, {
-            onAvatarPick: (path) => {
-                this.actor?.update?.({ img: path, "system.avatarUrl": path });
-            },
-            onNameCommit: (name) => {
-                const fallback = this.actor?.name ?? "Unnamed";
-                const nextName = name?.trim() ? name.trim() : fallback;
-                this.actor?.update?.({ name: nextName });
-            },
+            onAvatarPick: canEdit
+                ? (path) => {
+                    this.actor?.update?.({ img: path, "system.avatarUrl": path });
+                }
+                : undefined,
+            onNameCommit: canEdit
+                ? (name) => {
+                    const fallback = this.actor?.name ?? "Unnamed";
+                    const nextName = name?.trim() ? name.trim() : fallback;
+                    this.actor?.update?.({ name: nextName });
+                }
+                : undefined,
             actor: this.actor,
-            editable: this.isEditable,
+            editable: canEdit,
         });
         this.view.render(root);
         const descSection = html[0]?.querySelector?.(".ezd6-section--description") as HTMLElement | null;

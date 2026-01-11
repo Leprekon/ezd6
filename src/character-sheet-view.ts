@@ -9,6 +9,8 @@ import {
     normalizeTag,
     wireExpandableRow,
 } from "./ui/sheet-utils";
+import { renderResourceCounter as renderResourceCounterShared } from "./ui/resource-counter";
+import { buildInfoMeta, buildRollMeta, EZD6_META_FLAG } from "./chat/chat-meta";
 
 const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
 
@@ -86,13 +88,16 @@ export class CharacterSheetView {
         );
         right.append(
             this.renderNameSection(),
-            this.renderTaskSection(),
             this.renderAbilitySections(),
             this.renderEquipmentSection(),
         );
+        if (this.options.editable) {
+            right.insertBefore(this.renderTaskSection(), right.children[1] ?? null);
+        }
 
         layout.append(left, right);
         container.append(layout);
+        this.applyReadOnlyOverrides(container);
     }
 
     private renderAvatarSection(): HTMLElement {
@@ -113,7 +118,7 @@ export class CharacterSheetView {
             avatarWrapper.classList.add("ezd6-avatar--empty");
         });
         avatarWrapper.appendChild(avatar);
-        if (this.options.onAvatarPick) {
+        if (this.options.editable && this.options.onAvatarPick) {
             avatarWrapper.classList.add("ezd6-avatar--clickable");
             avatarWrapper.title = "Click to change avatar";
             avatarWrapper.addEventListener("click", () => {
@@ -175,14 +180,17 @@ export class CharacterSheetView {
         const { block: sectionBlock, section } = this.buildSectionBlock("Equipment", "ezd6-section--equipment");
         const titleRow = createElement("div", "ezd6-section__title-row");
         const titleLabel = createElement("div", "ezd6-section__title", "Equipment");
-        const addBtn = createElement("button", "ezd6-section__add-btn", "+") as HTMLButtonElement;
-        addBtn.type = "button";
-        addBtn.title = "Add equipment";
-        addBtn.addEventListener("click", async () => {
-            await this.createEquipmentItem();
-            this.refreshEquipmentList(section);
-        });
-        titleRow.append(titleLabel, addBtn);
+        titleRow.append(titleLabel);
+        if (this.options.editable) {
+            const addBtn = createElement("button", "ezd6-section__add-btn", "+") as HTMLButtonElement;
+            addBtn.type = "button";
+            addBtn.title = "Add equipment";
+            addBtn.addEventListener("click", async () => {
+                await this.createEquipmentItem();
+                this.refreshEquipmentList(section);
+            });
+            titleRow.append(addBtn);
+        }
         const existingTitle = sectionBlock.querySelector(".ezd6-section__title");
         if (existingTitle) {
             existingTitle.replaceWith(titleRow);
@@ -281,6 +289,7 @@ export class CharacterSheetView {
                 ? String(system.tag)
                 : "";
         const description = typeof system.description === "string" ? system.description : "";
+        const canEdit = Boolean(this.options.editable);
         const wrapper = createElement("div", options.itemClassName);
         if (item?.id) {
             wrapper.dataset.itemId = item.id;
@@ -318,42 +327,47 @@ export class CharacterSheetView {
         }
 
         const detail = createElement("div", options.detailClassName);
-        const messageBtn = createElement("button", "ezd6-ability-msg-btn") as HTMLButtonElement;
-        messageBtn.type = "button";
-        messageBtn.title = `Post ${options.labelLower} to chat`;
-        messageBtn.appendChild(createElement("i", "fas fa-comment"));
-        messageBtn.addEventListener("click", (event) => {
-            event.stopPropagation();
-            this.postAbilityMessage(item, description, options.label);
-        });
+        let messageBtn: HTMLButtonElement | null = null;
+        const actionButtons: HTMLButtonElement[] = [];
+        if (canEdit) {
+            messageBtn = createElement("button", "ezd6-ability-msg-btn") as HTMLButtonElement;
+            messageBtn.type = "button";
+            messageBtn.title = `Post ${options.labelLower} to chat`;
+            messageBtn.appendChild(createElement("i", "fas fa-comment"));
+            messageBtn.addEventListener("click", (event) => {
+                event.stopPropagation();
+                this.postAbilityMessage(item, description, options.label);
+            });
 
-        const editBtn = createElement("button", "ezd6-ability-edit-btn") as HTMLButtonElement;
-        editBtn.type = "button";
-        editBtn.title = `Edit ${options.labelLower}`;
-        editBtn.appendChild(createElement("i", "fas fa-pen"));
-        editBtn.addEventListener("click", (event) => {
-            event.stopPropagation();
-            item?.sheet?.render?.(true);
-        });
+            const editBtn = createElement("button", "ezd6-ability-edit-btn") as HTMLButtonElement;
+            editBtn.type = "button";
+            editBtn.title = `Edit ${options.labelLower}`;
+            editBtn.appendChild(createElement("i", "fas fa-pen"));
+            editBtn.addEventListener("click", (event) => {
+                event.stopPropagation();
+                item?.sheet?.render?.(true);
+            });
 
-        const deleteBtn = createElement("button", "ezd6-ability-delete-btn") as HTMLButtonElement;
-        deleteBtn.type = "button";
-        deleteBtn.title = `Delete ${options.labelLower}`;
-        deleteBtn.appendChild(createElement("i", "fas fa-trash"));
-        deleteBtn.addEventListener("click", async (event) => {
-            event.stopPropagation();
-            await item?.delete?.();
-            const list = wrapper.parentElement ?? wrapper;
-            this.reRender(list);
-        });
+            const deleteBtn = createElement("button", "ezd6-ability-delete-btn") as HTMLButtonElement;
+            deleteBtn.type = "button";
+            deleteBtn.title = `Delete ${options.labelLower}`;
+            deleteBtn.appendChild(createElement("i", "fas fa-trash"));
+            deleteBtn.addEventListener("click", async (event) => {
+                event.stopPropagation();
+                await item?.delete?.();
+                const list = wrapper.parentElement ?? wrapper;
+                this.reRender(list);
+            });
+            actionButtons.push(editBtn, deleteBtn);
+        }
 
         const tagSpan = createElement("span", "ezd6-ability-tag", this.normalizeAbilityTag(tag));
         const detailContent = buildDetailContent({
             prefix: "ezd6-ability",
             description,
             metaItems: [tagSpan],
-            messageButton: messageBtn,
-            actionButtons: [editBtn, deleteBtn],
+            messageButton: messageBtn ?? undefined,
+            actionButtons,
         });
         detail.append(detailContent);
 
@@ -387,6 +401,7 @@ export class CharacterSheetView {
         const quantity = this.coerceQuantity(
             system.quantity ?? system.defaultQuantity ?? 0
         );
+        const canEdit = Boolean(this.options.editable);
 
         const wrapper = createElement("div", "ezd6-equipment-item");
         if (item?.id) {
@@ -419,9 +434,10 @@ export class CharacterSheetView {
             const value = createElement("span", "ezd6-qty-value", String(quantity));
             decBtn.type = "button";
             incBtn.type = "button";
-            decBtn.disabled = quantity <= 0;
+            decBtn.disabled = !canEdit || quantity <= 0;
             decBtn.title = "Decrease quantity";
             incBtn.title = "Increase quantity";
+            incBtn.disabled = !canEdit;
 
             decBtn.addEventListener("click", async (event) => {
                 event.stopPropagation();
@@ -457,42 +473,47 @@ export class CharacterSheetView {
         row.appendChild(rollSlot);
 
         const detail = createElement("div", "ezd6-equipment-detail");
-        const messageBtn = createElement("button", "ezd6-equipment-msg-btn") as HTMLButtonElement;
-        messageBtn.type = "button";
-        messageBtn.title = "Post equipment to chat";
-        messageBtn.appendChild(createElement("i", "fas fa-comment"));
-        messageBtn.addEventListener("click", (event) => {
-            event.stopPropagation();
-            this.postEquipmentMessage(item, description, quantity, isQuantifiable);
-        });
+        let messageBtn: HTMLButtonElement | null = null;
+        const actionButtons: HTMLButtonElement[] = [];
+        if (canEdit) {
+            messageBtn = createElement("button", "ezd6-equipment-msg-btn") as HTMLButtonElement;
+            messageBtn.type = "button";
+            messageBtn.title = "Post equipment to chat";
+            messageBtn.appendChild(createElement("i", "fas fa-comment"));
+            messageBtn.addEventListener("click", (event) => {
+                event.stopPropagation();
+                this.postEquipmentMessage(item, description, quantity, isQuantifiable);
+            });
 
-        const editBtn = createElement("button", "ezd6-equipment-edit-btn") as HTMLButtonElement;
-        editBtn.type = "button";
-        editBtn.title = "Edit equipment";
-        editBtn.appendChild(createElement("i", "fas fa-pen"));
-        editBtn.addEventListener("click", (event) => {
-            event.stopPropagation();
-            item?.sheet?.render?.(true);
-        });
+            const editBtn = createElement("button", "ezd6-equipment-edit-btn") as HTMLButtonElement;
+            editBtn.type = "button";
+            editBtn.title = "Edit equipment";
+            editBtn.appendChild(createElement("i", "fas fa-pen"));
+            editBtn.addEventListener("click", (event) => {
+                event.stopPropagation();
+                item?.sheet?.render?.(true);
+            });
 
-        const deleteBtn = createElement("button", "ezd6-equipment-delete-btn") as HTMLButtonElement;
-        deleteBtn.type = "button";
-        deleteBtn.title = "Delete equipment";
-        deleteBtn.appendChild(createElement("i", "fas fa-trash"));
-        deleteBtn.addEventListener("click", async (event) => {
-            event.stopPropagation();
-            await item?.delete?.();
-            const list = wrapper.parentElement ?? wrapper;
-            this.reRender(list);
-        });
+            const deleteBtn = createElement("button", "ezd6-equipment-delete-btn") as HTMLButtonElement;
+            deleteBtn.type = "button";
+            deleteBtn.title = "Delete equipment";
+            deleteBtn.appendChild(createElement("i", "fas fa-trash"));
+            deleteBtn.addEventListener("click", async (event) => {
+                event.stopPropagation();
+                await item?.delete?.();
+                const list = wrapper.parentElement ?? wrapper;
+                this.reRender(list);
+            });
+            actionButtons.push(editBtn, deleteBtn);
+        }
 
         const tagSpan = createElement("span", "ezd6-equipment-tag", this.normalizeAbilityTag(tag));
         const detailContent = buildDetailContent({
             prefix: "ezd6-equipment",
             description,
             metaItems: [tagSpan],
-            messageButton: messageBtn,
-            actionButtons: [editBtn, deleteBtn],
+            messageButton: messageBtn ?? undefined,
+            actionButtons,
         });
         detail.append(detailContent);
 
@@ -551,6 +572,7 @@ export class CharacterSheetView {
         wrapper.dataset.resourceId = resource.id;
         wrapper.dataset.itemId = resource.id;
         wrapper.draggable = Boolean(this.options.editable);
+        const canEdit = Boolean(this.options.editable);
         const row = createElement("div", "ezd6-resource-row");
         row.setAttribute("role", "button");
         row.tabIndex = 0;
@@ -567,7 +589,8 @@ export class CharacterSheetView {
 
         const counter = createElement("div", "ezd6-resource-counter");
         const currentValue = this.getResourceValue(resource);
-        subBtn.disabled = currentValue <= 0;
+        subBtn.disabled = !canEdit || currentValue <= 0;
+        addBtn.disabled = !canEdit;
         this.renderResourceCounter(counter, resource);
 
         subBtn.addEventListener("click", async (event) => {
@@ -667,13 +690,16 @@ export class CharacterSheetView {
         const { block: sectionBlock, section } = this.buildSectionBlock(options.title, options.sectionClass);
         const titleRow = createElement("div", "ezd6-section__title-row");
         const titleLabel = createElement("div", "ezd6-section__title", options.title);
-        const addBtn = createElement("button", "ezd6-section__add-btn", "+") as HTMLButtonElement;
-        addBtn.type = "button";
-        addBtn.title = options.addTitle;
-        addBtn.addEventListener("click", async () => {
-            await options.onCreate(section);
-        });
-        titleRow.append(titleLabel, addBtn);
+        titleRow.append(titleLabel);
+        if (this.options.editable) {
+            const addBtn = createElement("button", "ezd6-section__add-btn", "+") as HTMLButtonElement;
+            addBtn.type = "button";
+            addBtn.title = options.addTitle;
+            addBtn.addEventListener("click", async () => {
+                await options.onCreate(section);
+            });
+            titleRow.append(addBtn);
+        }
         const existingTitle = sectionBlock.querySelector(".ezd6-section__title");
         if (existingTitle) {
             existingTitle.replaceWith(titleRow);
@@ -761,17 +787,21 @@ export class CharacterSheetView {
 
     private buildResourceDetailContent(resource: Resource, wrapper: HTMLElement): HTMLElement {
         const tag = this.getResourceTag(resource);
-        const messageBtn = createElement("button", "ezd6-resource-msg-btn") as HTMLButtonElement;
-        messageBtn.type = "button";
-        messageBtn.title = "Post resource to chat";
-        messageBtn.appendChild(createElement("i", "fas fa-comment"));
-        messageBtn.addEventListener("click", (event) => {
-            event.stopPropagation();
-            this.postResourceMessage(resource);
-        });
+        const canEdit = Boolean(this.options.editable);
+        let messageBtn: HTMLButtonElement | null = null;
+        if (canEdit) {
+            messageBtn = createElement("button", "ezd6-resource-msg-btn") as HTMLButtonElement;
+            messageBtn.type = "button";
+            messageBtn.title = "Post resource to chat";
+            messageBtn.appendChild(createElement("i", "fas fa-comment"));
+            messageBtn.addEventListener("click", (event) => {
+                event.stopPropagation();
+                this.postResourceMessage(resource);
+            });
+        }
 
         const actionButtons: HTMLButtonElement[] = [];
-        if (this.options.editable) {
+        if (canEdit) {
             const editBtn = createElement("button", "ezd6-equipment-edit-btn") as HTMLButtonElement;
             editBtn.type = "button";
             editBtn.title = "Edit resource";
@@ -800,7 +830,7 @@ export class CharacterSheetView {
             prefix: "ezd6-resource",
             description: resource.description ?? "",
             metaItems: [tagSpan],
-            messageButton: messageBtn,
+            messageButton: messageBtn ?? undefined,
             actionButtons,
             actionsSingleClass: "is-single",
         });
@@ -809,17 +839,21 @@ export class CharacterSheetView {
     private buildSaveDetailContent(save: Save, wrapper: HTMLElement): HTMLElement {
         const targetValue = this.getSaveTargetValue(save);
         const tag = `#target${targetValue}`;
-        const messageBtn = createElement("button", "ezd6-save-msg-btn") as HTMLButtonElement;
-        messageBtn.type = "button";
-        messageBtn.title = "Post save to chat";
-        messageBtn.appendChild(createElement("i", "fas fa-comment"));
-        messageBtn.addEventListener("click", (event) => {
-            event.stopPropagation();
-            this.postSaveMessage(save);
-        });
+        const canEdit = Boolean(this.options.editable);
+        let messageBtn: HTMLButtonElement | null = null;
+        if (canEdit) {
+            messageBtn = createElement("button", "ezd6-save-msg-btn") as HTMLButtonElement;
+            messageBtn.type = "button";
+            messageBtn.title = "Post save to chat";
+            messageBtn.appendChild(createElement("i", "fas fa-comment"));
+            messageBtn.addEventListener("click", (event) => {
+                event.stopPropagation();
+                this.postSaveMessage(save);
+            });
+        }
 
         const actionButtons: HTMLButtonElement[] = [];
-        if (this.options.editable) {
+        if (canEdit) {
             const editBtn = createElement("button", "ezd6-equipment-edit-btn") as HTMLButtonElement;
             editBtn.type = "button";
             editBtn.title = "Edit save";
@@ -847,7 +881,7 @@ export class CharacterSheetView {
             prefix: "ezd6-save",
             description: save.description ?? "",
             metaItems: [tagSpan],
-            messageButton: messageBtn,
+            messageButton: messageBtn ?? undefined,
             actionButtons,
         });
     }
@@ -1048,10 +1082,26 @@ export class CharacterSheetView {
         if (diceCount <= 0) return;
         const tag = this.normalizeAbilityTag(resource.rollKeyword ?? "default");
         const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
+        const icon = this.getResourceIcon(resource);
         const roll = new Roll(`${diceCount}d6`, {});
         await roll.evaluate();
         const flavor = `${title} ${tag}`.trim();
-        await roll.toMessage({ flavor, speaker: this.getChatSpeaker() });
+        await roll.toMessage({
+            flavor,
+            speaker: this.getChatSpeaker(),
+            flags: {
+                [EZD6_META_FLAG]: buildRollMeta({
+                    title,
+                    description: resource.description ?? "",
+                    tag,
+                    icon,
+                    kind: "resource",
+                    resourceValue: this.getResourceValue(resource),
+                    resourceMax: this.getResourceMaxValue(resource),
+                    resourceIcon: icon,
+                }),
+            },
+        });
     }
 
     private async rollSaveWithDice(save: Save, diceCountOverride?: number) {
@@ -1061,83 +1111,35 @@ export class CharacterSheetView {
         await roll.evaluate();
         const target = this.getSaveTargetValue(save);
         const flavor = `${save.title} #target${target}`.trim();
-        await roll.toMessage({ flavor, speaker: this.getChatSpeaker() });
+        const icon = this.getSaveIcon(save);
+        await roll.toMessage({
+            flavor,
+            speaker: this.getChatSpeaker(),
+            flags: {
+                [EZD6_META_FLAG]: buildRollMeta({
+                    title: save.title,
+                    description: save.description ?? "",
+                    tag: `#target${target}`,
+                    icon,
+                    kind: "save",
+                    saveTarget: target,
+                }),
+            },
+        });
     }
 
     private renderResourceCounter(counter: HTMLElement, resource: Resource, maxIcons: number = 6) {
-        counter.innerHTML = "";
         const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
-        counter.dataset.resourceName = title;
         const iconPath = this.getResourceIcon(resource);
         const currentValue = this.getResourceValue(resource);
         const maxValue = this.getResourceMaxValue(resource);
-        const N = Math.max(1, Math.floor(maxIcons));
-        const iconMode = maxValue > 0
-            ? !(currentValue > N || (currentValue === N && maxValue > N))
-            : currentValue <= N;
-
-        if (maxValue > 0) {
-            if (!iconMode) {
-                const count = createElement(
-                    "span",
-                    "ezd6-resource-counter-number",
-                    `${currentValue} / ${maxValue}`
-                );
-                const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
-                img.src = iconPath;
-                img.alt = `${title} icon`;
-                img.draggable = false;
-                counter.append(count, img);
-                return;
-            }
-
-            const normalCount = Math.min(currentValue, N);
-            for (let i = 0; i < normalCount; i++) {
-                const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
-                img.src = iconPath;
-                img.alt = `${title} icon`;
-                img.draggable = false;
-                counter.appendChild(img);
-            }
-            const missing = Math.max(0, maxValue - currentValue);
-            const fadedCount = Math.max(0, Math.min(N - normalCount, missing));
-            for (let i = 0; i < fadedCount; i++) {
-                const img = createElement("img", "ezd6-resource-icon ezd6-resource-icon--faded") as HTMLImageElement;
-                img.src = iconPath;
-                img.alt = `${title} icon`;
-                img.draggable = false;
-                counter.appendChild(img);
-            }
-            return;
-        }
-
-        if (currentValue <= 0) {
-            const img = createElement("img", "ezd6-resource-icon ezd6-resource-icon--faded") as HTMLImageElement;
-            img.src = iconPath;
-            img.alt = `${title} icon`;
-            img.draggable = false;
-            counter.appendChild(img);
-            return;
-        }
-
-        if (currentValue > N) {
-            const count = createElement("span", "ezd6-resource-counter-number", String(currentValue));
-            const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
-            img.src = iconPath;
-            img.alt = `${title} icon`;
-            img.draggable = false;
-            counter.append(count, img);
-            return;
-        }
-
-        const normalCount = Math.min(currentValue, N);
-        for (let i = 0; i < normalCount; i++) {
-            const img = createElement("img", "ezd6-resource-icon") as HTMLImageElement;
-            img.src = iconPath;
-            img.alt = `${title} icon`;
-            img.draggable = false;
-            counter.appendChild(img);
-        }
+        renderResourceCounterShared(counter, {
+            title,
+            iconPath,
+            currentValue,
+            maxValue,
+            maxIcons,
+        });
     }
 
     private renderResourceRoll(slot: HTMLElement, resource: Resource) {
@@ -1157,6 +1159,7 @@ export class CharacterSheetView {
             const icon = createElement("img", "ezd6-resource-replenish-icon") as HTMLImageElement;
             btn.type = "button";
             btn.disabled = replenishState.disabled;
+            btn.dataset.ezd6IntentDisabled = btn.disabled ? "1" : "0";
             btn.title = this.buildReplenishTitle(replenishState.mode ?? "reset", cost, targetTag);
             icon.src = targetIcon;
             icon.alt = targetTag || "Replenish";
@@ -1462,6 +1465,16 @@ export class CharacterSheetView {
         buildRows().forEach((row) => list.appendChild(row));
     }
 
+    private applyReadOnlyOverrides(container: HTMLElement) {
+        if (this.options.editable) return;
+        const rollButtons = container.querySelectorAll(".ezd6-task-btn");
+        rollButtons.forEach((button) => {
+            const btn = button as HTMLButtonElement;
+            btn.disabled = true;
+            btn.setAttribute("aria-disabled", "true");
+        });
+    }
+
     private enableDragReorder(list: HTMLElement, type: "ability" | "aspect" | "equipment" | "resource" | "save") {
         if (!this.options.editable) return;
         const selector = type === "ability"
@@ -1724,35 +1737,91 @@ export class CharacterSheetView {
 
     private async postAbilityMessage(item: any, description: string, label = "Ability") {
         if (!item) return;
+        const title = item.name ?? label;
+        const tag = this.normalizeAbilityTag(item?.system?.tag ?? "");
+        const icon = item?.type === "aspect"
+            ? (item?.img && item.img !== LEGACY_DEFAULT_ICON
+                ? item.img
+                : "icons/environment/people/group.webp")
+            : (item?.img && item.img !== LEGACY_DEFAULT_ICON
+                ? item.img
+                : "icons/magic/symbols/cog-orange-red.webp");
         const contentPieces = [
-            `<strong>${item.name ?? label}</strong>`,
+            `<strong>${title}</strong>`,
             description ? `<div>${description}</div>` : "",
         ];
-        await ChatMessage.create({ content: contentPieces.join(""), speaker: this.getChatSpeaker() });
+        await ChatMessage.create({
+            content: contentPieces.join(""),
+            speaker: this.getChatSpeaker(),
+            flags: {
+                [EZD6_META_FLAG]: buildInfoMeta({
+                    title,
+                    description: description ?? "",
+                    tag,
+                    icon,
+                    kind: "generic",
+                }),
+            },
+        });
     }
 
     private async postEquipmentMessage(item: any, description: string, quantity: number, isQuantifiable: boolean) {
         if (!item) return;
         const details = isQuantifiable ? `<div>Quantity: ${quantity}</div>` : "";
         const tag = this.normalizeAbilityTag(item?.system?.tag ?? "");
+        const title = item.name ?? "Equipment";
+        const icon = item?.img || "icons/containers/bags/coinpouch-simple-leather-tan.webp";
+        const qtyValue = Math.max(0, Math.floor(Number(quantity ?? 0)));
         const contentPieces = [
-            `<strong>${item.name ?? "Equipment"}</strong>`,
+            `<strong>${title}</strong>`,
             description ? `<div>${description}</div>` : "",
             tag ? `<div>${tag}</div>` : "",
             details,
         ];
-        await ChatMessage.create({ content: contentPieces.join(""), speaker: this.getChatSpeaker() });
+        await ChatMessage.create({
+            content: contentPieces.join(""),
+            speaker: this.getChatSpeaker(),
+            flags: {
+                [EZD6_META_FLAG]: buildInfoMeta({
+                    title,
+                    description: description ?? "",
+                    tag,
+                    icon,
+                    kind: "equipment",
+                    equipmentQty: qtyValue,
+                }),
+            },
+        });
     }
 
     private async postResourceMessage(resource: Resource) {
         if (!resource) return;
         const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
+        const tag = this.getResourceTag(resource);
+        const icon = this.getResourceIcon(resource);
         const description = typeof resource.description === "string" ? resource.description : "";
+        const value = this.getResourceValue(resource);
+        const maxValue = this.getResourceMaxValue(resource);
         const contentPieces = [
             `<strong>${title}</strong>`,
             description ? `<div>${description}</div>` : "",
         ];
-        await ChatMessage.create({ content: contentPieces.join(""), speaker: this.getChatSpeaker() });
+        await ChatMessage.create({
+            content: contentPieces.join(""),
+            speaker: this.getChatSpeaker(),
+            flags: {
+                [EZD6_META_FLAG]: buildInfoMeta({
+                    title,
+                    description,
+                    tag,
+                    icon,
+                    kind: "resource",
+                    resourceValue: value,
+                    resourceMax: maxValue,
+                    resourceIcon: icon,
+                }),
+            },
+        });
     }
 
     private async rollAbilityItem(
@@ -1769,9 +1838,27 @@ export class CharacterSheetView {
             const rollWithDice = async (diceCount: number) => {
                 const formula = `${diceCount}d6`;
                 const flavor = `${item.name ?? label} ${normalizedTag}`.trim();
+                const icon = item?.type === "aspect"
+                    ? (item?.img && item.img !== LEGACY_DEFAULT_ICON
+                        ? item.img
+                        : "icons/environment/people/group.webp")
+                    : (item?.img && item.img !== LEGACY_DEFAULT_ICON
+                        ? item.img
+                        : "icons/magic/symbols/cog-orange-red.webp");
                 const roll = new Roll(formula, {});
                 await roll.evaluate();
-                await roll.toMessage({ flavor, speaker: this.getChatSpeaker() });
+                await roll.toMessage({
+                    flavor,
+                    speaker: this.getChatSpeaker(),
+                    flags: {
+                        [EZD6_META_FLAG]: buildRollMeta({
+                            title: item.name ?? label,
+                            description: description ?? "",
+                            tag: normalizedTag,
+                            icon,
+                        }),
+                    },
+                });
             };
             await this.maybePromptPowerRoll(keyword, numberOfDice, rollWithDice);
             return;
@@ -1799,9 +1886,21 @@ export class CharacterSheetView {
             const rollWithDice = async (diceCount: number) => {
                 const formula = `${diceCount}d6`;
                 const flavor = `${item.name ?? "Equipment"} ${normalizedTag}`.trim();
+                const icon = item?.img || "icons/containers/bags/coinpouch-simple-leather-tan.webp";
                 const roll = new Roll(formula, {});
                 await roll.evaluate();
-                await roll.toMessage({ flavor, speaker: this.getChatSpeaker() });
+                await roll.toMessage({
+                    flavor,
+                    speaker: this.getChatSpeaker(),
+                    flags: {
+                        [EZD6_META_FLAG]: buildRollMeta({
+                            title: item.name ?? "Equipment",
+                            description: description ?? "",
+                            tag: normalizedTag,
+                            icon,
+                        }),
+                    },
+                });
             };
             await this.maybePromptPowerRoll(keyword, numberOfDice, rollWithDice);
             return;
@@ -1929,11 +2028,27 @@ export class CharacterSheetView {
         if (!save) return;
         const title = typeof save.title === "string" ? save.title.trim() || "Save" : "Save";
         const description = typeof save.description === "string" ? save.description : "";
+        const tag = `#target${this.getSaveTargetValue(save)}`;
+        const icon = this.getSaveIcon(save);
+        const targetValue = this.getSaveTargetValue(save);
         const contentPieces = [
             `<strong>${title}</strong>`,
             description ? `<div>${description}</div>` : "",
         ];
-        await ChatMessage.create({ content: contentPieces.join(""), speaker: this.getChatSpeaker() });
+        await ChatMessage.create({
+            content: contentPieces.join(""),
+            speaker: this.getChatSpeaker(),
+            flags: {
+                [EZD6_META_FLAG]: buildInfoMeta({
+                    title,
+                    description,
+                    tag,
+                    icon,
+                    kind: "save",
+                    saveTarget: targetValue,
+                }),
+            },
+        });
     }
 
     private async deleteSave(saveId: string, container?: HTMLElement) {

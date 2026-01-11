@@ -1,4 +1,6 @@
 // src/character.ts
+import { buildRollMeta, EZD6_META_FLAG } from "./chat/chat-meta";
+
 export type DiceChangeBehavior = "none" | "karma" | "stress";
 
 export interface Ability {
@@ -216,11 +218,23 @@ export class Character {
 
         if (ability.numberOfDice > 0) {
             const keyword = ensureKeyword(ability.rollKeyword ?? "default");
+            const normalizedKeyword = keyword.startsWith("#") ? keyword.slice(1) : keyword;
+            const tag = `#${normalizedKeyword}`;
             const formula = `${ability.numberOfDice}d6`;
             const flavor = `${ability.title} #${keyword}`;
             const roll = new Roll(formula, {});
             await roll.evaluate();
-            await roll.toMessage({ flavor, speaker: speaker ?? ChatMessage.getSpeaker?.() });
+            await roll.toMessage({
+                flavor,
+                speaker: speaker ?? ChatMessage.getSpeaker?.(),
+                flags: {
+                    [EZD6_META_FLAG]: buildRollMeta({
+                        title: ability.title,
+                        description: ability.description ?? "",
+                        tag,
+                    }),
+                },
+            });
         } else {
             const contentPieces = [
                 `<strong>${ability.title}</strong>`,
@@ -239,21 +253,53 @@ export class Character {
         const rawTarget = Number(save.targetValue);
         const target = Number.isFinite(rawTarget) && rawTarget > 0 ? Math.floor(rawTarget) : 6;
         const flavor = `${save.title} #target${target}`;
-        await roll.toMessage({ flavor, speaker: speaker ?? ChatMessage.getSpeaker?.() });
+        await roll.toMessage({
+            flavor,
+            speaker: speaker ?? ChatMessage.getSpeaker?.(),
+            flags: {
+                [EZD6_META_FLAG]: buildRollMeta({
+                    title: save.title,
+                    description: save.description ?? "",
+                    tag: `#target${target}`,
+                    kind: "save",
+                    saveTarget: target,
+                }),
+            },
+        });
     }
 
     async rollTask(label: string, formula: string, speaker?: any) {
         const roll = new Roll(formula, {});
         await roll.evaluate();
         const flavor = `${label} #task`;
-        await roll.toMessage({ flavor, speaker: speaker ?? ChatMessage.getSpeaker?.() });
+        await roll.toMessage({
+            flavor,
+            speaker: speaker ?? ChatMessage.getSpeaker?.(),
+            flags: {
+                [EZD6_META_FLAG]: buildRollMeta({
+                    title: label,
+                    description: "",
+                    tag: "#task",
+                }),
+            },
+        });
     }
 
     async rollMagick(diceCount: number, speaker?: any) {
         const roll = new Roll(`${diceCount}d6`, {});
         await roll.evaluate();
         const flavor = `Magick ${diceCount}d6 #magick`;
-        await roll.toMessage({ flavor, speaker: speaker ?? ChatMessage.getSpeaker?.() });
+        await roll.toMessage({
+            flavor,
+            speaker: speaker ?? ChatMessage.getSpeaker?.(),
+            flags: {
+                [EZD6_META_FLAG]: buildRollMeta({
+                    title: "Magick",
+                    description: "",
+                    tag: "#magick",
+                }),
+            },
+        });
     }
 
     ensureDefaultResources(): boolean {
