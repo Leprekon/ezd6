@@ -1315,9 +1315,24 @@ export class CharacterSheetView {
         return raw.trim();
     }
 
-    private renderCategoryDivider(category: string): HTMLElement {
-        const divider = createElement("div", "ezd6-category-divider", category);
-        divider.dataset.category = category;
+    private parseCategory(raw: string): { raw: string; label: string; order: number | null } {
+        const trimmed = raw.trim();
+        const match = trimmed.match(/^(\d+)(?:\s*\.\s*|\s+)(.+)$/);
+        if (!match) {
+            return { raw: trimmed, label: trimmed, order: null };
+        }
+        const label = match[2].trim();
+        const order = Number.parseInt(match[1], 10);
+        return {
+            raw: trimmed,
+            label: label || trimmed,
+            order: Number.isFinite(order) ? order : null,
+        };
+    }
+
+    private renderCategoryDivider(label: string, raw: string): HTMLElement {
+        const divider = createElement("div", "ezd6-category-divider", label);
+        divider.dataset.category = raw;
         divider.setAttribute("role", "separator");
         return divider;
     }
@@ -1328,27 +1343,36 @@ export class CharacterSheetView {
         renderRow: (item: any) => HTMLElement
     ): HTMLElement[] {
         const uncategorized: any[] = [];
-        const grouped = new Map<string, any[]>();
+        const grouped = new Map<string, { label: string; order: number | null; items: any[] }>();
 
         items.forEach((item) => {
-            const category = this.normalizeCategory(getCategory(item));
-            if (!category) {
+            const rawCategory = this.normalizeCategory(getCategory(item));
+            if (!rawCategory) {
                 uncategorized.push(item);
                 return;
             }
-            const bucket = grouped.get(category) ?? [];
-            bucket.push(item);
-            grouped.set(category, bucket);
+            const parsed = this.parseCategory(rawCategory);
+            const bucket = grouped.get(parsed.raw);
+            if (bucket) {
+                bucket.items.push(item);
+            } else {
+                grouped.set(parsed.raw, { label: parsed.label, order: parsed.order, items: [item] });
+            }
         });
 
         const rows: HTMLElement[] = [];
         uncategorized.forEach((item) => rows.push(renderRow(item)));
 
-        const categories = Array.from(grouped.keys())
-            .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-        categories.forEach((category) => {
-            rows.push(this.renderCategoryDivider(category));
-            grouped.get(category)?.forEach((item) => rows.push(renderRow(item)));
+        const categories = Array.from(grouped.entries())
+            .sort((a, b) => {
+                const aOrder = a[1].order ?? Number.POSITIVE_INFINITY;
+                const bOrder = b[1].order ?? Number.POSITIVE_INFINITY;
+                if (aOrder !== bOrder) return aOrder - bOrder;
+                return a[1].label.localeCompare(b[1].label, undefined, { sensitivity: "base" });
+            });
+        categories.forEach(([raw, category]) => {
+            rows.push(this.renderCategoryDivider(category.label, raw));
+            category.items.forEach((item) => rows.push(renderRow(item)));
         });
 
         return rows;
@@ -1477,37 +1501,40 @@ export class CharacterSheetView {
 
     private enableDragReorder(list: HTMLElement, type: "ability" | "aspect" | "equipment" | "resource" | "save") {
         if (!this.options.editable) return;
-        const selector = type === "ability"
-            ? ".ezd6-ability-item"
-            : type === "aspect"
-                ? ".ezd6-aspect-item"
-                : type === "equipment"
-                    ? ".ezd6-equipment-item"
-                    : type === "resource"
-                        ? ".ezd6-resource-item"
-                        : ".ezd6-save-item";
-        let dragged: HTMLElement | null = null;
+        const selector = this.getDragSelector(type);
+        const dragState: {
+            dragged: HTMLElement | null;
+            droppedInside: boolean;
+            originalOrder: HTMLElement[] | null;
+        } = { dragged: null, droppedInside: false, originalOrder: null };
 
         list.addEventListener("dragstart", (event) => {
             const target = (event.target as HTMLElement | null)?.closest(selector) as HTMLElement | null;
             if (!target) return;
-            dragged = target;
+            dragState.dragged = target;
+            dragState.droppedInside = false;
+            dragState.originalOrder = Array.from(list.children) as HTMLElement[];
             target.classList.add("is-dragging");
             if (event.dataTransfer) {
-                event.dataTransfer.effectAllowed = "move";
                 const id = target.dataset.itemId ?? "";
-                event.dataTransfer.setData("text/plain", id);
+                const dragData = this.buildDragData(type, id);
+                this.setDragPayload(event.dataTransfer, dragData, id);
             }
         });
 
         list.addEventListener("dragend", () => {
-            if (!dragged) return;
-            dragged.classList.remove("is-dragging");
-            dragged = null;
+            if (!dragState.dragged) return;
+            dragState.dragged.classList.remove("is-dragging");
+            if (!dragState.droppedInside && dragState.originalOrder) {
+                list.innerHTML = "";
+                dragState.originalOrder.forEach((node) => list.appendChild(node));
+            }
+            dragState.dragged = null;
+            dragState.originalOrder = null;
         });
 
         list.addEventListener("dragover", (event) => {
-            if (!dragged) return;
+            if (!dragState.dragged) return;
             event.preventDefault();
             const targetEl = event.target as HTMLElement | null;
             if (!targetEl) return;
@@ -1515,30 +1542,58 @@ export class CharacterSheetView {
             const divider = targetEl.closest(".ezd6-category-divider") as HTMLElement | null;
             const rectSource = target ?? divider;
             if (rectSource) {
-                if (rectSource === dragged) return;
+                if (rectSource === dragState.dragged) return;
                 const rect = rectSource.getBoundingClientRect();
                 const shouldInsertAfter = event.clientY > rect.top + rect.height / 2;
                 if (shouldInsertAfter) {
-                    rectSource.after(dragged);
+                    rectSource.after(dragState.dragged);
                 } else {
-                    rectSource.before(dragged);
+                    rectSource.before(dragState.dragged);
                 }
                 return;
             }
             if (targetEl === list) {
-                list.appendChild(dragged);
+                list.appendChild(dragState.dragged);
             }
         });
 
         list.addEventListener("drop", async (event) => {
-            if (!dragged) return;
+            if (!dragState.dragged) return;
             event.preventDefault();
+            dragState.droppedInside = true;
             if (type === "ability" || type === "aspect" || type === "equipment") {
                 await this.persistItemSort(list, selector);
             } else {
                 await this.persistSystemSort(list, selector, type);
             }
         });
+    }
+
+    private getDragSelector(type: "ability" | "aspect" | "equipment" | "resource" | "save"): string {
+        switch (type) {
+            case "ability":
+                return ".ezd6-ability-item";
+            case "aspect":
+                return ".ezd6-aspect-item";
+            case "equipment":
+                return ".ezd6-equipment-item";
+            case "resource":
+                return ".ezd6-resource-item";
+            case "save":
+                return ".ezd6-save-item";
+        }
+    }
+
+    private setDragPayload(transfer: DataTransfer, dragData: Record<string, any> | null, fallback: string) {
+        if (dragData) {
+            const raw = JSON.stringify(dragData);
+            transfer.effectAllowed = "copyMove";
+            transfer.setData("text/plain", raw);
+            transfer.setData("application/json", raw);
+            return;
+        }
+        transfer.effectAllowed = "move";
+        transfer.setData("text/plain", fallback);
     }
 
     private async persistItemSort(list: HTMLElement, selector: string) {
@@ -1595,6 +1650,88 @@ export class CharacterSheetView {
             this.character.saves = next as Save[];
             await this.persistSaves();
         }
+    }
+
+    private buildDragData(
+        type: "ability" | "aspect" | "equipment" | "resource" | "save",
+        id: string
+    ): Record<string, any> | null {
+        if (!id) return null;
+        if (type === "ability" || type === "aspect" || type === "equipment") {
+            return this.buildEmbeddedItemDragData(id);
+        }
+        if (type === "resource") {
+            return this.buildResourceDragData(id);
+        }
+        return this.buildSaveDragData(id);
+    }
+
+    private buildEmbeddedItemDragData(id: string): Record<string, any> | null {
+        const item = this.getActorItemById(id);
+        if (!item) return null;
+        if (typeof item.toDragData === "function") {
+            return item.toDragData();
+        }
+        const data = typeof item.toObject === "function" ? item.toObject() : item;
+        return { type: "Item", uuid: item.uuid, data };
+    }
+
+    private buildResourceDragData(id: string): Record<string, any> | null {
+        const resource = this.character.resources.find((entry) => entry.id === id);
+        if (!resource) return null;
+        const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
+        return {
+            type: "Item",
+            data: {
+                name: title,
+                type: "resource",
+                img: this.getResourceIcon(resource),
+                system: {
+                    value: this.getResourceValue(resource),
+                    defaultValue: this.getResourceDefaultValue(resource),
+                    maxValue: this.getResourceMaxValue(resource),
+                    defaultMaxValue: this.getResourceMaxValue(resource),
+                    description: resource.description ?? "",
+                    numberOfDice: this.getResourceDiceCount(resource),
+                    tag: this.getResourceTag(resource),
+                    replenishLogic: this.getResourceReplenishLogic(resource?.replenishLogic),
+                    replenishTag: this.getResourceReplenishTag(resource),
+                    replenishCost: this.getResourceReplenishCost(resource),
+                },
+            },
+        };
+    }
+
+    private buildSaveDragData(id: string): Record<string, any> | null {
+        const save = this.character.saves.find((entry) => entry.id === id);
+        if (!save) return null;
+        const title = typeof save.title === "string" ? save.title.trim() || "Save" : "Save";
+        return {
+            type: "Item",
+            data: {
+                name: title,
+                type: "save",
+                img: this.getSaveIcon(save),
+                system: {
+                    targetValue: this.getSaveTargetValue(save),
+                    numberOfDice: this.getSaveDiceCount(save),
+                    description: save.description ?? "",
+                },
+            },
+        };
+    }
+
+    private getActorItemById(id: string): any | null {
+        const items = this.options.actor?.items;
+        if (!items) return null;
+        if (typeof items.get === "function") {
+            return items.get(id) ?? null;
+        }
+        if (typeof items.find === "function") {
+            return items.find((item: any) => item?.id === id) ?? null;
+        }
+        const list = Array.isArray(items) ? items : Array.from(items);
+        return list.find((item: any) => item?.id === id) ?? null;
     }
 
     private getAbilityItems(): any[] {
