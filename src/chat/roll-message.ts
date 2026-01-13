@@ -11,6 +11,7 @@ import {
 import { Character, DEFAULT_RESOURCE_ICON } from "../character";
 import { renderResourceCounter } from "../ui/resource-counter";
 import { getTagOptions, normalizeTag } from "../ui/sheet-utils";
+import { localize } from "../ui/i18n";
 import {
     SOCKET_NAMESPACE,
     applyChatHeaderEnhancements,
@@ -29,6 +30,7 @@ const STRESS_TAG = "#stress";
 const HEALTH_TAG = "#health";
 
 const ACTOR_UPDATE_OPTIONS = { render: false, diff: false };
+const t = (key: string, fallback: string) => localize(key, fallback);
 
 function hasProcessedMessage(msgId: string): boolean {
     return processedMessages.has(msgId);
@@ -174,7 +176,10 @@ function getDiceChangeState(actor: any) {
     }
     const disabled = match.mode === "karma" && getCandidateValue(match.resource) <= 0;
     const iconSrc = getCandidateIcon(match.resource);
-    const iconAlt = getCandidateTag(match.resource) || match.mode;
+    const modeAlt = match.mode === "karma"
+        ? t("EZD6.Tags.Karma", "karma")
+        : t("EZD6.Tags.Stress", "stress");
+    const iconAlt = getCandidateTag(match.resource) || modeAlt;
     return { match, iconSrc, iconAlt, disabled };
 }
 
@@ -279,7 +284,7 @@ function readMessageMeta(msg: any, fallbackKeyword?: string): MessageMeta {
     const cleaned = flavor
         ? flavor.replace(new RegExp(`#${safeKeyword}\\b`, "ig"), "").replace(/\s+/g, " ").trim()
         : "";
-    const fallbackTitle = cleaned || flavor || "Roll";
+    const fallbackTitle = cleaned || flavor || t("EZD6.Labels.Roll", "Roll");
 
     const type = rawType ?? "roll";
     return {
@@ -350,7 +355,7 @@ function applyInfoResourceCounters(root: HTMLElement | null) {
             const current = Number(counter.dataset.current ?? "0");
             const max = Number(counter.dataset.max ?? "0");
             const icon = counter.dataset.icon ?? "";
-            const title = counter.dataset.title ?? "Resource";
+            const title = counter.dataset.title ?? t("EZD6.ItemLabels.Resource", "Resource");
             const width = counter.clientWidth;
             const prevWidth = Number(counter.dataset.ezd6Width ?? "-1");
             const prevKey = counter.dataset.ezd6Key ?? "";
@@ -519,7 +524,7 @@ function buildController(msg: any) {
         return `
         <div class=\"ezd6-crit-header\">
           <div class=\"ezd6-crit-sep\"></div>
-          <div class=\"ezd6-crit-label\">CRIT</div>
+          <div class=\"ezd6-crit-label\">${t("EZD6.Labels.Crit", "CRIT")}</div>
           <div class=\"ezd6-crit-sep\"></div>
         </div>
         <div class=\"ezd6-crit-row\">
@@ -545,8 +550,10 @@ function buildController(msg: any) {
             const burnDieClass = `ezd6-die-icon ezd6-burn1-die${burnDisabled ? " ezd6-die-icon--disabled" : ""}`;
             const burnIconClass = `ezd6-dice-change-icon ezd6-burn1-resource${burnDisabled ? " ezd6-dice-change-icon--disabled" : ""}`;
             const burnIconSrc = healthResource ? getCandidateIcon(healthResource) : DEFAULT_RESOURCE_ICON;
-            const burnIconAlt = healthResource ? (getCandidateTag(healthResource) || "health") : "health";
-            const burnLabel = `<span class="ezd6-burn1-label">Burn ` +
+            const burnIconAlt = healthResource
+                ? (getCandidateTag(healthResource) || t("EZD6.Tags.Health", "health"))
+                : t("EZD6.Tags.Health", "health");
+            const burnLabel = `<span class="ezd6-burn1-label">${t("EZD6.Actions.Burn", "Burn")} ` +
                 `<img src="${getDieImagePath(1, "red")}" alt="1" class="${burnDieClass}">` +
                 `</span>` +
                 `<span class="ezd6-burn1-spend${spendHiddenClass}">` +
@@ -578,11 +585,13 @@ function buildController(msg: any) {
                 buttons.push(renderBuffButton());
             }
             if (parsedState.rule.allowConfirm && !onesBlock && activeV >= parsedState.rule.critValue) {
-                buttons.push(`<button class=\"ezd6-button ezd6-confirm-btn\">Confirm ${critIcon}</button>`);
+                buttons.push(`<button class=\"ezd6-button ezd6-confirm-btn\">${t("EZD6.Actions.Confirm", "Confirm")} ${critIcon}</button>`);
             }
         } else {
             if (parsedState.canKarma) buttons.push(renderBuffButton());
-            if (parsedState.canConfirm) buttons.push(`<button class=\"ezd6-button ezd6-confirm-btn\">Confirm ${critIcon}</button>`);
+            if (parsedState.canConfirm) {
+                buttons.push(`<button class=\"ezd6-button ezd6-confirm-btn\">${t("EZD6.Actions.Confirm", "Confirm")} ${critIcon}</button>`);
+            }
         }
 
         if (buttons.length === 0) {
@@ -660,7 +669,7 @@ function buildController(msg: any) {
         if (spendSpan) spendSpan.classList.remove("is-hidden");
         if (resourceIcon) {
             resourceIcon.src = getCandidateIcon(healthResource);
-            resourceIcon.alt = getCandidateTag(healthResource) || "health";
+            resourceIcon.alt = getCandidateTag(healthResource) || t("EZD6.Tags.Health", "health");
             resourceIcon.classList.toggle("ezd6-dice-change-icon--disabled", disabled);
         }
     }
@@ -834,13 +843,13 @@ function buildInfoRenderer(msg: any) {
         } else if (meta.kind === "save") {
             const target = Number.isFinite(meta.saveTarget) ? Math.max(0, Math.floor(meta.saveTarget as number)) : 0;
             infoRow = `<div class="ezd6-info-row ezd6-info-row--save">` +
-                `<span class="ezd6-info-label">Target:</span>` +
+                `<span class="ezd6-info-label">${t("EZD6.Labels.Target", "Target")}:</span>` +
                 `<div class="ezd6-save-target"><strong class="ezd6-save-target-number">${target}</strong></div>` +
                 `</div>`;
         } else if (meta.kind === "equipment") {
             const qty = Number.isFinite(meta.equipmentQty) ? Math.max(0, Math.floor(meta.equipmentQty as number)) : 0;
             infoRow = `<div class="ezd6-info-row ezd6-info-row--equip">` +
-                `<span class="ezd6-info-label">Quantity:</span>` +
+                `<span class="ezd6-info-label">${t("EZD6.Labels.Quantity", "Quantity")}:</span>` +
                 `<span class="ezd6-info-value">${qty}</span>` +
                 `</div>`;
         }

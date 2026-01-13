@@ -1,3 +1,5 @@
+import { format, localize } from "./i18n";
+
 export function renderResourceCounter(
     counter: HTMLElement,
     options: {
@@ -16,11 +18,12 @@ export function renderResourceCounter(
     counter.innerHTML = "";
     counter.dataset.resourceName = title;
 
+    const alt = format("EZD6.Alts.ItemIcon", { label: title }, `${title || localize("EZD6.ItemLabels.Resource", "Resource")} icon`);
     const appendIcon = (faded: boolean) => {
         const img = document.createElement("img");
         img.className = faded ? "ezd6-resource-icon ezd6-resource-icon--faded" : "ezd6-resource-icon";
         img.src = iconPath;
-        img.alt = `${title} icon`;
+        img.alt = alt;
         img.draggable = false;
         counter.appendChild(img);
     };
@@ -34,7 +37,7 @@ export function renderResourceCounter(
             const img = document.createElement("img");
             img.className = "ezd6-resource-icon";
             img.src = iconPath;
-            img.alt = `${title} icon`;
+            img.alt = alt;
             img.draggable = false;
             counter.append(count, img);
             return;
@@ -60,7 +63,7 @@ export function renderResourceCounter(
         const img = document.createElement("img");
         img.className = "ezd6-resource-icon";
         img.src = iconPath;
-        img.alt = `${title} icon`;
+        img.alt = alt;
         img.draggable = false;
         counter.append(count, img);
         return;

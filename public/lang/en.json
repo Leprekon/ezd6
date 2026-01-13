@@ -1,0 +1,131 @@
+{
+  "EZD6": {
+    "Labels": {
+      "Icon": "Icon",
+      "Title": "Title",
+      "Tag": "Tag",
+      "Description": "Description",
+      "Category": "Category",
+      "DiceToRoll": "Dice to roll",
+      "Quantity": "Quantity",
+      "Value": "Value",
+      "MaxValue": "Max Value",
+      "ReplenishLogic": "Replenish logic",
+      "ReplenishTag": "Replenish tag",
+      "ReplenishCost": "Replenish cost",
+      "Target": "Target",
+      "Replenish": "Replenish",
+      "Roll": "Roll",
+      "Info": "Info",
+      "Crit": "CRIT",
+      "Unknown": "Unknown",
+      "LocalizationId": "Localization ID"
+    },
+    "Placeholders": {
+      "ItemTitle": "{itemLabel} title",
+      "ItemDescription": "Describe the {itemLabelLower}",
+      "CharacterName": "Character Name",
+      "Category": "Category",
+      "LocalizationId": "EZD6.Compendium.Abilities.Fireball",
+      "EquipmentTitle": "Equipment title",
+      "EquipmentDescription": "Describe the equipment",
+      "ResourceTitle": "Resource title",
+      "ResourceDescription": "Describe the resource",
+      "SaveTitle": "Save title",
+      "SaveDescription": "Describe the save"
+    },
+    "ItemLabels": {
+      "Ability": "Ability",
+      "Aspect": "Aspect",
+      "Equipment": "Equipment",
+      "Resource": "Resource",
+      "Save": "Save"
+    },
+    "Sections": {
+      "Avatar": "Avatar",
+      "Name": "Name",
+      "Abilities": "Abilities",
+      "Aspects": "Aspects",
+      "Equipment": "Equipment",
+      "Resources": "Resources",
+      "Saves": "Saves",
+      "Tasks": "Task"
+    },
+    "Actions": {
+      "AddAbility": "Add ability",
+      "AddAspect": "Add aspect",
+      "AddEquipment": "Add equipment",
+      "AddResource": "Add resource",
+      "AddSave": "Add save",
+      "ToggleDetails": "Toggle details",
+      "PostToChat": "Post {label} to chat",
+      "Edit": "Edit {label}",
+      "Delete": "Delete {label}",
+      "Burn": "Burn",
+      "Confirm": "Confirm"
+    },
+    "Tooltips": {
+      "ChangeAvatar": "Click to change avatar",
+      "ChangeIcon": "Click to change icon",
+      "TaskRoll": "{label} ({formula})",
+      "RollWithTag": "Roll {dice}d6 {tag}",
+      "RollSave": "Roll {dice}d6 #target{target}",
+      "DecreaseQuantity": "Decrease quantity",
+      "IncreaseQuantity": "Increase quantity",
+      "DecreaseResource": "Decrease resource",
+      "IncreaseResource": "Increase resource",
+      "DiceCount": "{count} die(s)"
+    },
+    "Dialogs": {
+      "PowerRollTitle": "Power Roll",
+      "MagickPowerPrompt": "Choose power level",
+      "MiraclePowerPrompt": "Choose prayer urgency"
+    },
+    "Tasks": {
+      "DoubleBane": "Double bane",
+      "SingleBane": "Single bane",
+      "NormalRoll": "Normal roll",
+      "SingleBoon": "Single boon",
+      "DoubleBoon": "Double boon"
+    },
+    "Chat": {
+      "QuantityLine": "Quantity: {quantity}"
+    },
+    "Tags": {
+      "Karma": "karma",
+      "Stress": "stress",
+      "Health": "health"
+    },
+    "Magic": {
+      "Magick": "Magick"
+    },
+    "Categories": {
+      "Inclinations": "Inclinations",
+      "Aspects": "Aspects",
+      "Equipment": "Equipment"
+    },
+    "Resources": {
+      "Strikes": "Strikes"
+    },
+    "Notifications": {
+      "FailedToOpenEditor": "Failed to open editor.",
+      "ChatUpdateNeedsGM": "EZD6: Unable to update the chat message because no GM is currently online."
+    },
+    "Alts": {
+      "Avatar": "Avatar",
+      "ItemIcon": "{label} icon"
+    },
+    "Defaults": {
+      "NewItem": "New Item",
+      "NewItemTyped": "New {itemLabel}",
+      "Unnamed": "Unnamed"
+    },
+    "Replenish": {
+      "Disabled": "Disabled",
+      "Reset": "Reset",
+      "RestoreOne": "Restore 1",
+      "TitleReset": "Reset by spending {cost} {targetTag}",
+      "TitleRestore": "Restore 1 by spending {cost} {targetTag}"
+    }
+  }
+}

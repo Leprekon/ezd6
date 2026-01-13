@@ -9,39 +9,48 @@ import {
     normalizeTag,
     wireExpandableRow,
 } from "./ui/sheet-utils";
+import { format, localize } from "./ui/i18n";
 import { renderResourceCounter as renderResourceCounterShared } from "./ui/resource-counter";
 import { buildInfoMeta, buildRollMeta, EZD6_META_FLAG } from "./chat/chat-meta";
+import { renderMarkdown } from "./ui/markdown";
 
 const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
+const t = (key: string, fallback: string) => localize(key, fallback);
+const tf = (key: string, data: Record<string, any>, fallback: string) => format(key, data, fallback);
 
 const TASK_ROLLS = [
     {
         id: "double-bane",
-        label: "Double bane",
+        labelKey: "EZD6.Tasks.DoubleBane",
+        labelFallback: "Double bane",
         formula: "3d6kl",
         dice: ["red", "red", "grey"] as const,
     },
     {
         id: "single-bane",
-        label: "Single bane",
+        labelKey: "EZD6.Tasks.SingleBane",
+        labelFallback: "Single bane",
         formula: "2d6kl",
         dice: ["red", "grey"] as const,
     },
     {
         id: "normal",
-        label: "Normal roll",
+        labelKey: "EZD6.Tasks.NormalRoll",
+        labelFallback: "Normal roll",
         formula: "1d6",
         dice: ["grey"] as const,
     },
     {
         id: "single-boon",
-        label: "Single boon",
+        labelKey: "EZD6.Tasks.SingleBoon",
+        labelFallback: "Single boon",
         formula: "2d6kh",
         dice: ["grey", "green"] as const,
     },
     {
         id: "double-boon",
-        label: "Double boon",
+        labelKey: "EZD6.Tasks.DoubleBoon",
+        labelFallback: "Double boon",
         formula: "3d6kh",
         dice: ["grey", "green", "green"] as const,
     },
@@ -69,6 +78,23 @@ export class CharacterSheetView {
             onNameCommit?: (name: string) => void;
             actor?: any;
             editable?: boolean;
+            mode?: "character" | "archetype";
+            nameOverride?: string;
+            nameLocked?: boolean;
+            showLocalizationId?: boolean;
+            localizationId?: string;
+            onLocalizationIdCommit?: (value: string) => void;
+            itemSourceOwnerId?: string;
+            itemSource?: {
+                getItems: (type: "ability" | "aspect" | "equipment") => any[];
+                getItemById?: (id: string) => any | null;
+                createItem?: (data: Record<string, any>) => Promise<void>;
+                updateItem?: (id: string, updates: Record<string, any>) => Promise<void>;
+                deleteItem?: (id: string) => Promise<void>;
+                updateItemSort?: (updates: Array<{ _id: string; sort: number; "system.category": string }>) => Promise<void>;
+                openItemEditor?: (item: any, onUpdate: () => void) => void;
+            };
+            systemUpdater?: (data: Record<string, any>) => Promise<void>;
         } = {}
     ) {}
 
@@ -91,7 +117,7 @@ export class CharacterSheetView {
             this.renderAbilitySections(),
             this.renderEquipmentSection(),
         );
-        if (this.options.editable) {
+        if (this.options.editable && (this.options.mode ?? "character") === "character") {
             right.insertBefore(this.renderTaskSection(), right.children[1] ?? null);
         }
 
@@ -101,11 +127,18 @@ export class CharacterSheetView {
     }
 
     private renderAvatarSection(): HTMLElement {
-        const { block, section } = this.buildSectionBlock("Avatar", "ezd6-section--avatar");
+        const isArchetype = (this.options.mode ?? "character") === "archetype";
+        const title = isArchetype
+            ? t("EZD6.Labels.Icon", "Icon")
+            : t("EZD6.Sections.Avatar", "Avatar");
+        const tooltip = isArchetype
+            ? t("EZD6.Tooltips.ChangeIcon", "Click to change icon")
+            : t("EZD6.Tooltips.ChangeAvatar", "Click to change avatar");
+        const { block, section } = this.buildSectionBlock(title, "ezd6-section--avatar");
         const avatarWrapper = createElement("div", "ezd6-avatar");
         const avatar = createElement("img", "ezd6-avatar__img") as HTMLImageElement;
         const placeholder = DEFAULT_AVATAR;
-        avatar.alt = "Avatar";
+        avatar.alt = title;
         avatar.src = this.character.avatarUrl ?? placeholder;
         if (this.character.avatarUrl) {
             avatarWrapper.classList.add("ezd6-avatar--has-image");
@@ -120,7 +153,7 @@ export class CharacterSheetView {
         avatarWrapper.appendChild(avatar);
         if (this.options.editable && this.options.onAvatarPick) {
             avatarWrapper.classList.add("ezd6-avatar--clickable");
-            avatarWrapper.title = "Click to change avatar";
+            avatarWrapper.title = tooltip;
             avatarWrapper.addEventListener("click", () => {
                 const picker = new FilePicker({
                     type: "image",
@@ -141,14 +174,21 @@ export class CharacterSheetView {
     }
 
     private renderNameSection(): HTMLElement {
-        const { block, section } = this.buildSectionBlock("Name", "ezd6-section--name");
+        const { block, section } = this.buildSectionBlock(
+            t("EZD6.Sections.Name", "Name"),
+            "ezd6-section--name"
+        );
         const nameInput = createElement("input", "ezd6-name-input") as HTMLInputElement;
-        nameInput.placeholder = "Character Name";
-        nameInput.value = this.character.name;
+        nameInput.placeholder = t("EZD6.Placeholders.CharacterName", "Character Name");
+        nameInput.value = this.options.nameOverride ?? this.character.name;
+        if (this.options.nameLocked) {
+            nameInput.disabled = true;
+        }
         const commit = () => {
+            if (this.options.nameLocked) return;
             const rawName = nameInput.value ?? "";
             const trimmed = rawName.trim();
-            const fallback = this.character.name || "Unnamed";
+            const fallback = this.character.name || t("EZD6.Defaults.Unnamed", "Unnamed");
             const nextName = trimmed ? trimmed : fallback;
             nameInput.value = nextName;
             this.character.setName(nextName, game?.canvas?.tokens?.controlled?.[0]);
@@ -157,14 +197,31 @@ export class CharacterSheetView {
         nameInput.addEventListener("change", commit);
         nameInput.addEventListener("blur", commit);
         section.appendChild(nameInput);
+
+        if (this.options.showLocalizationId) {
+            const label = t("EZD6.Labels.LocalizationId", "Localization ID");
+            const title = createElement("div", "ezd6-section__title", label);
+            const input = createElement("input", "ezd6-name-input ezd6-name-input--small") as HTMLInputElement;
+            input.type = "text";
+            input.placeholder = "EZD6.Compendium.";
+            input.value = this.options.localizationId ?? "";
+            input.disabled = !this.options.editable;
+            const commitLocalization = () => {
+                const next = input.value ?? "";
+                this.options.onLocalizationIdCommit?.(next);
+            };
+            input.addEventListener("change", commitLocalization);
+            input.addEventListener("blur", commitLocalization);
+            section.append(title, input);
+        }
         return block;
     }
 
     private renderAbilitySections(): HTMLElement {
         return this.renderAbilityLikeSection({
-            title: "Abilities",
+            title: t("EZD6.Sections.Abilities", "Abilities"),
             sectionClass: "ezd6-section--abilities",
-            addTitle: "Add ability",
+            addTitle: t("EZD6.Actions.AddAbility", "Add ability"),
             listClass: "ezd6-ability-list",
             dragType: "ability",
             getItems: () => this.getAbilityItems(),
@@ -177,14 +234,18 @@ export class CharacterSheetView {
     }
 
     private renderEquipmentSection(): HTMLElement {
-        const { block: sectionBlock, section } = this.buildSectionBlock("Equipment", "ezd6-section--equipment");
+        const equipmentLabel = t("EZD6.ItemLabels.Equipment", "Equipment");
+        const { block: sectionBlock, section } = this.buildSectionBlock(
+            t("EZD6.Sections.Equipment", "Equipment"),
+            "ezd6-section--equipment"
+        );
         const titleRow = createElement("div", "ezd6-section__title-row");
-        const titleLabel = createElement("div", "ezd6-section__title", "Equipment");
+        const titleLabel = createElement("div", "ezd6-section__title", equipmentLabel);
         titleRow.append(titleLabel);
         if (this.options.editable) {
             const addBtn = createElement("button", "ezd6-section__add-btn", "+") as HTMLButtonElement;
             addBtn.type = "button";
-            addBtn.title = "Add equipment";
+            addBtn.title = t("EZD6.Actions.AddEquipment", "Add equipment");
             addBtn.addEventListener("click", async () => {
                 await this.createEquipmentItem();
                 this.refreshEquipmentList(section);
@@ -212,15 +273,19 @@ export class CharacterSheetView {
     }
 
     private renderTaskSection(): HTMLElement {
-        const { block, section } = this.buildSectionBlock("Task", "ezd6-section--tasks");
+        const { block, section } = this.buildSectionBlock(
+            t("EZD6.Sections.Tasks", "Task"),
+            "ezd6-section--tasks"
+        );
 
         const buttons = createElement("div", "ezd6-task-buttons");
         TASK_ROLLS.forEach((task) => {
+            const label = t(task.labelKey, task.labelFallback);
             const btn = createRollButton({
                 className: "ezd6-task-btn",
-                title: `${task.label} (${task.formula})`,
+                title: tf("EZD6.Tooltips.TaskRoll", { label, formula: task.formula }, `${label} (${task.formula})`),
                 kinds: [...task.dice],
-                onClick: () => this.character.rollTask(task.label, task.formula, this.getChatSpeaker()),
+                onClick: () => this.character.rollTask(label, task.formula, this.getChatSpeaker()),
             });
             buttons.appendChild(btn);
         });
@@ -231,8 +296,8 @@ export class CharacterSheetView {
 
     private renderAbilityRow(item: any): HTMLElement {
         return this.renderAbilityLikeRow(item, {
-            label: "Ability",
-            labelLower: "ability",
+            label: t("EZD6.ItemLabels.Ability", "Ability"),
+            labelLower: t("EZD6.ItemLabels.Ability", "Ability"),
             defaultIcon: "icons/magic/symbols/cog-orange-red.webp",
             listSelector: ".ezd6-ability-list",
             rowSelector: ".ezd6-ability-row",
@@ -249,8 +314,8 @@ export class CharacterSheetView {
 
     private renderAspectRow(item: any): HTMLElement {
         return this.renderAbilityLikeRow(item, {
-            label: "Aspect",
-            labelLower: "aspect",
+            label: t("EZD6.ItemLabels.Aspect", "Aspect"),
+            labelLower: t("EZD6.ItemLabels.Aspect", "Aspect"),
             defaultIcon: "icons/environment/people/group.webp",
             listSelector: ".ezd6-aspect-list",
             rowSelector: ".ezd6-aspect-row",
@@ -281,6 +346,7 @@ export class CharacterSheetView {
             setExpandedId: (id: string | null) => void;
         }
     ): HTMLElement {
+        const isArchetype = (this.options.mode ?? "character") === "archetype";
         const system = item?.system ?? {};
         const numberOfDice = Math.max(0, Number(system.numberOfDice) || 0);
         const tag = typeof system.tag === "string"
@@ -289,6 +355,7 @@ export class CharacterSheetView {
                 ? String(system.tag)
                 : "";
         const description = typeof system.description === "string" ? system.description : "";
+        const descriptionHtml = this.renderDescriptionHtml(description);
         const canEdit = Boolean(this.options.editable);
         const wrapper = createElement("div", options.itemClassName);
         if (item?.id) {
@@ -298,7 +365,7 @@ export class CharacterSheetView {
         const row = createElement("div", options.rowClassName);
         row.setAttribute("role", "button");
         row.tabIndex = 0;
-        row.title = "Toggle details";
+        row.title = t("EZD6.Actions.ToggleDetails", "Toggle details");
 
         const iconWrap = createElement("span", "ezd6-ability-icon");
         const icon = createElement("img", "ezd6-ability-icon__img") as HTMLImageElement;
@@ -306,7 +373,7 @@ export class CharacterSheetView {
             ? item.img
             : options.defaultIcon;
         icon.src = abilityIcon;
-        icon.alt = item?.name ?? `${options.label} icon`;
+        icon.alt = item?.name ?? tf("EZD6.Alts.ItemIcon", { label: options.label }, `${options.label} icon`);
         icon.draggable = false;
         iconWrap.appendChild(icon);
 
@@ -316,13 +383,21 @@ export class CharacterSheetView {
         if (numberOfDice > 0) {
             const rollBtn = createRollButton({
                 className: "ezd6-task-btn ezd6-ability-roll-btn",
-                title: `Roll ${numberOfDice}d6 ${this.normalizeAbilityTag(tag)}`.trim(),
+                title: tf(
+                    "EZD6.Tooltips.RollWithTag",
+                    { dice: numberOfDice, tag: this.normalizeAbilityTag(tag) },
+                    `Roll ${numberOfDice}d6 ${this.normalizeAbilityTag(tag)}`
+                ).trim(),
                 kinds: buildStandardRollKinds(numberOfDice),
                 onClick: (event) => {
                     event.stopPropagation();
                     this.rollAbilityItem(item, numberOfDice, tag, description, options.label);
                 },
             });
+            if (isArchetype) {
+                rollBtn.disabled = true;
+                rollBtn.setAttribute("aria-disabled", "true");
+            }
             row.appendChild(rollBtn);
         }
 
@@ -332,7 +407,11 @@ export class CharacterSheetView {
         if (canEdit) {
             messageBtn = createElement("button", "ezd6-ability-msg-btn") as HTMLButtonElement;
             messageBtn.type = "button";
-            messageBtn.title = `Post ${options.labelLower} to chat`;
+            messageBtn.title = tf(
+                "EZD6.Actions.PostToChat",
+                { label: options.labelLower },
+                `Post ${options.labelLower} to chat`
+            );
             messageBtn.appendChild(createElement("i", "fas fa-comment"));
             messageBtn.addEventListener("click", (event) => {
                 event.stopPropagation();
@@ -341,20 +420,31 @@ export class CharacterSheetView {
 
             const editBtn = createElement("button", "ezd6-ability-edit-btn") as HTMLButtonElement;
             editBtn.type = "button";
-            editBtn.title = `Edit ${options.labelLower}`;
+            editBtn.title = tf("EZD6.Actions.Edit", { label: options.labelLower }, `Edit ${options.labelLower}`);
             editBtn.appendChild(createElement("i", "fas fa-pen"));
             editBtn.addEventListener("click", (event) => {
                 event.stopPropagation();
+                if (this.options.itemSource?.openItemEditor) {
+                    this.options.itemSource.openItemEditor(item, () => {
+                        const list = wrapper.parentElement ?? wrapper;
+                        this.reRender(list);
+                    });
+                    return;
+                }
                 item?.sheet?.render?.(true);
             });
 
             const deleteBtn = createElement("button", "ezd6-ability-delete-btn") as HTMLButtonElement;
             deleteBtn.type = "button";
-            deleteBtn.title = `Delete ${options.labelLower}`;
+            deleteBtn.title = tf("EZD6.Actions.Delete", { label: options.labelLower }, `Delete ${options.labelLower}`);
             deleteBtn.appendChild(createElement("i", "fas fa-trash"));
             deleteBtn.addEventListener("click", async (event) => {
                 event.stopPropagation();
-                await item?.delete?.();
+                if (this.options.itemSource?.deleteItem && item?.id) {
+                    await this.options.itemSource.deleteItem(item.id);
+                } else {
+                    await item?.delete?.();
+                }
                 const list = wrapper.parentElement ?? wrapper;
                 this.reRender(list);
             });
@@ -364,7 +454,7 @@ export class CharacterSheetView {
         const tagSpan = createElement("span", "ezd6-ability-tag", this.normalizeAbilityTag(tag));
         const detailContent = buildDetailContent({
             prefix: "ezd6-ability",
-            description,
+            description: descriptionHtml,
             metaItems: [tagSpan],
             messageButton: messageBtn ?? undefined,
             actionButtons,
@@ -389,8 +479,10 @@ export class CharacterSheetView {
     }
 
     private renderEquipmentRow(item: any): HTMLElement {
+        const isArchetype = (this.options.mode ?? "character") === "archetype";
         const system = item?.system ?? {};
         const description = typeof system.description === "string" ? system.description : "";
+        const descriptionHtml = this.renderDescriptionHtml(description);
         const numberOfDice = Math.max(0, Number(system.numberOfDice) || 0);
         const tag = typeof system.tag === "string"
             ? system.tag
@@ -403,6 +495,7 @@ export class CharacterSheetView {
         );
         const canEdit = Boolean(this.options.editable);
 
+        const equipmentLabel = t("EZD6.ItemLabels.Equipment", "Equipment");
         const wrapper = createElement("div", "ezd6-equipment-item");
         if (item?.id) {
             wrapper.dataset.itemId = item.id;
@@ -414,16 +507,16 @@ export class CharacterSheetView {
         }
         row.setAttribute("role", "button");
         row.tabIndex = 0;
-        row.title = "Toggle details";
+        row.title = t("EZD6.Actions.ToggleDetails", "Toggle details");
 
         const iconWrap = createElement("span", "ezd6-equipment-icon");
         const icon = createElement("img", "ezd6-equipment-icon__img") as HTMLImageElement;
         icon.src = item?.img || "icons/containers/bags/coinpouch-simple-leather-tan.webp";
-        icon.alt = item?.name ?? "Equipment icon";
+        icon.alt = item?.name ?? tf("EZD6.Alts.ItemIcon", { label: equipmentLabel }, `${equipmentLabel} icon`);
         icon.draggable = false;
         iconWrap.appendChild(icon);
 
-        const title = createElement("span", "ezd6-equipment-row__title", item?.name ?? "Equipment");
+        const title = createElement("span", "ezd6-equipment-row__title", item?.name ?? equipmentLabel);
         row.append(iconWrap, title);
 
         const qtySlot = createElement("div", "ezd6-equipment-qty-slot");
@@ -435,8 +528,8 @@ export class CharacterSheetView {
             decBtn.type = "button";
             incBtn.type = "button";
             decBtn.disabled = !canEdit || quantity <= 0;
-            decBtn.title = "Decrease quantity";
-            incBtn.title = "Increase quantity";
+            decBtn.title = t("EZD6.Tooltips.DecreaseQuantity", "Decrease quantity");
+            incBtn.title = t("EZD6.Tooltips.IncreaseQuantity", "Increase quantity");
             incBtn.disabled = !canEdit;
 
             decBtn.addEventListener("click", async (event) => {
@@ -459,13 +552,21 @@ export class CharacterSheetView {
         if (numberOfDice > 0) {
             const rollBtn = createRollButton({
                 className: "ezd6-task-btn ezd6-equipment-roll-btn",
-                title: `Roll ${numberOfDice}d6 ${this.normalizeAbilityTag(tag)}`.trim(),
+                title: tf(
+                    "EZD6.Tooltips.RollWithTag",
+                    { dice: numberOfDice, tag: this.normalizeAbilityTag(tag) },
+                    `Roll ${numberOfDice}d6 ${this.normalizeAbilityTag(tag)}`
+                ).trim(),
                 kinds: buildStandardRollKinds(numberOfDice),
                 onClick: (event) => {
                     event.stopPropagation();
                     this.rollEquipmentItem(item, numberOfDice, tag, description, quantity, isQuantifiable);
                 },
             });
+            if (isArchetype) {
+                rollBtn.disabled = true;
+                rollBtn.setAttribute("aria-disabled", "true");
+            }
             rollSlot.appendChild(rollBtn);
         } else if (isQuantifiable) {
             rollSlot.appendChild(createElement("span", "ezd6-equipment-roll-spacer"));
@@ -478,7 +579,11 @@ export class CharacterSheetView {
         if (canEdit) {
             messageBtn = createElement("button", "ezd6-equipment-msg-btn") as HTMLButtonElement;
             messageBtn.type = "button";
-            messageBtn.title = "Post equipment to chat";
+            messageBtn.title = tf(
+                "EZD6.Actions.PostToChat",
+                { label: equipmentLabel },
+                "Post equipment to chat"
+            );
             messageBtn.appendChild(createElement("i", "fas fa-comment"));
             messageBtn.addEventListener("click", (event) => {
                 event.stopPropagation();
@@ -487,20 +592,31 @@ export class CharacterSheetView {
 
             const editBtn = createElement("button", "ezd6-equipment-edit-btn") as HTMLButtonElement;
             editBtn.type = "button";
-            editBtn.title = "Edit equipment";
+            editBtn.title = tf("EZD6.Actions.Edit", { label: equipmentLabel }, "Edit equipment");
             editBtn.appendChild(createElement("i", "fas fa-pen"));
             editBtn.addEventListener("click", (event) => {
                 event.stopPropagation();
+                if (this.options.itemSource?.openItemEditor) {
+                    this.options.itemSource.openItemEditor(item, () => {
+                        const list = wrapper.parentElement ?? wrapper;
+                        this.reRender(list);
+                    });
+                    return;
+                }
                 item?.sheet?.render?.(true);
             });
 
             const deleteBtn = createElement("button", "ezd6-equipment-delete-btn") as HTMLButtonElement;
             deleteBtn.type = "button";
-            deleteBtn.title = "Delete equipment";
+            deleteBtn.title = tf("EZD6.Actions.Delete", { label: equipmentLabel }, "Delete equipment");
             deleteBtn.appendChild(createElement("i", "fas fa-trash"));
             deleteBtn.addEventListener("click", async (event) => {
                 event.stopPropagation();
-                await item?.delete?.();
+                if (this.options.itemSource?.deleteItem && item?.id) {
+                    await this.options.itemSource.deleteItem(item.id);
+                } else {
+                    await item?.delete?.();
+                }
                 const list = wrapper.parentElement ?? wrapper;
                 this.reRender(list);
             });
@@ -510,7 +626,7 @@ export class CharacterSheetView {
         const tagSpan = createElement("span", "ezd6-equipment-tag", this.normalizeAbilityTag(tag));
         const detailContent = buildDetailContent({
             prefix: "ezd6-equipment",
-            description,
+            description: descriptionHtml,
             metaItems: [tagSpan],
             messageButton: messageBtn ?? undefined,
             actionButtons,
@@ -537,14 +653,17 @@ export class CharacterSheetView {
     }
 
     private renderResourceSection(): HTMLElement {
-        const { block: sectionBlock, section } = this.buildSectionBlock("Resources", "ezd6-section--resources");
+        const { block: sectionBlock, section } = this.buildSectionBlock(
+            t("EZD6.Sections.Resources", "Resources"),
+            "ezd6-section--resources"
+        );
         const titleRow = createElement("div", "ezd6-section__title-row");
-        const titleLabel = createElement("div", "ezd6-section__title", "Resources");
+        const titleLabel = createElement("div", "ezd6-section__title", t("EZD6.Sections.Resources", "Resources"));
         titleRow.append(titleLabel);
         if (this.options.editable) {
             const addBtn = createElement("button", "ezd6-section__add-btn", "+") as HTMLButtonElement;
             addBtn.type = "button";
-            addBtn.title = "Add resource";
+            addBtn.title = t("EZD6.Actions.AddResource", "Add resource");
             addBtn.addEventListener("click", async () => {
                 await this.createResourceEntry();
                 this.refreshResourceList(section);
@@ -568,6 +687,7 @@ export class CharacterSheetView {
     }
 
     private renderResourceRow(resource: Resource): HTMLElement {
+        const resourceLabel = t("EZD6.ItemLabels.Resource", "Resource");
         const wrapper = createElement("div", "ezd6-resource-item");
         wrapper.dataset.resourceId = resource.id;
         wrapper.dataset.itemId = resource.id;
@@ -576,16 +696,16 @@ export class CharacterSheetView {
         const row = createElement("div", "ezd6-resource-row");
         row.setAttribute("role", "button");
         row.tabIndex = 0;
-        row.title = "Toggle details";
+        row.title = t("EZD6.Actions.ToggleDetails", "Toggle details");
 
-        const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
+        const title = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
 
         const subBtn = createElement("button", "ezd6-qty-btn", "-") as HTMLButtonElement;
         const addBtn = createElement("button", "ezd6-qty-btn", "+") as HTMLButtonElement;
         subBtn.type = "button";
         addBtn.type = "button";
-        subBtn.title = "Decrease resource";
-        addBtn.title = "Increase resource";
+        subBtn.title = t("EZD6.Tooltips.DecreaseResource", "Decrease resource");
+        addBtn.title = t("EZD6.Tooltips.IncreaseResource", "Increase resource");
 
         const counter = createElement("div", "ezd6-resource-counter");
         const currentValue = this.getResourceValue(resource);
@@ -633,14 +753,17 @@ export class CharacterSheetView {
     }
 
     private renderSavesSection(): HTMLElement {
-        const { block: sectionBlock, section } = this.buildSectionBlock("Saves", "ezd6-section--saves");
+        const { block: sectionBlock, section } = this.buildSectionBlock(
+            t("EZD6.Sections.Saves", "Saves"),
+            "ezd6-section--saves"
+        );
         const titleRow = createElement("div", "ezd6-section__title-row");
-        const titleLabel = createElement("div", "ezd6-section__title", "Saves");
+        const titleLabel = createElement("div", "ezd6-section__title", t("EZD6.Sections.Saves", "Saves"));
         titleRow.append(titleLabel);
         if (this.options.editable) {
             const addBtn = createElement("button", "ezd6-section__add-btn", "+") as HTMLButtonElement;
             addBtn.type = "button";
-            addBtn.title = "Add save";
+            addBtn.title = t("EZD6.Actions.AddSave", "Add save");
             addBtn.addEventListener("click", async () => {
                 await this.createSaveEntry();
                 this.refreshSaveList(section);
@@ -663,9 +786,9 @@ export class CharacterSheetView {
 
     private renderAspectSection(): HTMLElement {
         return this.renderAbilityLikeSection({
-            title: "Aspects",
+            title: t("EZD6.Sections.Aspects", "Aspects"),
             sectionClass: "ezd6-section--aspects",
-            addTitle: "Add aspect",
+            addTitle: t("EZD6.Actions.AddAspect", "Add aspect"),
             listClass: "ezd6-aspect-list",
             dragType: "aspect",
             getItems: () => this.getAspectItems(),
@@ -721,15 +844,17 @@ export class CharacterSheetView {
     }
 
     private renderSaveRow(save: Save): HTMLElement {
+        const isArchetype = (this.options.mode ?? "character") === "archetype";
+        const saveLabel = t("EZD6.ItemLabels.Save", "Save");
         const wrapper = createElement("div", "ezd6-save-item");
         wrapper.dataset.itemId = save.id;
         wrapper.draggable = Boolean(this.options.editable);
         const row = createElement("div", "ezd6-save-row");
         row.setAttribute("role", "button");
         row.tabIndex = 0;
-        row.title = "Toggle details";
+        row.title = t("EZD6.Actions.ToggleDetails", "Toggle details");
 
-        const title = typeof save.title === "string" ? save.title.trim() || "Save" : "Save";
+        const title = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
         const targetValue = this.getSaveTargetValue(save);
         const diceCount = this.getSaveDiceCount(save);
         const iconPath = this.getSaveIcon(save);
@@ -737,7 +862,7 @@ export class CharacterSheetView {
         const iconWrap = createElement("span", "ezd6-ability-icon ezd6-save-icon");
         const icon = createElement("img", "ezd6-ability-icon__img") as HTMLImageElement;
         icon.src = iconPath;
-        icon.alt = `${title} icon`;
+        icon.alt = tf("EZD6.Alts.ItemIcon", { label: title }, `${title} icon`);
         icon.draggable = false;
         iconWrap.appendChild(icon);
 
@@ -749,7 +874,11 @@ export class CharacterSheetView {
 
         const rollBtn = createRollButton({
             className: "ezd6-task-btn ezd6-save-roll-btn",
-            title: `Roll ${diceCount}d6 #target${targetValue}`.trim(),
+            title: tf(
+                "EZD6.Tooltips.RollSave",
+                { dice: diceCount, target: targetValue },
+                `Roll ${diceCount}d6 #target${targetValue}`
+            ).trim(),
             kinds: buildStandardRollKinds(diceCount),
             onClick: async (event) => {
                 event.stopPropagation();
@@ -760,6 +889,10 @@ export class CharacterSheetView {
                 await this.maybePromptPowerRoll(keyword, diceCount, performRoll);
             },
         });
+        if (isArchetype) {
+            rollBtn.disabled = true;
+            rollBtn.setAttribute("aria-disabled", "true");
+        }
 
         row.append(iconWrap, target, name, rollBtn);
 
@@ -788,11 +921,12 @@ export class CharacterSheetView {
     private buildResourceDetailContent(resource: Resource, wrapper: HTMLElement): HTMLElement {
         const tag = this.getResourceTag(resource);
         const canEdit = Boolean(this.options.editable);
+        const resourceLabel = t("EZD6.ItemLabels.Resource", "Resource");
         let messageBtn: HTMLButtonElement | null = null;
         if (canEdit) {
             messageBtn = createElement("button", "ezd6-resource-msg-btn") as HTMLButtonElement;
             messageBtn.type = "button";
-            messageBtn.title = "Post resource to chat";
+            messageBtn.title = tf("EZD6.Actions.PostToChat", { label: resourceLabel }, "Post resource to chat");
             messageBtn.appendChild(createElement("i", "fas fa-comment"));
             messageBtn.addEventListener("click", (event) => {
                 event.stopPropagation();
@@ -804,7 +938,7 @@ export class CharacterSheetView {
         if (canEdit) {
             const editBtn = createElement("button", "ezd6-equipment-edit-btn") as HTMLButtonElement;
             editBtn.type = "button";
-            editBtn.title = "Edit resource";
+            editBtn.title = tf("EZD6.Actions.Edit", { label: resourceLabel }, "Edit resource");
             editBtn.appendChild(createElement("i", "fas fa-pen"));
             editBtn.addEventListener("click", (event) => {
                 event.stopPropagation();
@@ -814,7 +948,7 @@ export class CharacterSheetView {
             if (!isLockedResource(resource)) {
                 const deleteBtn = createElement("button", "ezd6-equipment-delete-btn") as HTMLButtonElement;
                 deleteBtn.type = "button";
-                deleteBtn.title = "Delete resource";
+                deleteBtn.title = tf("EZD6.Actions.Delete", { label: resourceLabel }, "Delete resource");
                 deleteBtn.appendChild(createElement("i", "fas fa-trash"));
                 deleteBtn.addEventListener("click", async (event) => {
                     event.stopPropagation();
@@ -828,7 +962,7 @@ export class CharacterSheetView {
         const tagSpan = createElement("span", "ezd6-resource-tag", tag);
         return buildDetailContent({
             prefix: "ezd6-resource",
-            description: resource.description ?? "",
+            description: this.renderDescriptionHtml(resource.description ?? ""),
             metaItems: [tagSpan],
             messageButton: messageBtn ?? undefined,
             actionButtons,
@@ -840,11 +974,12 @@ export class CharacterSheetView {
         const targetValue = this.getSaveTargetValue(save);
         const tag = `#target${targetValue}`;
         const canEdit = Boolean(this.options.editable);
+        const saveLabel = t("EZD6.ItemLabels.Save", "Save");
         let messageBtn: HTMLButtonElement | null = null;
         if (canEdit) {
             messageBtn = createElement("button", "ezd6-save-msg-btn") as HTMLButtonElement;
             messageBtn.type = "button";
-            messageBtn.title = "Post save to chat";
+            messageBtn.title = tf("EZD6.Actions.PostToChat", { label: saveLabel }, "Post save to chat");
             messageBtn.appendChild(createElement("i", "fas fa-comment"));
             messageBtn.addEventListener("click", (event) => {
                 event.stopPropagation();
@@ -856,7 +991,7 @@ export class CharacterSheetView {
         if (canEdit) {
             const editBtn = createElement("button", "ezd6-equipment-edit-btn") as HTMLButtonElement;
             editBtn.type = "button";
-            editBtn.title = "Edit save";
+            editBtn.title = tf("EZD6.Actions.Edit", { label: saveLabel }, "Edit save");
             editBtn.appendChild(createElement("i", "fas fa-pen"));
             editBtn.addEventListener("click", (event) => {
                 event.stopPropagation();
@@ -865,7 +1000,7 @@ export class CharacterSheetView {
 
             const deleteBtn = createElement("button", "ezd6-equipment-delete-btn") as HTMLButtonElement;
             deleteBtn.type = "button";
-            deleteBtn.title = "Delete save";
+            deleteBtn.title = tf("EZD6.Actions.Delete", { label: saveLabel }, "Delete save");
             deleteBtn.appendChild(createElement("i", "fas fa-trash"));
             deleteBtn.addEventListener("click", async (event) => {
                 event.stopPropagation();
@@ -879,7 +1014,7 @@ export class CharacterSheetView {
         const tagSpan = createElement("span", "ezd6-save-tag", tag);
         return buildDetailContent({
             prefix: "ezd6-save",
-            description: save.description ?? "",
+            description: this.renderDescriptionHtml(save.description ?? ""),
             metaItems: [tagSpan],
             messageButton: messageBtn ?? undefined,
             actionButtons,
@@ -976,8 +1111,18 @@ export class CharacterSheetView {
     }
 
     private buildReplenishTitle(mode: "reset" | "restore", cost: number, targetTag: string): string {
-        const label = mode === "reset" ? "Reset" : "Restore 1";
-        return `${label} by spending ${cost} ${targetTag}`.trim();
+        if (mode === "reset") {
+            return tf(
+                "EZD6.Replenish.TitleReset",
+                { cost, targetTag },
+                `Reset by spending ${cost} ${targetTag}`
+            ).trim();
+        }
+        return tf(
+            "EZD6.Replenish.TitleRestore",
+            { cost, targetTag },
+            `Restore 1 by spending ${cost} ${targetTag}`
+        ).trim();
     }
 
     private async applyReplenishAction(
@@ -1081,7 +1226,8 @@ export class CharacterSheetView {
         const diceCount = override !== null ? Math.max(0, override) : this.getResourceDiceCount(resource);
         if (diceCount <= 0) return;
         const tag = this.normalizeAbilityTag(resource.rollKeyword ?? "default");
-        const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
+        const resourceLabel = t("EZD6.ItemLabels.Resource", "Resource");
+        const title = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
         const icon = this.getResourceIcon(resource);
         const roll = new Roll(`${diceCount}d6`, {});
         await roll.evaluate();
@@ -1110,14 +1256,16 @@ export class CharacterSheetView {
         const roll = new Roll(`${diceCount}d6`, {});
         await roll.evaluate();
         const target = this.getSaveTargetValue(save);
-        const flavor = `${save.title} #target${target}`.trim();
+        const saveLabel = t("EZD6.ItemLabels.Save", "Save");
+        const saveTitle = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
+        const flavor = `${saveTitle} #target${target}`.trim();
         const icon = this.getSaveIcon(save);
         await roll.toMessage({
             flavor,
             speaker: this.getChatSpeaker(),
             flags: {
                 [EZD6_META_FLAG]: buildRollMeta({
-                    title: save.title,
+                    title: saveTitle,
                     description: save.description ?? "",
                     tag: `#target${target}`,
                     icon,
@@ -1129,7 +1277,8 @@ export class CharacterSheetView {
     }
 
     private renderResourceCounter(counter: HTMLElement, resource: Resource, maxIcons: number = 6) {
-        const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
+        const resourceLabel = t("EZD6.ItemLabels.Resource", "Resource");
+        const title = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
         const iconPath = this.getResourceIcon(resource);
         const currentValue = this.getResourceValue(resource);
         const maxValue = this.getResourceMaxValue(resource);
@@ -1143,6 +1292,7 @@ export class CharacterSheetView {
     }
 
     private renderResourceRoll(slot: HTMLElement, resource: Resource) {
+        const isArchetype = (this.options.mode ?? "character") === "archetype";
         slot.innerHTML = "";
         slot.classList.remove("has-replenish");
         const diceCount = this.getResourceDiceCount(resource);
@@ -1162,7 +1312,7 @@ export class CharacterSheetView {
             btn.dataset.ezd6IntentDisabled = btn.disabled ? "1" : "0";
             btn.title = this.buildReplenishTitle(replenishState.mode ?? "reset", cost, targetTag);
             icon.src = targetIcon;
-            icon.alt = targetTag || "Replenish";
+            icon.alt = targetTag || t("EZD6.Labels.Replenish", "Replenish");
             icon.draggable = false;
             if (btn.disabled) {
                 icon.classList.add("ezd6-resource-replenish-icon--disabled");
@@ -1179,12 +1329,13 @@ export class CharacterSheetView {
         }
 
         if (diceCount <= 0) return;
-        const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
+        const resourceLabel = t("EZD6.ItemLabels.Resource", "Resource");
+        const title = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
         const tag = this.normalizeAbilityTag(resource.rollKeyword ?? "default");
         const keyword = this.getKeywordFromTag(resource.rollKeyword ?? "default");
         const rollBtn = createRollButton({
             className: "ezd6-task-btn ezd6-resource-roll-btn",
-            title: `Roll ${diceCount}d6 ${tag}`.trim(),
+            title: tf("EZD6.Tooltips.RollWithTag", { dice: diceCount, tag }, `Roll ${diceCount}d6 ${tag}`).trim(),
             kinds: buildStandardRollKinds(diceCount),
             onClick: async (event) => {
                 event.stopPropagation();
@@ -1200,6 +1351,10 @@ export class CharacterSheetView {
                 await this.maybePromptPowerRoll(keyword, diceCount, performRoll);
             },
         });
+        if (isArchetype) {
+            rollBtn.disabled = true;
+            rollBtn.setAttribute("aria-disabled", "true");
+        }
         slot.appendChild(rollBtn);
     }
 
@@ -1288,8 +1443,12 @@ export class CharacterSheetView {
     }
 
     private async persistSystemArray(key: "resources" | "saves", value: unknown) {
-        if (!this.options.actor?.update) return;
         try {
+            if (this.options.systemUpdater) {
+                await this.options.systemUpdater({ [`system.${key}`]: value });
+                return;
+            }
+            if (!this.options.actor?.update) return;
             await this.options.actor.update({ [`system.${key}`]: value }, CharacterSheetView.actorUpdateOptions);
         } catch {
             // ignore persistence errors; UI remains responsive
@@ -1319,15 +1478,22 @@ export class CharacterSheetView {
         const trimmed = raw.trim();
         const match = trimmed.match(/^(\d+)(?:\s*\.\s*|\s+)(.+)$/);
         if (!match) {
-            return { raw: trimmed, label: trimmed, order: null };
+            return { raw: trimmed, label: this.resolveCategoryLabel(trimmed), order: null };
         }
-        const label = match[2].trim();
+        const label = this.resolveCategoryLabel(match[2].trim());
         const order = Number.parseInt(match[1], 10);
         return {
             raw: trimmed,
             label: label || trimmed,
             order: Number.isFinite(order) ? order : null,
         };
+    }
+
+    private resolveCategoryLabel(raw: string): string {
+        const trimmed = raw.trim();
+        if (!trimmed) return raw;
+        const localized = localize(trimmed, trimmed);
+        return localized === trimmed ? raw : localized;
     }
 
     private renderCategoryDivider(label: string, raw: string): HTMLElement {
@@ -1490,13 +1656,21 @@ export class CharacterSheetView {
     }
 
     private applyReadOnlyOverrides(container: HTMLElement) {
-        if (this.options.editable) return;
-        const rollButtons = container.querySelectorAll(".ezd6-task-btn");
-        rollButtons.forEach((button) => {
-            const btn = button as HTMLButtonElement;
-            btn.disabled = true;
-            btn.setAttribute("aria-disabled", "true");
-        });
+        const isArchetype = (this.options.mode ?? "character") === "archetype";
+        if (!this.options.editable || isArchetype) {
+            const rollButtons = container.querySelectorAll(".ezd6-task-btn");
+            rollButtons.forEach((button) => {
+                const btn = button as HTMLButtonElement;
+                btn.disabled = true;
+                btn.setAttribute("aria-disabled", "true");
+            });
+        }
+        if (isArchetype) {
+            const messageButtons = container.querySelectorAll(
+                ".ezd6-ability-msg-btn, .ezd6-equipment-msg-btn, .ezd6-resource-msg-btn, .ezd6-save-msg-btn"
+            );
+            messageButtons.forEach((btn) => (btn as HTMLElement).classList.add("is-hidden"));
+        }
     }
 
     private enableDragReorder(list: HTMLElement, type: "ability" | "aspect" | "equipment" | "resource" | "save") {
@@ -1597,8 +1771,6 @@ export class CharacterSheetView {
     }
 
     private async persistItemSort(list: HTMLElement, selector: string) {
-        const actor = this.options.actor;
-        if (!actor?.updateEmbeddedDocuments) return;
         const updates: Array<{ _id: string; sort: number; "system.category": string }> = [];
         let sortIndex = 0;
         let currentCategory = "";
@@ -1620,6 +1792,12 @@ export class CharacterSheetView {
         });
         if (!updates.length) return;
         try {
+            if (this.options.itemSource?.updateItemSort) {
+                await this.options.itemSource.updateItemSort(updates);
+                return;
+            }
+            const actor = this.options.actor;
+            if (!actor?.updateEmbeddedDocuments) return;
             await actor.updateEmbeddedDocuments("Item", updates);
         } catch {
             // ignore drag failures; list still reflects order until refresh
@@ -1673,15 +1851,22 @@ export class CharacterSheetView {
             return item.toDragData();
         }
         const data = typeof item.toObject === "function" ? item.toObject() : item;
-        return { type: "Item", uuid: item.uuid, data };
+        const payload: Record<string, any> = { type: "Item", uuid: item.uuid, data };
+        if (this.options.itemSourceOwnerId) {
+            payload.sourceOwnerId = this.options.itemSourceOwnerId;
+        }
+        return payload;
     }
 
     private buildResourceDragData(id: string): Record<string, any> | null {
         const resource = this.character.resources.find((entry) => entry.id === id);
         if (!resource) return null;
-        const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
+        const resourceLabel = t("EZD6.ItemLabels.Resource", "Resource");
+        const title = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
         return {
             type: "Item",
+            sourceActorId: this.options.actor?.id ?? null,
+            sourceOwnerId: this.options.itemSourceOwnerId ?? null,
             data: {
                 name: title,
                 type: "resource",
@@ -1692,6 +1877,7 @@ export class CharacterSheetView {
                     maxValue: this.getResourceMaxValue(resource),
                     defaultMaxValue: this.getResourceMaxValue(resource),
                     description: resource.description ?? "",
+                    localizationId: resource.localizationId ?? "",
                     numberOfDice: this.getResourceDiceCount(resource),
                     tag: this.getResourceTag(resource),
                     replenishLogic: this.getResourceReplenishLogic(resource?.replenishLogic),
@@ -1705,9 +1891,12 @@ export class CharacterSheetView {
     private buildSaveDragData(id: string): Record<string, any> | null {
         const save = this.character.saves.find((entry) => entry.id === id);
         if (!save) return null;
-        const title = typeof save.title === "string" ? save.title.trim() || "Save" : "Save";
+        const saveLabel = t("EZD6.ItemLabels.Save", "Save");
+        const title = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
         return {
             type: "Item",
+            sourceActorId: this.options.actor?.id ?? null,
+            sourceOwnerId: this.options.itemSourceOwnerId ?? null,
             data: {
                 name: title,
                 type: "save",
@@ -1716,12 +1905,16 @@ export class CharacterSheetView {
                     targetValue: this.getSaveTargetValue(save),
                     numberOfDice: this.getSaveDiceCount(save),
                     description: save.description ?? "",
+                    localizationId: save.localizationId ?? "",
                 },
             },
         };
     }
 
     private getActorItemById(id: string): any | null {
+        if (this.options.itemSource?.getItemById) {
+            return this.options.itemSource.getItemById(id);
+        }
         const items = this.options.actor?.items;
         if (!items) return null;
         if (typeof items.get === "function") {
@@ -1747,6 +1940,11 @@ export class CharacterSheetView {
     }
 
     private getItemsByType(type: string): any[] {
+        if (this.options.itemSource) {
+            const items = this.options.itemSource.getItems(type as "ability" | "aspect" | "equipment") ?? [];
+            const list = Array.isArray(items) ? items.slice() : Array.from(items);
+            return list.sort((a: any, b: any) => (a.sort ?? 0) - (b.sort ?? 0));
+        }
         const items = this.options.actor?.items?.filter?.((item: any) => item.type === type) ?? [];
         const list = Array.isArray(items) ? items.slice() : Array.from(items);
         return list.sort((a: any, b: any) => (a.sort ?? 0) - (b.sort ?? 0));
@@ -1761,41 +1959,50 @@ export class CharacterSheetView {
     }
 
     private async createAbilityLikeItem(type: "ability" | "aspect") {
+        const label = type === "ability"
+            ? t("EZD6.ItemLabels.Ability", "Ability")
+            : t("EZD6.ItemLabels.Aspect", "Aspect");
+        const data = {
+            name: label,
+            type,
+            system: {
+                description: "",
+                numberOfDice: 0,
+                tag: "",
+                category: "",
+            },
+        };
+        if (this.options.itemSource?.createItem) {
+            await this.options.itemSource.createItem(data);
+            return;
+        }
         const actor = this.options.actor;
         if (!actor?.createEmbeddedDocuments) return;
-        const label = type === "ability" ? "Ability" : "Aspect";
-        const [created] = await actor.createEmbeddedDocuments("Item", [
-            {
-                name: label,
-                type,
-                system: {
-                    description: "",
-                    numberOfDice: 0,
-                    tag: "",
-                    category: "",
-                },
-            },
-        ]);
+        const [created] = await actor.createEmbeddedDocuments("Item", [data]);
         created?.sheet?.render?.(true);
     }
 
     private async createEquipmentItem() {
+        const label = t("EZD6.ItemLabels.Equipment", "Equipment");
+        const data = {
+            name: label,
+            type: "equipment",
+            system: {
+                description: "",
+                quantifiable: false,
+                quantity: 1,
+                numberOfDice: 0,
+                tag: "",
+                category: "",
+            },
+        };
+        if (this.options.itemSource?.createItem) {
+            await this.options.itemSource.createItem(data);
+            return;
+        }
         const actor = this.options.actor;
         if (!actor?.createEmbeddedDocuments) return;
-        const [created] = await actor.createEmbeddedDocuments("Item", [
-            {
-                name: "Equipment",
-                type: "equipment",
-                system: {
-                    description: "",
-                    quantifiable: false,
-                    quantity: 1,
-                    numberOfDice: 0,
-                    tag: "",
-                    category: "",
-                },
-            },
-        ]);
+        const [created] = await actor.createEmbeddedDocuments("Item", [data]);
         created?.sheet?.render?.(true);
     }
 
@@ -1835,7 +2042,7 @@ export class CharacterSheetView {
     private async showPowerRollDialog(dialogue: string): Promise<number | null> {
         return await new Promise<number | null>((resolve) => {
             const dialog = new Dialog({
-                title: "Power Roll",
+                title: t("EZD6.Dialogs.PowerRollTitle", "Power Roll"),
                 content: `<div class="ezd6-power-roll-dialogue"></div>`,
                 buttons: {},
                 render: (html: any) => {
@@ -1853,7 +2060,11 @@ export class CharacterSheetView {
                     [1, 2, 3].forEach((diceCount) => {
                         const btn = createRollButton({
                             className: "ezd6-task-btn ezd6-power-roll-btn",
-                            title: `${diceCount} die${diceCount === 1 ? "" : "s"}`,
+                            title: tf(
+                                "EZD6.Tooltips.DiceCount",
+                                { count: diceCount },
+                                `${diceCount} die${diceCount === 1 ? "" : "s"}`
+                            ),
                             kinds: Array.from({ length: diceCount }, () => "grey" as const),
                             onClick: (event) => {
                                 event.preventDefault();
@@ -1872,7 +2083,7 @@ export class CharacterSheetView {
         });
     }
 
-    private async postAbilityMessage(item: any, description: string, label = "Ability") {
+    private async postAbilityMessage(item: any, description: string, label = t("EZD6.ItemLabels.Ability", "Ability")) {
         if (!item) return;
         const title = item.name ?? label;
         const tag = this.normalizeAbilityTag(item?.system?.tag ?? "");
@@ -1883,9 +2094,10 @@ export class CharacterSheetView {
             : (item?.img && item.img !== LEGACY_DEFAULT_ICON
                 ? item.img
                 : "icons/magic/symbols/cog-orange-red.webp");
+        const descHtml = this.renderDescriptionHtml(description);
         const contentPieces = [
             `<strong>${title}</strong>`,
-            description ? `<div>${description}</div>` : "",
+            descHtml ? `<div>${descHtml}</div>` : "",
         ];
         await ChatMessage.create({
             content: contentPieces.join(""),
@@ -1893,7 +2105,7 @@ export class CharacterSheetView {
             flags: {
                 [EZD6_META_FLAG]: buildInfoMeta({
                     title,
-                    description: description ?? "",
+                    description: descHtml,
                     tag,
                     icon,
                     kind: "generic",
@@ -1904,14 +2116,18 @@ export class CharacterSheetView {
 
     private async postEquipmentMessage(item: any, description: string, quantity: number, isQuantifiable: boolean) {
         if (!item) return;
-        const details = isQuantifiable ? `<div>Quantity: ${quantity}</div>` : "";
+        const descHtml = this.renderDescriptionHtml(description);
+        const details = isQuantifiable
+            ? `<div>${tf("EZD6.Chat.QuantityLine", { quantity }, `Quantity: ${quantity}`)}</div>`
+            : "";
         const tag = this.normalizeAbilityTag(item?.system?.tag ?? "");
-        const title = item.name ?? "Equipment";
+        const equipmentLabel = t("EZD6.ItemLabels.Equipment", "Equipment");
+        const title = item.name ?? equipmentLabel;
         const icon = item?.img || "icons/containers/bags/coinpouch-simple-leather-tan.webp";
         const qtyValue = Math.max(0, Math.floor(Number(quantity ?? 0)));
         const contentPieces = [
             `<strong>${title}</strong>`,
-            description ? `<div>${description}</div>` : "",
+            descHtml ? `<div>${descHtml}</div>` : "",
             tag ? `<div>${tag}</div>` : "",
             details,
         ];
@@ -1921,7 +2137,7 @@ export class CharacterSheetView {
             flags: {
                 [EZD6_META_FLAG]: buildInfoMeta({
                     title,
-                    description: description ?? "",
+                    description: descHtml,
                     tag,
                     icon,
                     kind: "equipment",
@@ -1933,15 +2149,17 @@ export class CharacterSheetView {
 
     private async postResourceMessage(resource: Resource) {
         if (!resource) return;
-        const title = typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource";
+        const resourceLabel = t("EZD6.ItemLabels.Resource", "Resource");
+        const title = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
         const tag = this.getResourceTag(resource);
         const icon = this.getResourceIcon(resource);
         const description = typeof resource.description === "string" ? resource.description : "";
+        const descHtml = this.renderDescriptionHtml(description);
         const value = this.getResourceValue(resource);
         const maxValue = this.getResourceMaxValue(resource);
         const contentPieces = [
             `<strong>${title}</strong>`,
-            description ? `<div>${description}</div>` : "",
+            descHtml ? `<div>${descHtml}</div>` : "",
         ];
         await ChatMessage.create({
             content: contentPieces.join(""),
@@ -1949,7 +2167,7 @@ export class CharacterSheetView {
             flags: {
                 [EZD6_META_FLAG]: buildInfoMeta({
                     title,
-                    description,
+                    description: descHtml,
                     tag,
                     icon,
                     kind: "resource",
@@ -1966,7 +2184,7 @@ export class CharacterSheetView {
         numberOfDice: number,
         tag: string,
         description: string,
-        label = "Ability"
+        label = t("EZD6.ItemLabels.Ability", "Ability")
     ) {
         if (!item) return;
         if (numberOfDice > 0) {
@@ -1982,6 +2200,7 @@ export class CharacterSheetView {
                     : (item?.img && item.img !== LEGACY_DEFAULT_ICON
                         ? item.img
                         : "icons/magic/symbols/cog-orange-red.webp");
+                const descHtml = this.renderDescriptionHtml(description);
                 const roll = new Roll(formula, {});
                 await roll.evaluate();
                 await roll.toMessage({
@@ -1990,7 +2209,7 @@ export class CharacterSheetView {
                     flags: {
                         [EZD6_META_FLAG]: buildRollMeta({
                             title: item.name ?? label,
-                            description: description ?? "",
+                            description: descHtml,
                             tag: normalizedTag,
                             icon,
                         }),
@@ -2001,9 +2220,10 @@ export class CharacterSheetView {
             return;
         }
 
+        const descHtml = this.renderDescriptionHtml(description);
         const contentPieces = [
             `<strong>${item.name ?? label}</strong>`,
-            description ? `<div>${description}</div>` : "",
+            descHtml ? `<div>${descHtml}</div>` : "",
         ];
         await ChatMessage.create({ content: contentPieces.join(""), speaker: this.getChatSpeaker() });
     }
@@ -2020,10 +2240,12 @@ export class CharacterSheetView {
         if (numberOfDice > 0) {
             const normalizedTag = this.normalizeAbilityTag(tag);
             const keyword = this.getKeywordFromTag(tag);
+            const equipmentLabel = t("EZD6.ItemLabels.Equipment", "Equipment");
             const rollWithDice = async (diceCount: number) => {
                 const formula = `${diceCount}d6`;
-                const flavor = `${item.name ?? "Equipment"} ${normalizedTag}`.trim();
+                const flavor = `${item.name ?? equipmentLabel} ${normalizedTag}`.trim();
                 const icon = item?.img || "icons/containers/bags/coinpouch-simple-leather-tan.webp";
+                const descHtml = this.renderDescriptionHtml(description);
                 const roll = new Roll(formula, {});
                 await roll.evaluate();
                 await roll.toMessage({
@@ -2031,8 +2253,8 @@ export class CharacterSheetView {
                     speaker: this.getChatSpeaker(),
                     flags: {
                         [EZD6_META_FLAG]: buildRollMeta({
-                            title: item.name ?? "Equipment",
-                            description: description ?? "",
+                            title: item.name ?? equipmentLabel,
+                            description: descHtml,
                             tag: normalizedTag,
                             icon,
                         }),
@@ -2043,19 +2265,28 @@ export class CharacterSheetView {
             return;
         }
 
-        const qtyLine = isQuantifiable ? `<div>Quantity: ${quantity}</div>` : "";
+        const qtyLine = isQuantifiable
+            ? `<div>${tf("EZD6.Chat.QuantityLine", { quantity }, `Quantity: ${quantity}`)}</div>`
+            : "";
+        const equipmentLabel = t("EZD6.ItemLabels.Equipment", "Equipment");
+        const descHtml = this.renderDescriptionHtml(description);
         const contentPieces = [
-            `<strong>${item.name ?? "Equipment"}</strong>`,
-            description ? `<div>${description}</div>` : "",
+            `<strong>${item.name ?? equipmentLabel}</strong>`,
+            descHtml ? `<div>${descHtml}</div>` : "",
             qtyLine,
         ];
         await ChatMessage.create({ content: contentPieces.join(""), speaker: this.getChatSpeaker() });
     }
 
     private async setEquipmentQuantity(item: any, nextValue: number, rerenderFrom: HTMLElement) {
-        if (!item?.update) return;
         const next = this.coerceQuantity(nextValue);
-        await item.update({ "system.quantity": next }, { render: false });
+        if (item?.update) {
+            await item.update({ "system.quantity": next }, { render: false });
+        } else if (this.options.itemSource?.updateItem && item?.id) {
+            await this.options.itemSource.updateItem(item.id, { "system.quantity": next });
+        } else {
+            return;
+        }
         const row = rerenderFrom.querySelector(".ezd6-equipment-row") as HTMLElement | null;
         if (row) {
             const value = row.querySelector(".ezd6-qty-value") as HTMLElement | null;
@@ -2072,15 +2303,17 @@ export class CharacterSheetView {
     }
 
     private async editResource(resource: Resource, rerenderFrom: HTMLElement) {
+        const resourceLabel = t("EZD6.ItemLabels.Resource", "Resource");
         await this.openTemporaryItemEditor(
             {
-                name: typeof resource.title === "string" ? resource.title.trim() || "Resource" : "Resource",
+                name: typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel,
                 type: "resource",
                 img: this.getResourceIcon(resource),
                 system: {
                     value: this.getResourceValue(resource),
                     maxValue: this.getResourceMaxValue(resource),
                     description: resource.description ?? "",
+                    localizationId: resource.localizationId ?? "",
                     numberOfDice: this.getResourceDiceCount(resource),
                     tag: resource.rollKeyword ?? "default",
                     replenishLogic: resource.replenishLogic ?? "disabled",
@@ -2101,12 +2334,14 @@ export class CharacterSheetView {
                 const nextReplenishLogic = this.getResourceReplenishLogic(system.replenishLogic);
                 const nextReplenishTag = typeof system.replenishTag === "string" ? system.replenishTag : "";
                 const nextReplenishCost = this.getResourceReplenishCost(system);
+                const nextLocalizationId = typeof system.localizationId === "string" ? system.localizationId.trim() : "";
                 const targetResource = this.character.resources.find((entry) => entry.id === resource.id) ?? resource;
                 targetResource.title = item?.name ?? targetResource.title;
                 targetResource.icon = item?.img ?? targetResource.icon;
                 targetResource.value = clamped;
                 targetResource.maxValue = clampedMax;
                 targetResource.description = nextDescription;
+                targetResource.localizationId = nextLocalizationId;
                 targetResource.numberOfDice = clampedDice;
                 targetResource.rollKeyword = nextTag;
                 targetResource.replenishLogic = nextReplenishLogic;
@@ -2133,15 +2368,17 @@ export class CharacterSheetView {
     }
 
     private async editSave(save: Save, rerenderFrom: HTMLElement) {
+        const saveLabel = t("EZD6.ItemLabels.Save", "Save");
         await this.openTemporaryItemEditor(
             {
-                name: typeof save.title === "string" ? save.title.trim() || "Save" : "Save",
+                name: typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel,
                 type: "save",
                 img: this.getSaveIcon(save),
                 system: {
                     targetValue: this.getSaveTargetValue(save),
                     numberOfDice: this.getSaveDiceCount(save),
                     description: save.description ?? "",
+                    localizationId: save.localizationId ?? "",
                 },
             },
             (item: any) => {
@@ -2149,12 +2386,14 @@ export class CharacterSheetView {
                 const targetValue = Number(system.targetValue ?? 6);
                 const numberOfDice = Number(system.numberOfDice ?? 1);
                 const nextDescription = typeof system.description === "string" ? system.description : "";
+                const nextLocalizationId = typeof system.localizationId === "string" ? system.localizationId.trim() : "";
                 const targetSave = this.character.saves.find((entry) => entry.id === save.id) ?? save;
                 targetSave.title = item?.name ?? targetSave.title;
                 targetSave.icon = item?.img ?? targetSave.icon;
                 targetSave.targetValue = Number.isFinite(targetValue) ? this.clampInt(Math.floor(targetValue), 2, 6) : 6;
                 targetSave.numberOfDice = Number.isFinite(numberOfDice) ? this.clampInt(Math.floor(numberOfDice), 1, 6) : 1;
                 targetSave.description = nextDescription;
+                targetSave.localizationId = nextLocalizationId;
                 void this.persistSaves();
                 this.updateSaveRowUI(rerenderFrom, targetSave);
             }
@@ -2163,14 +2402,16 @@ export class CharacterSheetView {
 
     private async postSaveMessage(save: Save) {
         if (!save) return;
-        const title = typeof save.title === "string" ? save.title.trim() || "Save" : "Save";
+        const saveLabel = t("EZD6.ItemLabels.Save", "Save");
+        const title = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
         const description = typeof save.description === "string" ? save.description : "";
+        const descHtml = this.renderDescriptionHtml(description);
         const tag = `#target${this.getSaveTargetValue(save)}`;
         const icon = this.getSaveIcon(save);
         const targetValue = this.getSaveTargetValue(save);
         const contentPieces = [
             `<strong>${title}</strong>`,
-            description ? `<div>${description}</div>` : "",
+            descHtml ? `<div>${descHtml}</div>` : "",
         ];
         await ChatMessage.create({
             content: contentPieces.join(""),
@@ -2178,7 +2419,7 @@ export class CharacterSheetView {
             flags: {
                 [EZD6_META_FLAG]: buildInfoMeta({
                     title,
-                    description,
+                    description: descHtml,
                     tag,
                     icon,
                     kind: "save",
@@ -2282,7 +2523,8 @@ export class CharacterSheetView {
     private updateSaveRowUI(wrapper: HTMLElement, save: Save) {
         const row = wrapper.querySelector(".ezd6-save-row") as HTMLElement | null;
         if (!row) return;
-        const title = typeof save.title === "string" ? save.title.trim() || "Save" : "Save";
+        const saveLabel = t("EZD6.ItemLabels.Save", "Save");
+        const title = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
         const targetValue = this.getSaveTargetValue(save);
         const diceCount = this.getSaveDiceCount(save);
         const iconPath = this.getSaveIcon(save);
@@ -2290,7 +2532,7 @@ export class CharacterSheetView {
         const iconImg = row.querySelector(".ezd6-ability-icon__img") as HTMLImageElement | null;
         if (iconImg) {
             iconImg.src = iconPath;
-            iconImg.alt = `${title} icon`;
+            iconImg.alt = tf("EZD6.Alts.ItemIcon", { label: title }, `${title} icon`);
             iconImg.draggable = false;
         }
 
@@ -2302,7 +2544,11 @@ export class CharacterSheetView {
 
         const rollBtn = row.querySelector(".ezd6-save-roll-btn") as HTMLButtonElement | null;
         if (rollBtn) {
-            rollBtn.title = `Roll ${diceCount}d6 #target${targetValue}`.trim();
+            rollBtn.title = tf(
+                "EZD6.Tooltips.RollSave",
+                { dice: diceCount, target: targetValue },
+                `Roll ${diceCount}d6 #target${targetValue}`
+            ).trim();
             const stack = rollBtn.querySelector(".ezd6-dice-stack") as HTMLElement | null;
             if (stack) {
                 stack.innerHTML = "";
@@ -2331,13 +2577,16 @@ export class CharacterSheetView {
     private async openTemporaryItemEditor(data: Record<string, any>, onUpdate: (item: any) => void) {
         const ItemClass = (globalThis as any).CONFIG?.Item?.documentClass ?? (globalThis as any).Item;
         const idFactory = (foundry as any)?.utils?.randomID ?? (globalThis as any).randomID;
+        const userId = game?.user?.id;
+        const ownerLevel = (globalThis as any)?.CONST?.DOCUMENT_OWNERSHIP_LEVELS?.OWNER ?? 3;
         const tempData = {
             _id: typeof idFactory === "function" ? idFactory() : `tmp-${Math.random().toString(36).slice(2, 10)}`,
+            ownership: userId ? { [userId]: ownerLevel } : undefined,
             ...data,
         };
         const tempItem = ItemClass ? new ItemClass(tempData, { temporary: true }) : null;
         if (!tempItem) {
-            ui?.notifications?.error?.("Failed to open editor.");
+            ui?.notifications?.error?.(t("EZD6.Notifications.FailedToOpenEditor", "Failed to open editor."));
             return;
         }
         const expand = (foundry as any)?.utils?.expandObject;
@@ -2353,8 +2602,9 @@ export class CharacterSheetView {
     }
 
     private async createResourceEntry() {
+        const resourceLabel = t("EZD6.ItemLabels.Resource", "Resource");
         this.character.addResource({
-            title: "Resource",
+            title: resourceLabel,
             value: 1,
             defaultValue: 1,
             maxValue: 0,
@@ -2366,12 +2616,17 @@ export class CharacterSheetView {
     }
 
     private async createSaveEntry() {
+        const saveLabel = t("EZD6.ItemLabels.Save", "Save");
         this.character.addSave({
-            title: "Save",
+            title: saveLabel,
             targetValue: 6,
             numberOfDice: 1,
             description: "",
         });
         await this.persistSaves();
+    }
+
+    private renderDescriptionHtml(value: string | null | undefined): string {
+        return renderMarkdown(typeof value === "string" ? value : "");
     }
 }

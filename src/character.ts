@@ -1,5 +1,8 @@
 // src/character.ts
 import { buildRollMeta, EZD6_META_FLAG } from "./chat/chat-meta";
+import { localize } from "./ui/i18n";
+import { renderMarkdown } from "./ui/markdown";
+import { getSystemPath } from "./system-path";
 
 export type DiceChangeBehavior = "none" | "karma" | "stress";
 
@@ -16,6 +19,7 @@ export interface Resource {
     id: string;
     title: string;
     description?: string;
+    localizationId?: string;
     icon?: string;
     iconAvailable?: string;
     iconSpent?: string;
@@ -37,18 +41,25 @@ export interface Save {
     id: string;
     title: string;
     description?: string;
+    localizationId?: string;
     icon?: string;
     targetValue: number;
     numberOfDice: number;
 }
 
-const DEFAULT_ABILITY_CATEGORIES = ["Inclinations", "Aspects", "Equipment"] as const;
+const t = (key: string, fallback: string) => localize(key, fallback);
+
+const DEFAULT_ABILITY_CATEGORIES = [
+    t("EZD6.Categories.Inclinations", "Inclinations"),
+    t("EZD6.Categories.Aspects", "Aspects"),
+    t("EZD6.Categories.Equipment", "Equipment"),
+] as const;
 export const DEFAULT_RESOURCE_ICON = "icons/svg/d20-black.svg";
-export const DEFAULT_AVATAR = "systems/ezd6-new/assets/avatars/ezd6-avatar.png";
-export const LEGACY_AVATAR_PLACEHOLDER = "systems/ezd6-new/assets/avatars/placeholder.png";
+export const DEFAULT_AVATAR = getSystemPath("assets/avatars/ezd6-avatar.png");
+export const LEGACY_AVATAR_PLACEHOLDER = getSystemPath("assets/avatars/placeholder.png");
 const STRIKES_RESOURCE_ID = "res-strikes";
-const STRIKES_RESOURCE_TITLE = "Strikes";
-const STRIKES_RESOURCE_ICON = "systems/ezd6-new/assets/icons/strike.png";
+const STRIKES_RESOURCE_TITLE = t("EZD6.Resources.Strikes", "Strikes");
+const STRIKES_RESOURCE_ICON = getSystemPath("assets/icons/strike.png");
 function createId(prefix: string): string {
     const random = Math.random().toString(36).slice(2, 8);
     return `${prefix}-${random}`;
@@ -107,9 +118,10 @@ export class Character {
     }
 
     addAbility(partial: Partial<Ability>): Ability {
+        const abilityLabel = t("EZD6.ItemLabels.Ability", "Ability");
         const ability: Ability = {
             id: partial.id ?? createId("abl"),
-            title: partial.title ?? "Ability",
+            title: partial.title ?? abilityLabel,
             description: partial.description ?? "",
             category: partial.category ?? DEFAULT_ABILITY_CATEGORIES[0],
             numberOfDice: partial.numberOfDice ?? 0,
@@ -123,13 +135,15 @@ export class Character {
     }
 
     addResource(partial: Partial<Resource>): Resource {
+        const resourceLabel = t("EZD6.ItemLabels.Resource", "Resource");
         const fallbackIcon = partial.iconAvailable
             ?? partial.iconSpent
             ?? DEFAULT_RESOURCE_ICON;
         const resource: Resource = {
             id: partial.id ?? createId("res"),
-            title: partial.title ?? "Resource",
+            title: partial.title ?? resourceLabel,
             description: partial.description ?? "",
+            localizationId: partial.localizationId ?? "",
             icon: partial.icon ?? fallbackIcon,
             iconAvailable: partial.iconAvailable,
             iconSpent: partial.iconSpent,
@@ -151,10 +165,12 @@ export class Character {
     }
 
     addSave(partial: Partial<Save>): Save {
+        const saveLabel = t("EZD6.ItemLabels.Save", "Save");
         const save: Save = {
             id: partial.id ?? createId("sav"),
-            title: partial.title ?? "Save",
+            title: partial.title ?? saveLabel,
             description: partial.description ?? "",
+            localizationId: partial.localizationId ?? "",
             icon: partial.icon,
             targetValue: partial.targetValue ?? 6,
             numberOfDice: partial.numberOfDice ?? 1,
@@ -222,6 +238,7 @@ export class Character {
             const tag = `#${normalizedKeyword}`;
             const formula = `${ability.numberOfDice}d6`;
             const flavor = `${ability.title} #${keyword}`;
+            const descHtml = renderMarkdown(ability.description ?? "");
             const roll = new Roll(formula, {});
             await roll.evaluate();
             await roll.toMessage({
@@ -230,15 +247,16 @@ export class Character {
                 flags: {
                     [EZD6_META_FLAG]: buildRollMeta({
                         title: ability.title,
-                        description: ability.description ?? "",
+                        description: descHtml,
                         tag,
                     }),
                 },
             });
         } else {
+            const descHtml = renderMarkdown(ability.description ?? "");
             const contentPieces = [
                 `<strong>${ability.title}</strong>`,
-                ability.description ? `<div>${ability.description}</div>` : "",
+                descHtml ? `<div>${descHtml}</div>` : "",
             ];
             await ChatMessage.create({ content: contentPieces.join(""), speaker: speaker ?? ChatMessage.getSpeaker?.() });
         }
@@ -252,14 +270,17 @@ export class Character {
         await roll.evaluate();
         const rawTarget = Number(save.targetValue);
         const target = Number.isFinite(rawTarget) && rawTarget > 0 ? Math.floor(rawTarget) : 6;
-        const flavor = `${save.title} #target${target}`;
+        const saveLabel = t("EZD6.ItemLabels.Save", "Save");
+        const saveTitle = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
+        const flavor = `${saveTitle} #target${target}`;
+        const descHtml = renderMarkdown(save.description ?? "");
         await roll.toMessage({
             flavor,
             speaker: speaker ?? ChatMessage.getSpeaker?.(),
             flags: {
                 [EZD6_META_FLAG]: buildRollMeta({
-                    title: save.title,
-                    description: save.description ?? "",
+                    title: saveTitle,
+                    description: descHtml,
                     tag: `#target${target}`,
                     kind: "save",
                     saveTarget: target,
@@ -288,13 +309,14 @@ export class Character {
     async rollMagick(diceCount: number, speaker?: any) {
         const roll = new Roll(`${diceCount}d6`, {});
         await roll.evaluate();
-        const flavor = `Magick ${diceCount}d6 #magick`;
+        const magickLabel = t("EZD6.Magic.Magick", "Magick");
+        const flavor = `${magickLabel} ${diceCount}d6 #magick`;
         await roll.toMessage({
             flavor,
             speaker: speaker ?? ChatMessage.getSpeaker?.(),
             flags: {
                 [EZD6_META_FLAG]: buildRollMeta({
-                    title: "Magick",
+                    title: magickLabel,
                     description: "",
                     tag: "#magick",
                 }),

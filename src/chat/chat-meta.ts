@@ -1,3 +1,5 @@
+import { localize } from "../ui/i18n";
+
 export const EZD6_META_FLAG = "ezd6Meta";
 
 export type EzD6ChatMetaType = "roll" | "info";
@@ -24,11 +26,12 @@ export function isEzD6ChatMeta(raw: any): raw is EzD6ChatMeta {
 }
 
 const normalizeString = (value: any): string => (typeof value === "string" ? value.trim() : "");
+const t = (key: string, fallback: string) => localize(key, fallback);
 
 export function buildRollMeta(data: Partial<EzD6ChatMeta> & { title: string }): EzD6ChatMeta {
     return {
         type: "roll",
-        title: normalizeString(data.title) || "Roll",
+        title: normalizeString(data.title) || t("EZD6.Labels.Roll", "Roll"),
         description: normalizeString(data.description),
         tag: normalizeString(data.tag),
         icon: normalizeString(data.icon),
@@ -44,7 +47,7 @@ export function buildRollMeta(data: Partial<EzD6ChatMeta> & { title: string }): 
 export function buildInfoMeta(data: Partial<EzD6ChatMeta> & { title: string }): EzD6ChatMeta {
     return {
         type: "info",
-        title: normalizeString(data.title) || "Info",
+        title: normalizeString(data.title) || t("EZD6.Labels.Info", "Info"),
         description: normalizeString(data.description),
         tag: normalizeString(data.tag),
         icon: normalizeString(data.icon),

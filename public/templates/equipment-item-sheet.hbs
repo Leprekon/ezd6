@@ -1,34 +1,40 @@
 <form class="ezd6-item-sheet ezd6-item-sheet--equipment" autocomplete="off">
   <header class="ezd6-item-header">
     <div class="ezd6-item-icon-field">
-      <span class="ezd6-label">Icon</span>
+      <span class="ezd6-label">{{localize "EZD6.Labels.Icon"}}</span>
       <img class="ezd6-item-icon" src="{{item.img}}" data-edit="img" title="{{item.name}}">
     </div>
     <div class="ezd6-item-title-group">
       <label class="ezd6-item-field">
-        <span class="ezd6-label">Title</span>
-        <input class="ezd6-item-title" type="text" name="name" value="{{item.name}}" placeholder="Equipment title">
+        <span class="ezd6-label">{{localize "EZD6.Labels.Title"}}</span>
+        <input class="ezd6-item-title" type="text" name="name" value="{{itemNameValue}}" placeholder="{{localize "EZD6.Placeholders.EquipmentTitle"}}" {{#if itemNameLocked}}disabled{{/if}}>
       </label>
       <label class="ezd6-item-field">
-        <span class="ezd6-label">Tag</span>
+        <span class="ezd6-label">{{localize "EZD6.Labels.Tag"}}</span>
         <select class="ezd6-text-input" name="system.tag">
           {{selectOptions tagOptions selected=item.system.tag}}
         </select>
       </label>
     </div>
   </header>
+  {{#if isGM}}
+  <label class="ezd6-item-field ezd6-item-field--localization">
+    <span class="ezd6-label">{{localize "EZD6.Labels.LocalizationId"}}</span>
+    <input class="ezd6-text-input" type="text" name="system.localizationId" value="{{localizationId}}" placeholder="EZD6.Compendium.">
+  </label>
+  {{/if}}
 
   <section class="ezd6-item-body">
     <label class="ezd6-item-field">
-      <span class="ezd6-label">Description</span>
-      <textarea class="ezd6-textarea" name="system.description" placeholder="Describe the equipment">{{item.system.description}}</textarea>
+      <span class="ezd6-label">{{localize "EZD6.Labels.Description"}}</span>
+      <textarea class="ezd6-textarea" name="system.description" placeholder="{{localize "EZD6.Placeholders.EquipmentDescription"}}" {{#if itemDescriptionLocked}}disabled{{/if}}>{{itemDescriptionValue}}</textarea>
     </label>
     <label class="ezd6-item-field">
-      <span class="ezd6-label">Category</span>
-      <input class="ezd6-text-input" type="text" name="system.category" value="{{item.system.category}}" placeholder="Category">
+      <span class="ezd6-label">{{localize "EZD6.Labels.Category"}}</span>
+      <input class="ezd6-text-input" type="text" name="system.category" value="{{itemCategoryValue}}" placeholder="{{localize "EZD6.Placeholders.Category"}}" {{#if itemCategoryLocked}}disabled{{/if}}>
     </label>
     <div class="ezd6-item-field ezd6-item-field--dice">
-      <span class="ezd6-label">Dice to roll</span>
+      <span class="ezd6-label">{{localize "EZD6.Labels.DiceToRoll"}}</span>
       <div class="ezd6-ability-dice-picker" data-count="{{item.system.numberOfDice}}">
         <button class="ezd6-ability-dice-btn" type="button" data-delta="-1">-</button>
         <div class="ezd6-ability-dice-stack"></div>
@@ -37,7 +43,7 @@
       <input type="hidden" name="system.numberOfDice" value="{{item.system.numberOfDice}}">
     </div>
     <label class="ezd6-item-field ezd6-item-field--checkbox">
-      <span class="ezd6-label">Quantity</span>
+      <span class="ezd6-label">{{localize "EZD6.Labels.Quantity"}}</span>
       <input type="checkbox" name="system.quantifiable" {{checked item.system.quantifiable}}>
     </label>
     <div class="ezd6-item-field ezd6-item-field--quantity {{#unless item.system.quantifiable}}is-hidden{{/unless}}">

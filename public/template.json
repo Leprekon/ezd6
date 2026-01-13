@@ -16,9 +16,20 @@
     }
   },
   "Item": {
-    "types": ["ability", "aspect", "resource", "save", "equipment"],
+    "types": ["ability", "aspect", "resource", "save", "equipment", "archetype"],
     "templates": {
-      "base": {},
+      "base": {
+        "localizationId": ""
+      },
+      "archetype": {
+        "avatarUrl": "",
+        "description": "",
+        "abilities": [],
+        "aspects": [],
+        "equipment": [],
+        "resources": [],
+        "saves": []
+      },
       "ability": {
         "description": "",
         "numberOfDice": 0,
@@ -73,6 +84,10 @@
     "save": {
       "label": "Save",
       "templates": ["base", "save"]
+    },
+    "archetype": {
+      "label": "Archetype",
+      "templates": ["base", "archetype"]
     }
   }
 }

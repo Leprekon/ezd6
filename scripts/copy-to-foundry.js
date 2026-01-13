@@ -2,7 +2,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const FOUNDARY_SYSTEMS_PATH = "C:\\Users\\lepre\\AppData\\Local\\FoundryVTT\\Data\\systems\\ezd6-new"; // system folder
+const FOUNDARY_SYSTEMS_PATH = "C:\\Users\\lepre\\AppData\\Local\\FoundryVTT\\Data\\systems\\ezd6-reforged"; // system folder
 
 function copyDir(src, dest) {
     if (!fs.existsSync(src)) {

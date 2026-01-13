@@ -1,5 +1,7 @@
 // src/save-item-sheet.ts
 import { clampDimension } from "./ui/sheet-utils";
+import { format, localize, resolveLocalizedField } from "./ui/i18n";
+import { getSystemPath } from "./system-path";
 
 const DEFAULT_SAVE_ICON = "icons/equipment/shield/heater-steel-worn.webp";
 const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
@@ -21,7 +23,7 @@ export class EZD6SaveItemSheet extends ItemSheet {
     }
 
     get template() {
-        return "systems/ezd6-new/templates/save-item-sheet.hbs";
+        return getSystemPath("templates/save-item-sheet.hbs");
     }
 
     setPosition(position: any = {}) {
@@ -121,6 +123,25 @@ export class EZD6SaveItemSheet extends ItemSheet {
         await this.item.update(formData);
     }
 
+    getData(options?: any) {
+        const data = super.getData(options) as any;
+        const system = data?.item?.system ?? {};
+        const localizationId = typeof system.localizationId === "string" ? system.localizationId.trim() : "";
+        data.isGM = game?.user?.isGM ?? false;
+        data.localizationId = localizationId;
+
+        const label = localize("EZD6.ItemLabels.Save", "Save");
+        const nameFallback = typeof data?.item?.name === "string" ? data.item.name : label;
+        const descFallback = typeof system.description === "string" ? system.description : "";
+        const nameField = resolveLocalizedField(localizationId, "Name", nameFallback);
+        const descField = resolveLocalizedField(localizationId, "Desc", descFallback);
+        data.itemNameValue = nameField.value;
+        data.itemNameLocked = nameField.locked;
+        data.itemDescriptionValue = descField.value;
+        data.itemDescriptionLocked = descField.locked;
+        return data;
+    }
+
     private refreshDicePicker(root: HTMLElement, count?: number) {
         const picker = root?.querySelector?.(".ezd6-ability-dice-picker") as HTMLElement | null;
         if (!picker) return;
@@ -142,7 +163,7 @@ export class EZD6SaveItemSheet extends ItemSheet {
                 for (let i = 0; i < clamped; i++) {
                     const img = document.createElement("img");
                     img.className = "ezd6-ability-dice-icon";
-                    img.src = "systems/ezd6-new/assets/dice/grey/d6-6.png";
+                    img.src = getSystemPath("assets/dice/grey/d6-6.png");
                     img.alt = "d6";
                     stack.appendChild(img);
                 }
@@ -184,8 +205,11 @@ export class EZD6SaveItemSheet extends ItemSheet {
 
     private async ensureDefaultName() {
         const current = this.item?.name ?? "";
-        if (!current || current === "New Item" || current === "New Save") {
-            await this.item.update({ name: "Save" });
+        const label = localize("EZD6.ItemLabels.Save", "Save");
+        const newItem = localize("EZD6.Defaults.NewItem", "New Item");
+        const newTyped = format("EZD6.Defaults.NewItemTyped", { itemLabel: label }, `New ${label}`);
+        if (!current || current === newItem || current === newTyped || current === "New Item" || current === "New Save") {
+            await this.item.update({ name: label });
         }
     }
 

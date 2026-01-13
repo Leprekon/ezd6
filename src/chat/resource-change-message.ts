@@ -1,10 +1,12 @@
 import { DEFAULT_RESOURCE_ICON } from "../character";
+import { localize } from "../ui/i18n";
 import { applyChatHeaderEnhancements, getChatMessageActor, resolveChatMessage } from "./chat-message-helpers";
 import { RESOURCE_CHANGE_FLAG, queueResourceChange } from "./resource-change-batch";
 import { applyResourceChangeCounters } from "./resource-change-render";
 import { ResourceChangePayload } from "./resource-change-types";
 
 const resourceValueCache = new Map<string, Map<string, number>>();
+const t = (key: string, fallback: string) => localize(key, fallback);
 
 function getActorCache(actorId: string): Map<string, number> {
     let cache = resourceValueCache.get(actorId);
@@ -35,7 +37,7 @@ function getResourceMaxValue(resource: any): number {
 
 function getResourceTitle(resource: any): string {
     const title = typeof resource?.title === "string" ? resource.title.trim() : "";
-    return title || "Resource";
+    return title || t("EZD6.ItemLabels.Resource", "Resource");
 }
 
 function getResourceIcon(resource: any): string {
@@ -57,7 +59,7 @@ function getItemResourceMaxValue(item: any): number {
 
 function getItemResourceTitle(item: any): string {
     const title = typeof item?.name === "string" ? item.name.trim() : "";
-    return title || "Resource";
+    return title || t("EZD6.ItemLabels.Resource", "Resource");
 }
 
 function getItemResourceIcon(item: any): string {

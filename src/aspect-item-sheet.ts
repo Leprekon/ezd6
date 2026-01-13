@@ -7,7 +7,7 @@ export class EZD6AspectItemSheet extends EZD6AbilityLikeItemSheet {
     }
 
     protected getItemLabel(): string {
-        return "Aspect";
+        return "EZD6.ItemLabels.Aspect";
     }
 
     protected getSheetClass(): string {

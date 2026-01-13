@@ -1,6 +1,6 @@
 {
-  "name": "ezd6-new",
-  "title": "EZD6 TTRPG",
+  "name": "ezd6-reforged",
+  "title": "EZD6 Reforged",
   "description": "A simple EZD6 tabletop RPG system for Foundry VTT.",
   "version": "1.0.0",
   "authors": [
@@ -21,7 +21,18 @@
     "styles/module.css"
   ],
   "template": "template.json",
-  "languages": [],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/ru.json"
+    }
+  ],
   "grid": {
     "distance": 5,
     "units": "ft"

@@ -1,6 +1,8 @@
 import { DEFAULT_AVATAR } from "../character";
+import { localize } from "../ui/i18n";
+import { getSystemId } from "../system-path";
 
-export const SOCKET_NAMESPACE = "system.ezd6-new";
+export const SOCKET_NAMESPACE = `system.${getSystemId()}`;
 
 export function resolveChatMessage(msg: any): any | null {
     if (!msg) return null;
@@ -44,8 +46,12 @@ export function safeUpdateChatMessage(msg: any, data: any) {
 
             const gmOnline = (game.users ?? []).some((u: any) => u.isGM && u.active);
             if (!gmOnline) {
-                ui?.notifications?.warn("EZD6: Unable to update the chat message because no GM is currently online.");
-                console.warn("EZD6: Unable to update the chat message because no GM is currently online.", { msgId: msg?.id });
+                const message = localize(
+                    "EZD6.Notifications.ChatUpdateNeedsGM",
+                    "EZD6: Unable to update the chat message because no GM is currently online."
+                );
+                ui?.notifications?.warn(message);
+                console.warn(message, { msgId: msg?.id });
                 return;
             }
 
@@ -95,8 +101,9 @@ export function getChatSpeakerName(options: { actor?: any | null; speaker?: any 
     const actorName = options.actor?.name;
     const userName = options.userName;
     const speakerName = options.speaker?.alias ?? options.speaker?.name;
-    const name = actorName ?? userName ?? speakerName ?? "Unknown";
-    return String(name).trim() || "Unknown";
+    const fallback = localize("EZD6.Labels.Unknown", "Unknown");
+    const name = actorName ?? userName ?? speakerName ?? fallback;
+    return String(name).trim() || fallback;
 }
 
 export function applyChatHeaderEnhancements(

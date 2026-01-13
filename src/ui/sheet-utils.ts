@@ -1,4 +1,6 @@
 import { getDieImagePath } from "../ezd6-core";
+import { getSystemId } from "../system-path";
+import { localize } from "./i18n";
 
 type DieKind = "grey" | "green" | "red";
 
@@ -42,7 +44,7 @@ export const createElement = <K extends keyof HTMLElementTagNameMap>(
 export const getTagOptions = (): string[] => {
     let custom: string[] = [];
     try {
-        const stored = game?.settings?.get?.("ezd6-new", "customTags");
+        const stored = game?.settings?.get?.(getSystemId(), "customTags");
         if (Array.isArray(stored)) custom = stored.filter((tag) => typeof tag === "string");
     } catch {
         custom = [];
@@ -189,7 +191,9 @@ export const buildDetailContent = (options: {
     const hasDescription = Boolean(trimmedDescription);
     if (hasDescription) {
         const detailHeader = createElement("div", `${prefix}-detail__header`);
-        detailHeader.appendChild(createElement("span", `${prefix}-detail__label`, "Description"));
+        detailHeader.appendChild(
+            createElement("span", `${prefix}-detail__label`, localize("EZD6.Labels.Description", "Description"))
+        );
         const detailText = createElement("div", `${prefix}-detail__text`);
         detailText.innerHTML = trimmedDescription;
         detailMain.append(detailHeader, detailText);

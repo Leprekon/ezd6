@@ -1,5 +1,7 @@
 // src/ability-like-item-sheet.ts
 import { clampDimension, getTagOptionMap, getTagOptions, normalizeTag } from "./ui/sheet-utils";
+import { format, localize, resolveLocalizedField } from "./ui/i18n";
+import { getSystemPath } from "./system-path";
 
 const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
 
@@ -23,7 +25,7 @@ export abstract class EZD6AbilityLikeItemSheet extends ItemSheet {
     protected abstract getDefaultIcon(): string;
 
     get template() {
-        return "systems/ezd6-new/templates/ability-item-sheet.hbs";
+        return getSystemPath("templates/ability-item-sheet.hbs");
     }
 
     setPosition(position: any = {}) {
@@ -43,14 +45,39 @@ export abstract class EZD6AbilityLikeItemSheet extends ItemSheet {
 
     getData(options?: any) {
         const data = super.getData(options) as any;
-        const itemLabel = this.getItemLabel();
+        const itemLabel = localize(this.getItemLabel(), this.getItemLabel());
         const itemLabelLower = itemLabel.toLowerCase();
+        const system = data?.item?.system ?? {};
+        const localizationId = typeof system.localizationId === "string" ? system.localizationId.trim() : "";
         data.tagOptions = getTagOptionMap();
         data.itemLabel = itemLabel;
         data.itemLabelLower = itemLabelLower;
-        data.itemTitlePlaceholder = `${itemLabel} title`;
-        data.itemDescriptionPlaceholder = `Describe the ${itemLabelLower}`;
+        data.itemTitlePlaceholder = format(
+            "EZD6.Placeholders.ItemTitle",
+            { itemLabel },
+            `${itemLabel} title`
+        );
+        data.itemDescriptionPlaceholder = format(
+            "EZD6.Placeholders.ItemDescription",
+            { itemLabelLower },
+            `Describe the ${itemLabelLower}`
+        );
         data.sheetClass = this.getSheetClass();
+        data.isGM = game?.user?.isGM ?? false;
+        data.localizationId = localizationId;
+
+        const nameFallback = typeof data?.item?.name === "string" ? data.item.name : itemLabel;
+        const descFallback = typeof system.description === "string" ? system.description : "";
+        const categoryFallback = typeof system.category === "string" ? system.category : "";
+        const nameField = resolveLocalizedField(localizationId, "Name", nameFallback);
+        const descField = resolveLocalizedField(localizationId, "Desc", descFallback);
+        const categoryField = resolveLocalizedField(localizationId, "Category", categoryFallback);
+        data.itemNameValue = nameField.value;
+        data.itemNameLocked = nameField.locked;
+        data.itemDescriptionValue = descField.value;
+        data.itemDescriptionLocked = descField.locked;
+        data.itemCategoryValue = categoryField.value;
+        data.itemCategoryLocked = categoryField.locked;
         return data;
     }
 
@@ -89,9 +116,13 @@ export abstract class EZD6AbilityLikeItemSheet extends ItemSheet {
     }
 
     private async ensureDefaultName() {
-        const label = this.getItemLabel();
+        const label = localize(this.getItemLabel(), this.getItemLabel());
+        const newItem = localize("EZD6.Defaults.NewItem", "New Item");
+        const newTyped = format("EZD6.Defaults.NewItemTyped", { itemLabel: label }, `New ${label}`);
         const current = (this.item?.name ?? "").trim();
         const shouldSetDefault = !current
+            || current === newItem
+            || current === newTyped
             || current === "New Item"
             || current === `New ${label}`
             || current === "New Ability"
@@ -128,7 +159,7 @@ export abstract class EZD6AbilityLikeItemSheet extends ItemSheet {
                 for (let i = 0; i < value; i++) {
                     const img = document.createElement("img");
                     img.className = "ezd6-ability-dice-icon";
-                    img.src = "systems/ezd6-new/assets/dice/grey/d6-6.png";
+                    img.src = getSystemPath("assets/dice/grey/d6-6.png");
                     img.alt = "d6";
                     stack.appendChild(img);
                 }

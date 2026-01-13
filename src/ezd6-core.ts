@@ -1,4 +1,7 @@
 // src/ezd6-core.ts
+import { localize } from "./ui/i18n";
+import { getSystemPath } from "./system-path";
+
 export interface KeywordRule {
     allowKarma?: boolean;
     allowConfirm?: boolean;
@@ -29,10 +32,12 @@ const BASE_KEYWORD_RULE: ResolvedKeywordRule = {
     rollPower: false,
 };
 
+const t = (key: string, fallback: string) => localize(key, fallback);
+
 export const KeywordRules: Record<string, KeywordRule> = {
     default:  { allowKarma: true,  allowConfirm: true,  critValue: 6 },
-    magick:   { allowKarma: false, allowConfirm: false, critValue: 6, oneAlwaysFail: true, allowBurnOnes: true, rollPower: true, rollDialogue: "Choose power level" },
-    miracle:  { allowKarma: false, allowConfirm: false, critValue: 6, oneAlwaysFail: true, rollPower: true, rollDialogue: "Choose prayer urgency" },
+    magick:   { allowKarma: false, allowConfirm: false, critValue: 6, oneAlwaysFail: true, allowBurnOnes: true, rollPower: true, rollDialogue: t("EZD6.Dialogs.MagickPowerPrompt", "Choose power level") },
+    miracle:  { allowKarma: false, allowConfirm: false, critValue: 6, oneAlwaysFail: true, rollPower: true, rollDialogue: t("EZD6.Dialogs.MiraclePowerPrompt", "Choose prayer urgency") },
     attack:   { allowKarma: true,  allowConfirm: true,  critValue: 6 },
     brutal:   { allowKarma: true,  allowConfirm: true,  critValue: 5 },
     fliptoffate: {allowKarma: false,  allowConfirm: false,  critValue: 4},
@@ -67,7 +72,7 @@ export function extractKeyword(msgContent: string): string | null {
 }
 
 export function getDieImagePath(value: number, kind: "grey"|"green"|"red" = "grey") {
-    return `systems/ezd6-new/assets/dice/${kind}/d6-${value}.png`;
+    return getSystemPath(`assets/dice/${kind}/d6-${value}.png`);
 }
 
 export function chooseDieKindForValue(value: number, critValue: number): "grey"|"green"|"red" {

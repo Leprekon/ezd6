@@ -590,6 +590,18 @@
   height: 50px;
 }
 
+.ezd6-sheet .ezd6-name-input.ezd6-name-input--small {
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: 12px !important;
+  padding: 0 12px !important;
+  background: rgba(255, 255, 255, 0.7) !important;
+  box-shadow: none !important;
+  font-family: "Neucha", "Comic Sans MS", cursive !important;
+  font-size: 22px;
+  line-height: 40px;
+  height: 40px;
+}
+
 .ezd6-section {
   background: rgba(255, 255, 255, 0.7);
   border-radius: 12px;
@@ -1982,6 +1994,19 @@
 }
 
 .ezd6-item-body .ezd6-text-input {
+  height: 40px;
+  line-height: 40px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0 12px;
+}
+
+.ezd6-item-field--localization {
+  width: 100%;
+}
+
+.ezd6-item-field--localization .ezd6-text-input {
   height: 40px;
   line-height: 40px;
   border-radius: 6px;

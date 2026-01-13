@@ -1,0 +1,128 @@
+{
+  "EZD6": {
+    "Labels": {
+      "Icon": "Иконка",
+      "Title": "Название",
+      "Tag": "Тег",
+      "Description": "Описание",
+      "Category": "Категория",
+      "DiceToRoll": "Кубики для броска",
+      "Quantity": "Количество",
+      "Value": "Значение",
+      "MaxValue": "Макс. значение",
+      "ReplenishLogic": "Логика восстановления",
+      "ReplenishTag": "Тег восстановления",
+      "ReplenishCost": "Стоимость восстановления",
+      "Target": "Цель",
+      "Replenish": "Восполнить",
+      "Roll": "Бросок",
+      "Info": "Информация",
+      "Crit": "КРИТ",
+      "Unknown": "Неизвестно"
+    },
+    "Placeholders": {
+      "ItemTitle": "Название: {itemLabel}",
+      "ItemDescription": "Опишите: {itemLabelLower}",
+      "CharacterName": "Имя персонажа",
+      "Category": "Категория",
+      "EquipmentTitle": "Название снаряжения",
+      "EquipmentDescription": "Опишите снаряжение",
+      "ResourceTitle": "Название ресурса",
+      "ResourceDescription": "Опишите ресурс",
+      "SaveTitle": "Название спасброска",
+      "SaveDescription": "Опишите спасбросок"
+    },
+    "ItemLabels": {
+      "Ability": "Способность",
+      "Aspect": "Аспект",
+      "Equipment": "Снаряжение",
+      "Resource": "Ресурс",
+      "Save": "Спасбросок"
+    },
+    "Sections": {
+      "Avatar": "Аватар",
+      "Name": "Имя",
+      "Abilities": "Способности",
+      "Aspects": "Аспекты",
+      "Equipment": "Снаряжение",
+      "Resources": "Ресурсы",
+      "Saves": "Спасброски",
+      "Tasks": "Задача"
+    },
+    "Actions": {
+      "AddAbility": "Добавить способность",
+      "AddAspect": "Добавить аспект",
+      "AddEquipment": "Добавить снаряжение",
+      "AddResource": "Добавить ресурс",
+      "AddSave": "Добавить спасбросок",
+      "ToggleDetails": "Показать детали",
+      "PostToChat": "Отправить {label} в чат",
+      "Edit": "Редактировать {label}",
+      "Delete": "Удалить {label}",
+      "Burn": "Сжечь",
+      "Confirm": "Подтвердить"
+    },
+    "Tooltips": {
+      "ChangeAvatar": "Нажмите, чтобы сменить аватар",
+      "TaskRoll": "{label} ({formula})",
+      "RollWithTag": "Бросить {dice}d6 {tag}",
+      "RollSave": "Бросить {dice}d6 #target{target}",
+      "DecreaseQuantity": "Уменьшить количество",
+      "IncreaseQuantity": "Увеличить количество",
+      "DecreaseResource": "Уменьшить ресурс",
+      "IncreaseResource": "Увеличить ресурс",
+      "DiceCount": "Кубиков: {count}"
+    },
+    "Dialogs": {
+      "PowerRollTitle": "Силовой бросок",
+      "MagickPowerPrompt": "Выберите уровень силы",
+      "MiraclePowerPrompt": "Выберите срочность молитвы"
+    },
+    "Tasks": {
+      "DoubleBane": "Двойное проклятие",
+      "SingleBane": "Проклятие",
+      "NormalRoll": "Обычный бросок",
+      "SingleBoon": "Дар",
+      "DoubleBoon": "Двойной Дар"
+    },
+    "Chat": {
+      "QuantityLine": "Количество: {quantity}"
+    },
+    "Tags": {
+      "Karma": "карма",
+      "Stress": "стресс",
+      "Health": "здоровье"
+    },
+    "Magic": {
+      "Magick": "Магия"
+    },
+    "Categories": {
+      "Inclinations": "Cклонности",
+      "Aspects": "Аспекты",
+      "Equipment": "Снаряжение"
+    },
+    "Resources": {
+      "Strikes": "Удары"
+    },
+    "Notifications": {
+      "FailedToOpenEditor": "Не удалось открыть редактор.",
+      "ChatUpdateNeedsGM": "EZD6: Невозможно обновить сообщение чата, так как нет активного ГМ."
+    },
+    "Alts": {
+      "Avatar": "Аватар",
+      "ItemIcon": "Иконка: {label}"
+    },
+    "Defaults": {
+      "NewItem": "Новый предмет",
+      "NewItemTyped": "Новый {itemLabel}",
+      "Unnamed": "Без имени"
+    },
+    "Replenish": {
+      "Disabled": "Отключено",
+      "Reset": "Сброс",
+      "RestoreOne": "Восстановить 1",
+      "TitleReset": "Сбросить, потратив {cost} {targetTag}",
+      "TitleRestore": "Восстановить 1, потратив {cost} {targetTag}"
+    }
+  }
+}

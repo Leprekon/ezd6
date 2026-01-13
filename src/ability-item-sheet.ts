@@ -7,7 +7,7 @@ export class EZD6AbilityItemSheet extends EZD6AbilityLikeItemSheet {
     }
 
     protected getItemLabel(): string {
-        return "Ability";
+        return "EZD6.ItemLabels.Ability";
     }
 
     protected getSheetClass(): string {

@@ -3,7 +3,7 @@ const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-const SYSTEM_PATH = "C:\\Users\\lepre\\AppData\\Local\\FoundryVTT\\Data\\systems\\ezd6-new";
+const SYSTEM_PATH = "C:\\Users\\lepre\\AppData\\Local\\FoundryVTT\\Data\\systems\\ezd6-reforged";
 const BUILD_CMD = "node ./scripts/esbuild-bundle.js";
 const RUN_ONCE = process.argv.includes("--once");
 const inspector = require("inspector");

@@ -1,4 +1,4 @@
-import { safeUpdateChatMessage } from "./chat-message-helpers";
+import { canCurrentUserModifyMessage, safeUpdateChatMessage } from "./chat-message-helpers";
 import { renderResourceChangeHtml } from "./resource-change-render";
 import {
     PendingBatch,
@@ -50,6 +50,7 @@ async function applyChangesToLastMessage(batch: PendingBatch): Promise<boolean> 
     const lastFlag = lastMessage?.flags?.[RESOURCE_CHANGE_FLAG] as ResourceChangeFlag | undefined;
     if (!lastMessage || !lastFlag || lastFlag.actorId !== batch.actorId) return false;
 
+    if (!canCurrentUserModifyMessage(lastMessage)) return false;
     const rows = { ...(lastFlag.rows ?? {}) };
     const order = Array.isArray(lastFlag.order) ? [...lastFlag.order] : [];
 

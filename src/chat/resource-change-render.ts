@@ -1,7 +1,10 @@
 import { DEFAULT_RESOURCE_ICON } from "../character";
+import { format, localize } from "../ui/i18n";
 import { ResourceChangeFlag, ResourceChangeRow } from "./resource-change-types";
 
 const escapeHtml = (foundry as any)?.utils?.escapeHTML ?? ((value: string) => value);
+const t = (key: string, fallback: string) => localize(key, fallback);
+const tf = (key: string, data: Record<string, any>, fallback: string) => format(key, data, fallback);
 
 function renderResourceChangeRow(row: ResourceChangeRow): string {
     const delta = row.newValue - row.oldValue;
@@ -46,7 +49,7 @@ function getCounterIconLimit(counter: HTMLElement): number {
 function renderDeltaCounter(counter: HTMLElement) {
     const delta = Number(counter.dataset.delta ?? 0);
     const iconPath = counter.dataset.icon ?? DEFAULT_RESOURCE_ICON;
-    const title = counter.dataset.title ?? "Resource";
+    const title = counter.dataset.title ?? t("EZD6.ItemLabels.Resource", "Resource");
     const maxIcons = getCounterIconLimit(counter);
     const N = Math.max(1, Math.floor(maxIcons));
     const safeDelta = Number.isFinite(delta) ? Math.trunc(delta) : 0;
@@ -59,7 +62,7 @@ function renderDeltaCounter(counter: HTMLElement) {
         const img = document.createElement("img");
         img.className = className;
         img.src = iconPath;
-        img.alt = `${title} icon`;
+        img.alt = tf("EZD6.Alts.ItemIcon", { label: title }, `${title} icon`);
         img.draggable = false;
         return img;
     };

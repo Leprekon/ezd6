@@ -1,5 +1,7 @@
 // src/equipment-item-sheet.ts
 import { clampDimension, getTagOptionMap, getTagOptions, normalizeTag } from "./ui/sheet-utils";
+import { format, localize, resolveLocalizedField } from "./ui/i18n";
+import { getSystemPath } from "./system-path";
 
 const DEFAULT_EQUIPMENT_ICON = "icons/containers/bags/coinpouch-simple-leather-tan.webp";
 const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
@@ -27,7 +29,7 @@ export class EZD6EquipmentItemSheet extends ItemSheet {
     }
 
     get template() {
-        return "systems/ezd6-new/templates/equipment-item-sheet.hbs";
+        return getSystemPath("templates/equipment-item-sheet.hbs");
     }
 
     setPosition(position: any = {}) {
@@ -47,7 +49,25 @@ export class EZD6EquipmentItemSheet extends ItemSheet {
 
     getData(options?: any) {
         const data = super.getData(options) as any;
+        const system = data?.item?.system ?? {};
+        const localizationId = typeof system.localizationId === "string" ? system.localizationId.trim() : "";
         data.tagOptions = getTagOptionMap();
+        data.isGM = game?.user?.isGM ?? false;
+        data.localizationId = localizationId;
+
+        const label = localize("EZD6.ItemLabels.Equipment", "Equipment");
+        const nameFallback = typeof data?.item?.name === "string" ? data.item.name : label;
+        const descFallback = typeof system.description === "string" ? system.description : "";
+        const categoryFallback = typeof system.category === "string" ? system.category : "";
+        const nameField = resolveLocalizedField(localizationId, "Name", nameFallback);
+        const descField = resolveLocalizedField(localizationId, "Desc", descFallback);
+        const categoryField = resolveLocalizedField(localizationId, "Category", categoryFallback);
+        data.itemNameValue = nameField.value;
+        data.itemNameLocked = nameField.locked;
+        data.itemDescriptionValue = descField.value;
+        data.itemDescriptionLocked = descField.locked;
+        data.itemCategoryValue = categoryField.value;
+        data.itemCategoryLocked = categoryField.locked;
         return data;
     }
 
@@ -163,8 +183,11 @@ export class EZD6EquipmentItemSheet extends ItemSheet {
 
     private async ensureDefaultName() {
         const current = this.item?.name ?? "";
-        if (!current || current === "New Item" || current === "New Equipment") {
-            await this.item.update({ name: "Equipment" });
+        const label = localize("EZD6.ItemLabels.Equipment", "Equipment");
+        const newItem = localize("EZD6.Defaults.NewItem", "New Item");
+        const newTyped = format("EZD6.Defaults.NewItemTyped", { itemLabel: label }, `New ${label}`);
+        if (!current || current === newItem || current === newTyped || current === "New Item" || current === "New Equipment") {
+            await this.item.update({ name: label });
         }
     }
 
@@ -195,7 +218,7 @@ export class EZD6EquipmentItemSheet extends ItemSheet {
                 for (let i = 0; i < value; i++) {
                     const img = document.createElement("img");
                     img.className = "ezd6-ability-dice-icon";
-                    img.src = "systems/ezd6-new/assets/dice/grey/d6-6.png";
+                    img.src = getSystemPath("assets/dice/grey/d6-6.png");
                     img.alt = "d6";
                     stack.appendChild(img);
                 }
