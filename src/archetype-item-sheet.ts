@@ -5,7 +5,8 @@ import { clampDimension, getTagOptions, normalizeTag } from "./ui/sheet-utils";
 import { DescriptionEditorController } from "./sheet/description-editor";
 import { getDescriptionEditor } from "./sheet/description-editor-utils";
 import { captureScrollState, restoreScrollState, ScrollState } from "./sheet/scroll-state";
-import { localize, resolveLocalizedField } from "./ui/i18n";
+import { localize } from "./ui/i18n";
+import { applyNativeItemFields } from "./ui/item-editor-utils";
 import { readDragEventData, resolveDroppedDocument } from "./ui/drag-drop";
 import { buildArchetypeEntryFromItem, buildResourceFromItem, buildSaveFromItem } from "./ui/item-converters";
 import { getSystemPath } from "./system-path";
@@ -59,21 +60,19 @@ export class EZD6ArchetypeItemSheet extends ItemSheet {
             ? data.item.name
             : localize("EZD6.Defaults.Unnamed", "Unnamed");
         const descFallback = typeof system.description === "string" ? system.description : "";
-        const nameField = resolveLocalizedField(localizationId, "Name", nameFallback);
-        const descField = resolveLocalizedField(localizationId, "Desc", descFallback);
-        data.itemNameValue = nameField.value;
-        data.itemNameLocked = nameField.locked;
-        data.itemDescriptionValue = descField.value;
-        data.itemDescriptionLocked = descField.locked;
-        data.descriptionEditable = Boolean(data.editable) && !descField.locked;
+        applyNativeItemFields(data, {
+            nameValue: nameFallback,
+            descriptionValue: descFallback,
+        });
+        data.descriptionEditable = Boolean(data.editable);
         if (data.system) {
-            data.system.description = descField.value;
+            data.system.description = descFallback;
         }
 
         this.localizationId = localizationId;
-        this.nameOverride = nameField.value;
-        this.nameLocked = nameField.locked;
-        this.descriptionLocked = descField.locked;
+        this.nameOverride = nameFallback;
+        this.nameLocked = false;
+        this.descriptionLocked = false;
         return data;
     }
 

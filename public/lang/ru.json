@@ -1,36 +1,174 @@
 {
   "EZD6": {
-    "Labels": {
-      "Icon": "Иконка",
-      "Title": "Название",
-      "Tag": "Тег",
-      "Description": "Описание",
-      "Category": "Категория",
-      "DiceToRoll": "Кубики для броска",
-      "Quantity": "Количество",
-      "Value": "Значение",
-      "MaxValue": "Макс. значение",
-      "ReplenishLogic": "Логика восстановления",
-      "ReplenishTag": "Тег восстановления",
-      "ReplenishCost": "Стоимость восстановления",
-      "Target": "Цель",
-      "Replenish": "Восполнить",
-      "Roll": "Бросок",
-      "Info": "Информация",
-      "Crit": "КРИТ",
-      "Unknown": "Неизвестно"
+    "Actions": {
+      "AddAbility": "Добавить способность",
+      "AddAspect": "Добавить аспект",
+      "AddEquipment": "Добавить снаряжение",
+      "AddResource": "Добавить ресурс",
+      "AddSave": "Добавить спасбросок",
+      "Burn": "Сжечь",
+      "Confirm": "Подтвердить",
+      "Delete": "Удалить {label}",
+      "Edit": "Редактировать {label}",
+      "PostToChat": "Отправить {label} в чат",
+      "ToggleDetails": "Показать детали"
     },
-    "Placeholders": {
-      "ItemTitle": "Название: {itemLabel}",
-      "ItemDescription": "Опишите: {itemLabelLower}",
-      "CharacterName": "Имя персонажа",
-      "Category": "Категория",
-      "EquipmentTitle": "Название снаряжения",
-      "EquipmentDescription": "Опишите снаряжение",
-      "ResourceTitle": "Название ресурса",
-      "ResourceDescription": "Опишите ресурс",
-      "SaveTitle": "Название спасброска",
-      "SaveDescription": "Опишите спасбросок"
+    "Alts": {
+      "Avatar": "Аватар",
+      "ItemIcon": "Иконка: {label}"
+    },
+    "Categories": {
+      "Aspects": "Аспекты",
+      "Equipment": "Снаряжение",
+      "Inclinations": "Cклонности"
+    },
+    "Category": {
+      "Boons": "Благословения",
+      "Gear": "Снаряжение",
+      "HeroPath": "Пути героя",
+      "PathFeatures": "Особенности пути"
+    },
+    "Chat": {
+      "QuantityLine": "Количество: {quantity}"
+    },
+    "Compendium": {
+      "Core": {
+        "Gear": {
+          "Common": {
+            "Backpack": {
+              "Name": "Рюкзак"
+            },
+            "ChalkSticks": {
+              "Name": "Мелки"
+            },
+            "Chisel": {
+              "Name": "Зубило"
+            },
+            "Crowbar": {
+              "Name": "Лом"
+            },
+            "FlaskOfOil": {
+              "Name": "Фляга масла"
+            },
+            "FlintNSteel": {
+              "Name": "Кремень и огниво"
+            },
+            "GrapplingHook": {
+              "Name": "Кошка"
+            },
+            "Horn": {
+              "Name": "Рог"
+            },
+            "Knife": {
+              "Name": "Нож"
+            },
+            "Lantern": {
+              "Name": "Фонарь"
+            },
+            "MetalSpikes": {
+              "Name": "Металлические шипы"
+            },
+            "MetalTongs": {
+              "Name": "Металлические щипцы"
+            },
+            "Nails": {
+              "Name": "Гвозди"
+            },
+            "OilskinBag": {
+              "Name": "Промасленный мешок"
+            },
+            "PadlockAndKey": {
+              "Name": "Навесной замок и ключ"
+            },
+            "Pole": {
+              "Name": "Шест"
+            },
+            "PotOfGrease": {
+              "Name": "Горшок с жиром"
+            },
+            "PreservedRations": {
+              "Name": "Запас провианта"
+            },
+            "Rope": {
+              "Name": ""
+            },
+            "Sack": {
+              "Name": "Мешок"
+            },
+            "Shield": {
+              "Name": "Щит"
+            },
+            "Torch": {
+              "Name": "Маленький молоток"
+            },
+            "Waterskin": {
+              "Name": "Бурдюк"
+            },
+            "Whistle": {
+              "Name": "Свисток"
+            }
+          }
+        },
+        "Path": {
+          "Warrior": {
+            "Boon": {
+              "Name": "Благословение: Ближний бой и Сила"
+            },
+            "BrutalStrikes": {
+              "Desc": "Вы мастер **двуручного** оружия. Вы **критуете на 5-6** вместо одной 6. (Без щита)",
+              "Name": "Жестокие удары"
+            },
+            "Desc": "Всегда на передовой, причиняя боль тем, кто вам противостоит.",
+            "DualWeapons": {
+              "Desc": "Вы смертельно опасны, используя **два оружия**. У вас есть **дополнительный Дар** при бою с двумя оружиями, поэтому вы **бросаете 3D6 для атаки** и берете наибольший кубик. (Без щита)",
+              "Name": "Два оружия"
+            },
+            "Name": "Путь героя: Воин",
+            "ShieldSacrifice": {
+              "Desc": "Как свободное действие (раз за сцену) вы можете **отразить** весь урон от атак по себе или близкому союзнику в этом раунде, но ваш **щит ломается** и уничтожается. Этот маневр можно активировать даже после того, как урон был нанесен. Ваш спасбросок брони затем становится **с 3+ на 4+** (Вы можете избежать поломки, потратив 5 кармы)",
+              "Name": "Жертва щита"
+            }
+          }
+        }
+      },
+      "Resources": {
+        "HeroDie": {
+          "Desc": "Получаете в начале сессии, тратьте, чтобы перебросить 1 кубик. Потратьте 5 Кармы, чтобы восстановить ГЕРОЙСКИЙ КУБ.",
+          "Name": "Героический куб"
+        },
+        "Karma": {
+          "Desc": "Получайте 1 Карму за любой проваленный бросок. Ограничение: один раз за ход за провальные броски. Добавляйте Карму к любому броску, кроме 1. Нельзя использовать на Магию или Чудеса. Потратьте 5 Кармы, чтобы восстановить ГЕРОЙСКИЙ КУБ.",
+          "Name": "Карма"
+        },
+        "Wealth": {
+          "Desc": "",
+          "Name": "Богатство"
+        }
+      },
+      "Saves": {
+        "Armor": {
+          "Desc": "",
+          "Name": "Броня"
+        },
+        "Magic": {
+          "Desc": "Заклинатель должен сравняться или превзойти число сопротивления на наивысшем выпавшем кубике сопротивления.",
+          "Name": "Сопротивление магии"
+        },
+        "Miraculous": {
+          "Desc": "Иногда происходят события, от которых броня не защитит. В таких случаях сделайте чудесный спасбросок вместо спасброска брони.",
+          "Name": "Чудесный"
+        }
+      }
+    },
+    "Defaults": {
+      "NewItem": "Новый предмет",
+      "NewItemTyped": "Новый {itemLabel}",
+      "Unnamed": "Без имени"
+    },
+    "Dialogs": {
+      "MagickPowerPrompt": "Выберите уровень силы",
+      "MiraclePowerPrompt": "Выберите срочность молитвы",
+      "PowerRollTitle": "Силовой бросок"
     },
     "ItemLabels": {
       "Ability": "Способность",
@@ -39,83 +177,46 @@
       "Resource": "Ресурс",
       "Save": "Спасбросок"
     },
-    "Sections": {
-      "Avatar": "Аватар",
-      "Name": "Имя",
-      "Abilities": "Способности",
-      "Aspects": "Аспекты",
-      "Equipment": "Снаряжение",
-      "Resources": "Ресурсы",
-      "Saves": "Спасброски",
-      "Tasks": "Задача"
-    },
-    "Actions": {
-      "AddAbility": "Добавить способность",
-      "AddAspect": "Добавить аспект",
-      "AddEquipment": "Добавить снаряжение",
-      "AddResource": "Добавить ресурс",
-      "AddSave": "Добавить спасбросок",
-      "ToggleDetails": "Показать детали",
-      "PostToChat": "Отправить {label} в чат",
-      "Edit": "Редактировать {label}",
-      "Delete": "Удалить {label}",
-      "Burn": "Сжечь",
-      "Confirm": "Подтвердить"
-    },
-    "Tooltips": {
-      "ChangeAvatar": "Нажмите, чтобы сменить аватар",
-      "TaskRoll": "{label} ({formula})",
-      "RollWithTag": "Бросить {dice}d6 {tag}",
-      "RollSave": "Бросить {dice}d6 #target{target}",
-      "DecreaseQuantity": "Уменьшить количество",
-      "IncreaseQuantity": "Увеличить количество",
-      "DecreaseResource": "Уменьшить ресурс",
-      "IncreaseResource": "Увеличить ресурс",
-      "DiceCount": "Кубиков: {count}"
-    },
-    "Dialogs": {
-      "PowerRollTitle": "Силовой бросок",
-      "MagickPowerPrompt": "Выберите уровень силы",
-      "MiraclePowerPrompt": "Выберите срочность молитвы"
-    },
-    "Tasks": {
-      "DoubleBane": "Двойное проклятие",
-      "SingleBane": "Проклятие",
-      "NormalRoll": "Обычный бросок",
-      "SingleBoon": "Дар",
-      "DoubleBoon": "Двойной Дар"
-    },
-    "Chat": {
-      "QuantityLine": "Количество: {quantity}"
-    },
-    "Tags": {
-      "Karma": "карма",
-      "Stress": "стресс",
-      "Health": "здоровье"
+    "Labels": {
+      "Category": "Категория",
+      "Crit": "КРИТ",
+      "Description": "Описание",
+      "DiceToRoll": "Кубики для броска",
+      "Icon": "Иконка",
+      "Info": "Информация",
+      "LocalizationId": "",
+      "MaxValue": "Макс. значение",
+      "Quantity": "Количество",
+      "Replenish": "Восполнить",
+      "ReplenishCost": "Стоимость восстановления",
+      "ReplenishLogic": "Логика восстановления",
+      "ReplenishTag": "Тег восстановления",
+      "Roll": "Бросок",
+      "Tag": "Тег",
+      "Target": "Цель",
+      "Title": "Название",
+      "Unknown": "Неизвестно",
+      "Value": "Значение"
     },
     "Magic": {
       "Magick": "Магия"
     },
-    "Categories": {
-      "Inclinations": "Cклонности",
-      "Aspects": "Аспекты",
-      "Equipment": "Снаряжение"
-    },
-    "Resources": {
-      "Strikes": "Удары"
-    },
     "Notifications": {
-      "FailedToOpenEditor": "Не удалось открыть редактор.",
-      "ChatUpdateNeedsGM": "EZD6: Невозможно обновить сообщение чата, так как нет активного ГМ."
+      "ChatUpdateNeedsGM": "EZD6: Невозможно обновить сообщение чата, так как нет активного ГМ.",
+      "FailedToOpenEditor": "Не удалось открыть редактор."
     },
-    "Alts": {
-      "Avatar": "Аватар",
-      "ItemIcon": "Иконка: {label}"
-    },
-    "Defaults": {
-      "NewItem": "Новый предмет",
-      "NewItemTyped": "Новый {itemLabel}",
-      "Unnamed": "Без имени"
+    "Placeholders": {
+      "Category": "Категория",
+      "CharacterName": "Имя персонажа",
+      "EquipmentDescription": "Опишите снаряжение",
+      "EquipmentTitle": "Название снаряжения",
+      "ItemDescription": "Опишите: {itemLabelLower}",
+      "ItemTitle": "Название: {itemLabel}",
+      "LocalizationId": "ID локализации",
+      "ResourceDescription": "Опишите ресурс",
+      "ResourceTitle": "Название ресурса",
+      "SaveDescription": "Опишите спасбросок",
+      "SaveTitle": "Название спасброска"
     },
     "Replenish": {
       "Disabled": "Отключено",
@@ -123,6 +224,43 @@
       "RestoreOne": "Восстановить 1",
       "TitleReset": "Сбросить, потратив {cost} {targetTag}",
       "TitleRestore": "Восстановить 1, потратив {cost} {targetTag}"
+    },
+    "Resources": {
+      "Strikes": "Удары"
+    },
+    "Sections": {
+      "Abilities": "Способности",
+      "Aspects": "Аспекты",
+      "Avatar": "Аватар",
+      "Equipment": "Снаряжение",
+      "Name": "Имя",
+      "Resources": "Ресурсы",
+      "Saves": "Спасброски",
+      "Tasks": "Задача"
+    },
+    "Tags": {
+      "Health": "здоровье",
+      "Karma": "карма",
+      "Stress": "стресс"
+    },
+    "Tasks": {
+      "DoubleBane": "Двойное проклятие",
+      "DoubleBoon": "Двойной Дар",
+      "NormalRoll": "Обычный бросок",
+      "SingleBane": "Проклятие",
+      "SingleBoon": "Дар"
+    },
+    "Tooltips": {
+      "ChangeAvatar": "Нажмите, чтобы сменить аватар",
+      "ChangeIcon": "",
+      "DecreaseQuantity": "Уменьшить количество",
+      "DecreaseResource": "Уменьшить ресурс",
+      "DiceCount": "Кубиков: {count}",
+      "IncreaseQuantity": "Увеличить количество",
+      "IncreaseResource": "Увеличить ресурс",
+      "RollSave": "Бросить {dice}d6 #target{target}",
+      "RollWithTag": "Бросить {dice}d6 {tag}",
+      "TaskRoll": "{label} ({formula})"
     }
   }
 }

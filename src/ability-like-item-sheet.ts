@@ -1,6 +1,7 @@
 // src/ability-like-item-sheet.ts
 import { clampDimension, getTagOptionMap, getTagOptions, normalizeTag } from "./ui/sheet-utils";
-import { format, localize, resolveLocalizedField } from "./ui/i18n";
+import { format, localize } from "./ui/i18n";
+import { applyNativeItemFields } from "./ui/item-editor-utils";
 import { getSystemPath } from "./system-path";
 
 const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
@@ -69,15 +70,11 @@ export abstract class EZD6AbilityLikeItemSheet extends ItemSheet {
         const nameFallback = typeof data?.item?.name === "string" ? data.item.name : itemLabel;
         const descFallback = typeof system.description === "string" ? system.description : "";
         const categoryFallback = typeof system.category === "string" ? system.category : "";
-        const nameField = resolveLocalizedField(localizationId, "Name", nameFallback);
-        const descField = resolveLocalizedField(localizationId, "Desc", descFallback);
-        const categoryField = resolveLocalizedField(localizationId, "Category", categoryFallback);
-        data.itemNameValue = nameField.value;
-        data.itemNameLocked = nameField.locked;
-        data.itemDescriptionValue = descField.value;
-        data.itemDescriptionLocked = descField.locked;
-        data.itemCategoryValue = categoryField.value;
-        data.itemCategoryLocked = categoryField.locked;
+        applyNativeItemFields(data, {
+            nameValue: nameFallback,
+            descriptionValue: descFallback,
+            categoryValue: categoryFallback,
+        });
         return data;
     }
 

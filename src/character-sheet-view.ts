@@ -9,7 +9,14 @@ import {
     normalizeTag,
     wireExpandableRow,
 } from "./ui/sheet-utils";
-import { format, localize } from "./ui/i18n";
+import { format, localize, resolveLocalizedField } from "./ui/i18n";
+import {
+    resolveEntryDescription,
+    resolveEntryName,
+    resolveItemDescription,
+    resolveItemName,
+    resolveLocalizedText,
+} from "./ui/localization-utils";
 import { renderResourceCounter as renderResourceCounterShared } from "./ui/resource-counter";
 import { buildInfoMeta, buildRollMeta, EZD6_META_FLAG } from "./chat/chat-meta";
 import { renderMarkdown } from "./ui/markdown";
@@ -97,6 +104,34 @@ export class CharacterSheetView {
             systemUpdater?: (data: Record<string, any>) => Promise<void>;
         } = {}
     ) {}
+
+    private resolveLocalizedText(localizationId: string | null | undefined, suffix: string, fallback: string): string {
+        return resolveLocalizedField(localizationId, suffix, fallback).value;
+    }
+
+    private getLocalizedItemName(item: any, fallback: string): string {
+        return resolveItemName(item, fallback, this.resolveLocalizedText.bind(this));
+    }
+
+    private getLocalizedItemDescription(item: any, fallback: string): string {
+        return resolveItemDescription(item, fallback, this.resolveLocalizedText.bind(this));
+    }
+
+    private getLocalizedResourceTitle(resource: Resource, fallback: string): string {
+        return resolveEntryName(resource.localizationId, fallback, this.resolveLocalizedText.bind(this));
+    }
+
+    private getLocalizedResourceDescription(resource: Resource, fallback: string): string {
+        return resolveEntryDescription(resource.localizationId, fallback, this.resolveLocalizedText.bind(this));
+    }
+
+    private getLocalizedSaveTitle(save: Save, fallback: string): string {
+        return resolveEntryName(save.localizationId, fallback, this.resolveLocalizedText.bind(this));
+    }
+
+    private getLocalizedSaveDescription(save: Save, fallback: string): string {
+        return resolveEntryDescription(save.localizationId, fallback, this.resolveLocalizedText.bind(this));
+    }
 
     render(container: HTMLElement) {
         container.innerHTML = "";
@@ -354,7 +389,10 @@ export class CharacterSheetView {
             : typeof system.tag === "number"
                 ? String(system.tag)
                 : "";
-        const description = typeof system.description === "string" ? system.description : "";
+        const rawDescription = typeof system.description === "string" ? system.description : "";
+        const nameFallback = item?.name ?? options.label;
+        const description = this.getLocalizedItemDescription(item, rawDescription);
+        const displayName = this.getLocalizedItemName(item, nameFallback);
         const descriptionHtml = this.renderDescriptionHtml(description);
         const canEdit = Boolean(this.options.editable);
         const wrapper = createElement("div", options.itemClassName);
@@ -373,11 +411,11 @@ export class CharacterSheetView {
             ? item.img
             : options.defaultIcon;
         icon.src = abilityIcon;
-        icon.alt = item?.name ?? tf("EZD6.Alts.ItemIcon", { label: options.label }, `${options.label} icon`);
+        icon.alt = displayName || tf("EZD6.Alts.ItemIcon", { label: options.label }, `${options.label} icon`);
         icon.draggable = false;
         iconWrap.appendChild(icon);
 
-        const title = createElement("span", "ezd6-ability-row__title", item?.name ?? options.label);
+        const title = createElement("span", "ezd6-ability-row__title", displayName);
         row.append(iconWrap, title);
 
         if (numberOfDice > 0) {
@@ -481,8 +519,7 @@ export class CharacterSheetView {
     private renderEquipmentRow(item: any): HTMLElement {
         const isArchetype = (this.options.mode ?? "character") === "archetype";
         const system = item?.system ?? {};
-        const description = typeof system.description === "string" ? system.description : "";
-        const descriptionHtml = this.renderDescriptionHtml(description);
+        const rawDescription = typeof system.description === "string" ? system.description : "";
         const numberOfDice = Math.max(0, Number(system.numberOfDice) || 0);
         const tag = typeof system.tag === "string"
             ? system.tag
@@ -496,6 +533,9 @@ export class CharacterSheetView {
         const canEdit = Boolean(this.options.editable);
 
         const equipmentLabel = t("EZD6.ItemLabels.Equipment", "Equipment");
+        const displayName = this.getLocalizedItemName(item, equipmentLabel);
+        const description = this.getLocalizedItemDescription(item, rawDescription);
+        const descriptionHtml = this.renderDescriptionHtml(description);
         const wrapper = createElement("div", "ezd6-equipment-item");
         if (item?.id) {
             wrapper.dataset.itemId = item.id;
@@ -512,11 +552,11 @@ export class CharacterSheetView {
         const iconWrap = createElement("span", "ezd6-equipment-icon");
         const icon = createElement("img", "ezd6-equipment-icon__img") as HTMLImageElement;
         icon.src = item?.img || "icons/containers/bags/coinpouch-simple-leather-tan.webp";
-        icon.alt = item?.name ?? tf("EZD6.Alts.ItemIcon", { label: equipmentLabel }, `${equipmentLabel} icon`);
+        icon.alt = displayName || tf("EZD6.Alts.ItemIcon", { label: equipmentLabel }, `${equipmentLabel} icon`);
         icon.draggable = false;
         iconWrap.appendChild(icon);
 
-        const title = createElement("span", "ezd6-equipment-row__title", item?.name ?? equipmentLabel);
+        const title = createElement("span", "ezd6-equipment-row__title", displayName);
         row.append(iconWrap, title);
 
         const qtySlot = createElement("div", "ezd6-equipment-qty-slot");
@@ -698,7 +738,8 @@ export class CharacterSheetView {
         row.tabIndex = 0;
         row.title = t("EZD6.Actions.ToggleDetails", "Toggle details");
 
-        const title = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
+        const fallbackTitle = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
+        const title = this.getLocalizedResourceTitle(resource, fallbackTitle);
 
         const subBtn = createElement("button", "ezd6-qty-btn", "-") as HTMLButtonElement;
         const addBtn = createElement("button", "ezd6-qty-btn", "+") as HTMLButtonElement;
@@ -854,7 +895,8 @@ export class CharacterSheetView {
         row.tabIndex = 0;
         row.title = t("EZD6.Actions.ToggleDetails", "Toggle details");
 
-        const title = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
+        const fallbackTitle = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
+        const title = this.getLocalizedSaveTitle(save, fallbackTitle);
         const targetValue = this.getSaveTargetValue(save);
         const diceCount = this.getSaveDiceCount(save);
         const iconPath = this.getSaveIcon(save);
@@ -960,9 +1002,11 @@ export class CharacterSheetView {
         }
 
         const tagSpan = createElement("span", "ezd6-resource-tag", tag);
+        const rawDescription = typeof resource.description === "string" ? resource.description : "";
+        const description = this.getLocalizedResourceDescription(resource, rawDescription);
         return buildDetailContent({
             prefix: "ezd6-resource",
-            description: this.renderDescriptionHtml(resource.description ?? ""),
+            description: this.renderDescriptionHtml(description),
             metaItems: [tagSpan],
             messageButton: messageBtn ?? undefined,
             actionButtons,
@@ -1012,9 +1056,11 @@ export class CharacterSheetView {
         }
 
         const tagSpan = createElement("span", "ezd6-save-tag", tag);
+        const rawDescription = typeof save.description === "string" ? save.description : "";
+        const description = this.getLocalizedSaveDescription(save, rawDescription);
         return buildDetailContent({
             prefix: "ezd6-save",
-            description: this.renderDescriptionHtml(save.description ?? ""),
+            description: this.renderDescriptionHtml(description),
             metaItems: [tagSpan],
             messageButton: messageBtn ?? undefined,
             actionButtons,
@@ -1227,18 +1273,21 @@ export class CharacterSheetView {
         if (diceCount <= 0) return;
         const tag = this.normalizeAbilityTag(resource.rollKeyword ?? "default");
         const resourceLabel = t("EZD6.ItemLabels.Resource", "Resource");
-        const title = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
+        const fallbackTitle = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
+        const title = this.getLocalizedResourceTitle(resource, fallbackTitle);
         const icon = this.getResourceIcon(resource);
         const roll = new Roll(`${diceCount}d6`, {});
         await roll.evaluate();
         const flavor = `${title} ${tag}`.trim();
+        const rawDescription = typeof resource.description === "string" ? resource.description : "";
+        const description = this.getLocalizedResourceDescription(resource, rawDescription);
         await roll.toMessage({
             flavor,
             speaker: this.getChatSpeaker(),
             flags: {
                 [EZD6_META_FLAG]: buildRollMeta({
                     title,
-                    description: resource.description ?? "",
+                    description,
                     tag,
                     icon,
                     kind: "resource",
@@ -1257,16 +1306,19 @@ export class CharacterSheetView {
         await roll.evaluate();
         const target = this.getSaveTargetValue(save);
         const saveLabel = t("EZD6.ItemLabels.Save", "Save");
-        const saveTitle = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
+        const fallbackTitle = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
+        const saveTitle = this.getLocalizedSaveTitle(save, fallbackTitle);
         const flavor = `${saveTitle} #target${target}`.trim();
         const icon = this.getSaveIcon(save);
+        const rawDescription = typeof save.description === "string" ? save.description : "";
+        const description = this.getLocalizedSaveDescription(save, rawDescription);
         await roll.toMessage({
             flavor,
             speaker: this.getChatSpeaker(),
             flags: {
                 [EZD6_META_FLAG]: buildRollMeta({
                     title: saveTitle,
-                    description: save.description ?? "",
+                    description,
                     tag: `#target${target}`,
                     icon,
                     kind: "save",
@@ -1278,7 +1330,8 @@ export class CharacterSheetView {
 
     private renderResourceCounter(counter: HTMLElement, resource: Resource, maxIcons: number = 6) {
         const resourceLabel = t("EZD6.ItemLabels.Resource", "Resource");
-        const title = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
+        const fallbackTitle = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
+        const title = this.getLocalizedResourceTitle(resource, fallbackTitle);
         const iconPath = this.getResourceIcon(resource);
         const currentValue = this.getResourceValue(resource);
         const maxValue = this.getResourceMaxValue(resource);
@@ -1330,7 +1383,8 @@ export class CharacterSheetView {
 
         if (diceCount <= 0) return;
         const resourceLabel = t("EZD6.ItemLabels.Resource", "Resource");
-        const title = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
+        const fallbackTitle = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
+        const title = this.getLocalizedResourceTitle(resource, fallbackTitle);
         const tag = this.normalizeAbilityTag(resource.rollKeyword ?? "default");
         const keyword = this.getKeywordFromTag(resource.rollKeyword ?? "default");
         const rollBtn = createRollButton({
@@ -1862,7 +1916,8 @@ export class CharacterSheetView {
         const resource = this.character.resources.find((entry) => entry.id === id);
         if (!resource) return null;
         const resourceLabel = t("EZD6.ItemLabels.Resource", "Resource");
-        const title = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
+        const fallbackTitle = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
+        const title = this.getLocalizedResourceTitle(resource, fallbackTitle);
         return {
             type: "Item",
             sourceActorId: this.options.actor?.id ?? null,
@@ -1892,7 +1947,8 @@ export class CharacterSheetView {
         const save = this.character.saves.find((entry) => entry.id === id);
         if (!save) return null;
         const saveLabel = t("EZD6.ItemLabels.Save", "Save");
-        const title = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
+        const fallbackTitle = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
+        const title = this.getLocalizedSaveTitle(save, fallbackTitle);
         return {
             type: "Item",
             sourceActorId: this.options.actor?.id ?? null,
@@ -2085,7 +2141,7 @@ export class CharacterSheetView {
 
     private async postAbilityMessage(item: any, description: string, label = t("EZD6.ItemLabels.Ability", "Ability")) {
         if (!item) return;
-        const title = item.name ?? label;
+        const title = this.getLocalizedItemName(item, label);
         const tag = this.normalizeAbilityTag(item?.system?.tag ?? "");
         const icon = item?.type === "aspect"
             ? (item?.img && item.img !== LEGACY_DEFAULT_ICON
@@ -2122,7 +2178,7 @@ export class CharacterSheetView {
             : "";
         const tag = this.normalizeAbilityTag(item?.system?.tag ?? "");
         const equipmentLabel = t("EZD6.ItemLabels.Equipment", "Equipment");
-        const title = item.name ?? equipmentLabel;
+        const title = this.getLocalizedItemName(item, equipmentLabel);
         const icon = item?.img || "icons/containers/bags/coinpouch-simple-leather-tan.webp";
         const qtyValue = Math.max(0, Math.floor(Number(quantity ?? 0)));
         const contentPieces = [
@@ -2150,10 +2206,12 @@ export class CharacterSheetView {
     private async postResourceMessage(resource: Resource) {
         if (!resource) return;
         const resourceLabel = t("EZD6.ItemLabels.Resource", "Resource");
-        const title = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
+        const fallbackTitle = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
+        const title = this.getLocalizedResourceTitle(resource, fallbackTitle);
         const tag = this.getResourceTag(resource);
         const icon = this.getResourceIcon(resource);
-        const description = typeof resource.description === "string" ? resource.description : "";
+        const rawDescription = typeof resource.description === "string" ? resource.description : "";
+        const description = this.getLocalizedResourceDescription(resource, rawDescription);
         const descHtml = this.renderDescriptionHtml(description);
         const value = this.getResourceValue(resource);
         const maxValue = this.getResourceMaxValue(resource);
@@ -2187,12 +2245,13 @@ export class CharacterSheetView {
         label = t("EZD6.ItemLabels.Ability", "Ability")
     ) {
         if (!item) return;
+        const title = this.getLocalizedItemName(item, label);
         if (numberOfDice > 0) {
             const normalizedTag = this.normalizeAbilityTag(tag);
             const keyword = this.getKeywordFromTag(tag);
             const rollWithDice = async (diceCount: number) => {
                 const formula = `${diceCount}d6`;
-                const flavor = `${item.name ?? label} ${normalizedTag}`.trim();
+                const flavor = `${title} ${normalizedTag}`.trim();
                 const icon = item?.type === "aspect"
                     ? (item?.img && item.img !== LEGACY_DEFAULT_ICON
                         ? item.img
@@ -2208,7 +2267,7 @@ export class CharacterSheetView {
                     speaker: this.getChatSpeaker(),
                     flags: {
                         [EZD6_META_FLAG]: buildRollMeta({
-                            title: item.name ?? label,
+                            title,
                             description: descHtml,
                             tag: normalizedTag,
                             icon,
@@ -2222,7 +2281,7 @@ export class CharacterSheetView {
 
         const descHtml = this.renderDescriptionHtml(description);
         const contentPieces = [
-            `<strong>${item.name ?? label}</strong>`,
+            `<strong>${title}</strong>`,
             descHtml ? `<div>${descHtml}</div>` : "",
         ];
         await ChatMessage.create({ content: contentPieces.join(""), speaker: this.getChatSpeaker() });
@@ -2237,13 +2296,14 @@ export class CharacterSheetView {
         isQuantifiable: boolean
     ) {
         if (!item) return;
+        const equipmentLabel = t("EZD6.ItemLabels.Equipment", "Equipment");
+        const title = this.getLocalizedItemName(item, equipmentLabel);
         if (numberOfDice > 0) {
             const normalizedTag = this.normalizeAbilityTag(tag);
             const keyword = this.getKeywordFromTag(tag);
-            const equipmentLabel = t("EZD6.ItemLabels.Equipment", "Equipment");
             const rollWithDice = async (diceCount: number) => {
                 const formula = `${diceCount}d6`;
-                const flavor = `${item.name ?? equipmentLabel} ${normalizedTag}`.trim();
+                const flavor = `${title} ${normalizedTag}`.trim();
                 const icon = item?.img || "icons/containers/bags/coinpouch-simple-leather-tan.webp";
                 const descHtml = this.renderDescriptionHtml(description);
                 const roll = new Roll(formula, {});
@@ -2253,7 +2313,7 @@ export class CharacterSheetView {
                     speaker: this.getChatSpeaker(),
                     flags: {
                         [EZD6_META_FLAG]: buildRollMeta({
-                            title: item.name ?? equipmentLabel,
+                            title,
                             description: descHtml,
                             tag: normalizedTag,
                             icon,
@@ -2268,10 +2328,9 @@ export class CharacterSheetView {
         const qtyLine = isQuantifiable
             ? `<div>${tf("EZD6.Chat.QuantityLine", { quantity }, `Quantity: ${quantity}`)}</div>`
             : "";
-        const equipmentLabel = t("EZD6.ItemLabels.Equipment", "Equipment");
         const descHtml = this.renderDescriptionHtml(description);
         const contentPieces = [
-            `<strong>${item.name ?? equipmentLabel}</strong>`,
+            `<strong>${title}</strong>`,
             descHtml ? `<div>${descHtml}</div>` : "",
             qtyLine,
         ];
@@ -2403,8 +2462,10 @@ export class CharacterSheetView {
     private async postSaveMessage(save: Save) {
         if (!save) return;
         const saveLabel = t("EZD6.ItemLabels.Save", "Save");
-        const title = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
-        const description = typeof save.description === "string" ? save.description : "";
+        const fallbackTitle = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
+        const title = this.getLocalizedSaveTitle(save, fallbackTitle);
+        const rawDescription = typeof save.description === "string" ? save.description : "";
+        const description = this.getLocalizedSaveDescription(save, rawDescription);
         const descHtml = this.renderDescriptionHtml(description);
         const tag = `#target${this.getSaveTargetValue(save)}`;
         const icon = this.getSaveIcon(save);
@@ -2524,7 +2585,8 @@ export class CharacterSheetView {
         const row = wrapper.querySelector(".ezd6-save-row") as HTMLElement | null;
         if (!row) return;
         const saveLabel = t("EZD6.ItemLabels.Save", "Save");
-        const title = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
+        const fallbackTitle = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
+        const title = this.getLocalizedSaveTitle(save, fallbackTitle);
         const targetValue = this.getSaveTargetValue(save);
         const diceCount = this.getSaveDiceCount(save);
         const iconPath = this.getSaveIcon(save);

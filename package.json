@@ -9,6 +9,7 @@
     "bundle": "node ./scripts/esbuild-bundle.js",
     "bundle:copy": "node ./scripts/watch.js --once",
     "build": "npm run clean && npm run typecheck && npm run bundle",
+    "i18n:update": "node ./scripts/localization-update.js",
     "watch": "node ./scripts/watch.js"
   },
   "keywords": [],

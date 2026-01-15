@@ -1,6 +1,7 @@
 // src/save-item-sheet.ts
 import { clampDimension } from "./ui/sheet-utils";
-import { format, localize, resolveLocalizedField } from "./ui/i18n";
+import { format, localize } from "./ui/i18n";
+import { applyNativeItemFields } from "./ui/item-editor-utils";
 import { getSystemPath } from "./system-path";
 
 const DEFAULT_SAVE_ICON = "icons/equipment/shield/heater-steel-worn.webp";
@@ -133,12 +134,10 @@ export class EZD6SaveItemSheet extends ItemSheet {
         const label = localize("EZD6.ItemLabels.Save", "Save");
         const nameFallback = typeof data?.item?.name === "string" ? data.item.name : label;
         const descFallback = typeof system.description === "string" ? system.description : "";
-        const nameField = resolveLocalizedField(localizationId, "Name", nameFallback);
-        const descField = resolveLocalizedField(localizationId, "Desc", descFallback);
-        data.itemNameValue = nameField.value;
-        data.itemNameLocked = nameField.locked;
-        data.itemDescriptionValue = descField.value;
-        data.itemDescriptionLocked = descField.locked;
+        applyNativeItemFields(data, {
+            nameValue: nameFallback,
+            descriptionValue: descFallback,
+        });
         return data;
     }
 

@@ -1,38 +1,174 @@
 {
   "EZD6": {
-    "Labels": {
-      "Icon": "Icon",
-      "Title": "Title",
-      "Tag": "Tag",
-      "Description": "Description",
-      "Category": "Category",
-      "DiceToRoll": "Dice to roll",
-      "Quantity": "Quantity",
-      "Value": "Value",
-      "MaxValue": "Max Value",
-      "ReplenishLogic": "Replenish logic",
-      "ReplenishTag": "Replenish tag",
-      "ReplenishCost": "Replenish cost",
-      "Target": "Target",
-      "Replenish": "Replenish",
-      "Roll": "Roll",
-      "Info": "Info",
-      "Crit": "CRIT",
-      "Unknown": "Unknown",
-      "LocalizationId": "Localization ID"
+    "Actions": {
+      "AddAbility": "Add ability",
+      "AddAspect": "Add aspect",
+      "AddEquipment": "Add equipment",
+      "AddResource": "Add resource",
+      "AddSave": "Add save",
+      "Burn": "Burn",
+      "Confirm": "Confirm",
+      "Delete": "Delete {label}",
+      "Edit": "Edit {label}",
+      "PostToChat": "Post {label} to chat",
+      "ToggleDetails": "Toggle details"
     },
-    "Placeholders": {
-      "ItemTitle": "{itemLabel} title",
-      "ItemDescription": "Describe the {itemLabelLower}",
-      "CharacterName": "Character Name",
-      "Category": "Category",
-      "LocalizationId": "EZD6.Compendium.Abilities.Fireball",
-      "EquipmentTitle": "Equipment title",
-      "EquipmentDescription": "Describe the equipment",
-      "ResourceTitle": "Resource title",
-      "ResourceDescription": "Describe the resource",
-      "SaveTitle": "Save title",
-      "SaveDescription": "Describe the save"
+    "Alts": {
+      "Avatar": "Avatar",
+      "ItemIcon": "{label} icon"
+    },
+    "Categories": {
+      "Aspects": "Aspects",
+      "Equipment": "Equipment",
+      "Inclinations": "Inclinations"
+    },
+    "Category": {
+      "Boons": "Boons",
+      "Gear": "Gear",
+      "HeroPath": "Hero Path",
+      "PathFeatures": "Path Features"
+    },
+    "Chat": {
+      "QuantityLine": "Quantity: {quantity}"
+    },
+    "Compendium": {
+      "Core": {
+        "Gear": {
+          "Common": {
+            "Backpack": {
+              "Name": "Backpack"
+            },
+            "ChalkSticks": {
+              "Name": "Chalk sticks"
+            },
+            "Chisel": {
+              "Name": "Chisel"
+            },
+            "Crowbar": {
+              "Name": "Crowbar"
+            },
+            "FlaskOfOil": {
+              "Name": "Flask of oil"
+            },
+            "FlintNSteel": {
+              "Name": "Flint & steel"
+            },
+            "GrapplingHook": {
+              "Name": "Grappling hook"
+            },
+            "Horn": {
+              "Name": "Horn"
+            },
+            "Knife": {
+              "Name": "Knife"
+            },
+            "Lantern": {
+              "Name": "Lantern"
+            },
+            "MetalSpikes": {
+              "Name": "Metal spikes"
+            },
+            "MetalTongs": {
+              "Name": "Metal tongs"
+            },
+            "Nails": {
+              "Name": "Nails"
+            },
+            "OilskinBag": {
+              "Name": "Oilskin bag"
+            },
+            "PadlockAndKey": {
+              "Name": "Padlock and key"
+            },
+            "Pole": {
+              "Name": "Pole"
+            },
+            "PotOfGrease": {
+              "Name": "Pot of grease"
+            },
+            "PreservedRations": {
+              "Name": "Preserved Rations"
+            },
+            "Rope": {
+              "Name": "Thin but strong rope (50’)"
+            },
+            "Sack": {
+              "Name": "Sack"
+            },
+            "Shield": {
+              "Name": "Shield"
+            },
+            "Torch": {
+              "Name": "Small hammer"
+            },
+            "Waterskin": {
+              "Name": "Waterskin"
+            },
+            "Whistle": {
+              "Name": "Whistle"
+            }
+          }
+        },
+        "Path": {
+          "Warrior": {
+            "Boon": {
+              "Name": "Boon: Melee and Strength"
+            },
+            "BrutalStrikes": {
+              "Desc": "You are a master of **two-handed** weapons. You **crit on a 5-6** instead of just a 6. (No shield)",
+              "Name": "Brutal Strikes"
+            },
+            "Desc": "Always on the front line dealing pain to those who oppose you.",
+            "DualWeapons": {
+              "Desc": "You are deadly when using **two weapons**. You have an **extra boon** when fighting with dual weapons so you **roll 3D6 to attack** and take the highest die. (No shield)",
+              "Name": "Dual Weapons"
+            },
+            "Name": "Hero Path: Warrior",
+            "ShieldSacrifice": {
+              "Desc": "As a free action (once per scene) you can **deflect** all attack damage from yourself or a close ally for this round but your **shield breaks** and is destroyed. This maneuver can even be activated after the damage has been inflicted. Your armor Save then goes **from 3+ to 4+** (You can avoid the break by spending 5 karma)",
+              "Name": "Shield Sacrifice"
+            }
+          }
+        }
+      },
+      "Resources": {
+        "HeroDie": {
+          "Desc": "Earn at session start, expend to re-roll 1 die. Spend 5 Karma to replenish your HERO DIE.",
+          "Name": "Hero Die"
+        },
+        "Karma": {
+          "Desc": "Earn 1 Karma on any failed roll. Limit one per turn for failed rolls. Add Karma to any roll, besides a 1. Cannot use on Magick or Miracles. Spend 5 Karma to replenish your HERO DIE.",
+          "Name": "Karma"
+        },
+        "Wealth": {
+          "Desc": "* **PAUPER** - Can barely scrounge enough cash for food and may have to go without meals.\n* **CASH POOR** - Can aff ord food and simple clothing but little else.\n* **MODERATE** - Can buy most gear, armor, weapons, and rented accommodations.\n* **WEALTHY** - Can easily aff ord transport like horses and wagons as well as permanent accommodations and retain a small staff.\n* **LORDLY WEALTH** - Can aff ord to own ships or other transport and a cohort of retainers.\n* KINGLY WEALTH - Money is no issue unless creating a massive project.",
+          "Name": "Wealth"
+        }
+      },
+      "Saves": {
+        "Armor": {
+          "Desc": "When hit, roll Armor to ignore 1 Strike.\nIf you are hit for multiple strikes (like a сrit) you get to make the roll for each strike point.",
+          "Name": "Armor"
+        },
+        "Magic": {
+          "Desc": "The caster must equal or beat the resistance number of the highest resistance die roll.",
+          "Name": "Magic Resistance"
+        },
+        "Miraculous": {
+          "Desc": "Some events can happen that armor will not protect you from. In those cases make a miraculous save roll instead of an armor save.",
+          "Name": "Miraculous"
+        }
+      }
+    },
+    "Defaults": {
+      "NewItem": "New Item",
+      "NewItemTyped": "New {itemLabel}",
+      "Unnamed": "Unnamed"
+    },
+    "Dialogs": {
+      "MagickPowerPrompt": "Choose power level",
+      "MiraclePowerPrompt": "Choose prayer urgency",
+      "PowerRollTitle": "Power Roll"
     },
     "ItemLabels": {
       "Ability": "Ability",
@@ -41,84 +177,46 @@
       "Resource": "Resource",
       "Save": "Save"
     },
-    "Sections": {
-      "Avatar": "Avatar",
-      "Name": "Name",
-      "Abilities": "Abilities",
-      "Aspects": "Aspects",
-      "Equipment": "Equipment",
-      "Resources": "Resources",
-      "Saves": "Saves",
-      "Tasks": "Task"
-    },
-    "Actions": {
-      "AddAbility": "Add ability",
-      "AddAspect": "Add aspect",
-      "AddEquipment": "Add equipment",
-      "AddResource": "Add resource",
-      "AddSave": "Add save",
-      "ToggleDetails": "Toggle details",
-      "PostToChat": "Post {label} to chat",
-      "Edit": "Edit {label}",
-      "Delete": "Delete {label}",
-      "Burn": "Burn",
-      "Confirm": "Confirm"
-    },
-    "Tooltips": {
-      "ChangeAvatar": "Click to change avatar",
-      "ChangeIcon": "Click to change icon",
-      "TaskRoll": "{label} ({formula})",
-      "RollWithTag": "Roll {dice}d6 {tag}",
-      "RollSave": "Roll {dice}d6 #target{target}",
-      "DecreaseQuantity": "Decrease quantity",
-      "IncreaseQuantity": "Increase quantity",
-      "DecreaseResource": "Decrease resource",
-      "IncreaseResource": "Increase resource",
-      "DiceCount": "{count} die(s)"
-    },
-    "Dialogs": {
-      "PowerRollTitle": "Power Roll",
-      "MagickPowerPrompt": "Choose power level",
-      "MiraclePowerPrompt": "Choose prayer urgency"
-    },
-    "Tasks": {
-      "DoubleBane": "Double bane",
-      "SingleBane": "Single bane",
-      "NormalRoll": "Normal roll",
-      "SingleBoon": "Single boon",
-      "DoubleBoon": "Double boon"
-    },
-    "Chat": {
-      "QuantityLine": "Quantity: {quantity}"
-    },
-    "Tags": {
-      "Karma": "karma",
-      "Stress": "stress",
-      "Health": "health"
+    "Labels": {
+      "Category": "Category",
+      "Crit": "CRIT",
+      "Description": "Description",
+      "DiceToRoll": "Dice to roll",
+      "Icon": "Icon",
+      "Info": "Info",
+      "LocalizationId": "Localization ID",
+      "MaxValue": "Max Value",
+      "Quantity": "Quantity",
+      "Replenish": "Replenish",
+      "ReplenishCost": "Replenish cost",
+      "ReplenishLogic": "Replenish logic",
+      "ReplenishTag": "Replenish tag",
+      "Roll": "Roll",
+      "Tag": "Tag",
+      "Target": "Target",
+      "Title": "Title",
+      "Unknown": "Unknown",
+      "Value": "Value"
     },
     "Magic": {
       "Magick": "Magick"
     },
-    "Categories": {
-      "Inclinations": "Inclinations",
-      "Aspects": "Aspects",
-      "Equipment": "Equipment"
-    },
-    "Resources": {
-      "Strikes": "Strikes"
-    },
     "Notifications": {
-      "FailedToOpenEditor": "Failed to open editor.",
-      "ChatUpdateNeedsGM": "EZD6: Unable to update the chat message because no GM is currently online."
+      "ChatUpdateNeedsGM": "EZD6: Unable to update the chat message because no GM is currently online.",
+      "FailedToOpenEditor": "Failed to open editor."
     },
-    "Alts": {
-      "Avatar": "Avatar",
-      "ItemIcon": "{label} icon"
-    },
-    "Defaults": {
-      "NewItem": "New Item",
-      "NewItemTyped": "New {itemLabel}",
-      "Unnamed": "Unnamed"
+    "Placeholders": {
+      "Category": "Category",
+      "CharacterName": "Character Name",
+      "EquipmentDescription": "Describe the equipment",
+      "EquipmentTitle": "Equipment title",
+      "ItemDescription": "Describe the {itemLabelLower}",
+      "ItemTitle": "{itemLabel} title",
+      "LocalizationId": "EZD6.Compendium.Abilities.Fireball",
+      "ResourceDescription": "Describe the resource",
+      "ResourceTitle": "Resource title",
+      "SaveDescription": "Describe the save",
+      "SaveTitle": "Save title"
     },
     "Replenish": {
       "Disabled": "Disabled",
@@ -126,6 +224,43 @@
       "RestoreOne": "Restore 1",
       "TitleReset": "Reset by spending {cost} {targetTag}",
       "TitleRestore": "Restore 1 by spending {cost} {targetTag}"
+    },
+    "Resources": {
+      "Strikes": "Strikes"
+    },
+    "Sections": {
+      "Abilities": "Abilities",
+      "Aspects": "Aspects",
+      "Avatar": "Avatar",
+      "Equipment": "Equipment",
+      "Name": "Name",
+      "Resources": "Resources",
+      "Saves": "Saves",
+      "Tasks": "Task"
+    },
+    "Tags": {
+      "Health": "health",
+      "Karma": "karma",
+      "Stress": "stress"
+    },
+    "Tasks": {
+      "DoubleBane": "Double bane",
+      "DoubleBoon": "Double boon",
+      "NormalRoll": "Normal roll",
+      "SingleBane": "Single bane",
+      "SingleBoon": "Single boon"
+    },
+    "Tooltips": {
+      "ChangeAvatar": "Click to change avatar",
+      "ChangeIcon": "Click to change icon",
+      "DecreaseQuantity": "Decrease quantity",
+      "DecreaseResource": "Decrease resource",
+      "DiceCount": "{count} die(s)",
+      "IncreaseQuantity": "Increase quantity",
+      "IncreaseResource": "Increase resource",
+      "RollSave": "Roll {dice}d6 #target{target}",
+      "RollWithTag": "Roll {dice}d6 {tag}",
+      "TaskRoll": "{label} ({formula})"
     }
   }
 }
