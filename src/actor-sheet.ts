@@ -408,6 +408,7 @@ export class EZD6CharacterSheet extends ActorSheet {
                 maxValue: Number.isFinite(Number(resource?.maxValue)) ? clampInt(resource.maxValue, 0, 100) : undefined,
                 defaultMaxValue: Number.isFinite(Number(resource?.defaultMaxValue)) ? clampInt(resource.defaultMaxValue, 0, 100) : undefined,
                 locked: Boolean(resource?.locked),
+                publicDisplay: Boolean(resource?.publicDisplay),
             };
             if (target) {
                 Object.assign(target, next);

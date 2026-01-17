@@ -658,6 +658,7 @@
                                 "Info":  "Информация",
                                 "LocalizationId":  "ID локализации",
                                 "MaxValue":  "Макс. значение",
+                                "PublicDisplay":  "Публичное отображение",
                                 "Quantity":  "Количество",
                                 "Replenish":  "Восполнить",
                                 "ReplenishCost":  "Стоимость восстановления",

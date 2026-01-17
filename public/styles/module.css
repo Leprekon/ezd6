@@ -1704,6 +1704,59 @@
   color: rgba(0, 0, 0, 0.75);
 }
 
+.ezd6-player-resources-list {
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+}
+
+#players,
+#players .directory-list,
+#players ol,
+#players ol.players,
+#players .players-list,
+#players .player-list {
+  width: max-content;
+  max-width: none;
+}
+
+.ezd6-player-resources-list > li.player {
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  overflow: visible;
+}
+
+.ezd6-player-resources-list > li.player .player-name,
+.ezd6-player-resources-list > li.player .player-name * {
+  white-space: nowrap;
+}
+
+.ezd6-player-resources-list > li.player .player-name {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
+}
+
+.ezd6-player-resources-list > li.player > .player-name {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.ezd6-player-resources {
+  order: 3;
+  margin-left: 8px;
+}
+
+.ezd6-player-resource-counter::after {
+  content: none;
+}
+
 .ezd6-resource-row {
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr) 24px var(--resource-roll-width, 0px);
@@ -2130,4 +2183,51 @@
   outline: none;
   border-color: rgba(0, 0, 0, 0.2);
   box-shadow: none;
+}
+
+.ezd6-player-resources {
+  --ezd6-player-res-icon: 24px;
+  --ezd6-player-res-gap: 2px;
+  display: grid;
+  grid-template-columns: repeat(var(--ezd6-player-res-columns, 0), minmax(0, max-content));
+  gap: 2px 8px;
+  margin-left: 8px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.ezd6-player-resources__cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc((var(--ezd6-player-res-icon) * 5) + (var(--ezd6-player-res-gap) * 4));
+}
+
+.ezd6-player-resources__cell.is-empty {
+  opacity: 0.3;
+}
+
+.ezd6-player-resource-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ezd6-player-res-gap);
+}
+
+.ezd6-player-resource-counter .ezd6-resource-icon {
+  width: var(--ezd6-player-res-icon);
+  height: var(--ezd6-player-res-icon);
+}
+
+.ezd6-player-resource-counter .ezd6-resource-counter-number {
+  font-size: 12px;
+  color: #fff;
+  text-shadow:
+    0 0 2px rgba(0, 0, 0, 0.95),
+    0 0 4px rgba(0, 0, 0, 0.95),
+    0 0 6px rgba(0, 0, 0, 0.9);
+}
+
+#hotbar {
+  left: 0 !important;
+  transform: translateX(30px);
 }

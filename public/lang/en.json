@@ -658,6 +658,7 @@
       "Info": "Info",
       "LocalizationId": "Localization ID",
       "MaxValue": "Max Value",
+      "PublicDisplay": "Public display",
       "Quantity": "Quantity",
       "Replenish": "Replenish",
       "ReplenishCost": "Replenish cost",

@@ -35,6 +35,7 @@ export interface Resource {
     maxValue?: number;
     defaultMaxValue?: number;
     locked?: boolean;
+    publicDisplay?: boolean;
 }
 
 export interface Save {
@@ -151,6 +152,7 @@ export class Character {
             maxValue: partial.maxValue,
             defaultMaxValue: partial.defaultMaxValue,
             locked: partial.locked ?? false,
+            publicDisplay: partial.publicDisplay ?? false,
         };
         this.resources.push(resource);
         return resource;

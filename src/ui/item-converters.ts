@@ -45,6 +45,7 @@ export function buildResourceFromItem(item: any): Record<string, any> {
         replenishLogic,
         replenishTag,
         replenishCost,
+        publicDisplay: Boolean(system.publicDisplay),
     };
 }
 

@@ -1969,6 +1969,7 @@ export class CharacterSheetView {
                     replenishLogic: this.getResourceReplenishLogic(resource?.replenishLogic),
                     replenishTag: this.getResourceReplenishTag(resource),
                     replenishCost: this.getResourceReplenishCost(resource),
+                    publicDisplay: Boolean(resource.publicDisplay),
                 },
             },
         };
@@ -2411,6 +2412,7 @@ export class CharacterSheetView {
                     replenishLogic: resource.replenishLogic ?? "disabled",
                     replenishTag: resource.replenishTag ?? "",
                     replenishCost: this.getResourceReplenishCost(resource),
+                    publicDisplay: Boolean(resource.publicDisplay),
                 },
             },
             (item: any) => {
@@ -2427,6 +2429,7 @@ export class CharacterSheetView {
                 const nextReplenishTag = typeof system.replenishTag === "string" ? system.replenishTag : "";
                 const nextReplenishCost = this.getResourceReplenishCost(system);
                 const nextLocalizationId = typeof system.localizationId === "string" ? system.localizationId.trim() : "";
+                const nextPublicDisplay = Boolean(system.publicDisplay);
                 const targetResource = this.character.resources.find((entry) => entry.id === resource.id) ?? resource;
                 targetResource.title = item?.name ?? targetResource.title;
                 targetResource.icon = item?.img ?? targetResource.icon;
@@ -2439,6 +2442,7 @@ export class CharacterSheetView {
                 targetResource.replenishLogic = nextReplenishLogic;
                 targetResource.replenishTag = nextReplenishTag;
                 targetResource.replenishCost = nextReplenishCost;
+                targetResource.publicDisplay = nextPublicDisplay;
                 if (!Number.isFinite(targetResource.defaultValue)) {
                     targetResource.defaultValue = clamped;
                 }
@@ -2701,6 +2705,7 @@ export class CharacterSheetView {
             description: "",
             numberOfDice: 0,
             rollKeyword: "default",
+            publicDisplay: false,
         });
         await this.persistResources();
     }

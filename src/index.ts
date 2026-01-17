@@ -11,6 +11,7 @@ import { DEFAULT_AVATAR } from "./character";
 import { getTagOptions, normalizeTag } from "./ui/sheet-utils";
 import { registerCompendiumLocalization } from "./ui/compendium-localization";
 import { registerCompendiumExportTool } from "./ui/tools/compendium-export";
+import { registerPlayerResourceDisplay } from "./ui/player-resources";
 import { getSystemId } from "./system-path";
 export { Character, Ability, Resource, Save, DiceChangeBehavior } from "./character";
 export { CharacterSheetView } from "./character-sheet-view";
@@ -19,6 +20,7 @@ registerChatMessageHooks();
 registerResourceChangeChatHooks();
 registerCompendiumLocalization();
 registerCompendiumExportTool();
+registerPlayerResourceDisplay();
 
 Hooks.on("preCreateActor", (document: any, data: any) => {
     if (document?.type !== "character") return;

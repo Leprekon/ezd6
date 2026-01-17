@@ -76,5 +76,9 @@
       </div>
       <input type="hidden" name="system.numberOfDice" value="{{item.system.numberOfDice}}">
     </div>
+    <label class="ezd6-item-field ezd6-item-field--checkbox">
+      <input type="checkbox" name="system.publicDisplay" {{#if item.system.publicDisplay}}checked{{/if}}>
+      <span class="ezd6-label">{{localize "EZD6.Labels.PublicDisplay"}}</span>
+    </label>
   </section>
 </form>
