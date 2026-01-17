@@ -88,32 +88,13 @@ export class EZD6SaveItemSheet extends ItemSheet {
             this.refreshTargetPicker(root, next);
         });
 
-        const targetInput = targetPicker.querySelector("input[name='system.targetValue']") as HTMLInputElement | null;
-        if (targetInput) {
-            const commitTarget = async () => {
-                const raw = Number(targetInput.value);
-                const next = this.clampTarget(Number.isFinite(raw) ? raw : 2);
-                if (String(next) === targetInput.value) return;
-                targetInput.value = String(next);
-                const formData = this._getSubmitData?.() ?? {};
-                formData["system.targetValue"] = next;
-                await this.item.update(formData);
-                this.refreshTargetPicker(root, next);
-            };
-            targetInput.addEventListener("blur", () => {
-                void commitTarget();
-            });
-            targetInput.addEventListener("change", () => {
-                void commitTarget();
-            });
-        }
     }
 
     protected async _updateObject(_event: Event, formData: Record<string, any>) {
         const rawTarget = Number(formData["system.targetValue"]);
         const clampedTarget = Number.isFinite(rawTarget)
             ? this.clampTarget(rawTarget)
-            : this.clampTarget(2);
+            : this.clampTarget(1);
         formData["system.targetValue"] = clampedTarget;
 
         const rawDice = Number(formData["system.numberOfDice"]);
@@ -187,19 +168,27 @@ export class EZD6SaveItemSheet extends ItemSheet {
         const clamped = this.clampTarget(current);
         picker.dataset.count = String(clamped);
 
+        const display = picker.querySelector("[data-role='target-display']") as HTMLElement | null;
+        if (display) display.textContent = this.formatTargetLabel(clamped);
+
         const input = picker.querySelector("input[name='system.targetValue']") as HTMLInputElement | null;
         if (input) input.value = String(clamped);
 
         const decBtn = picker.querySelector(".ezd6-qty-btn[data-delta='-1']") as HTMLButtonElement | null;
         const incBtn = picker.querySelector(".ezd6-qty-btn[data-delta='1']") as HTMLButtonElement | null;
-        if (decBtn) decBtn.disabled = clamped <= 2;
-        if (incBtn) incBtn.disabled = clamped >= 6;
+        if (decBtn) decBtn.disabled = clamped <= 1;
+        if (incBtn) incBtn.disabled = clamped >= 7;
     }
 
     private clampTarget(value: number): number {
         const numeric = Math.floor(value);
-        if (!Number.isFinite(numeric)) return 2;
-        return Math.max(2, Math.min(6, numeric));
+        if (!Number.isFinite(numeric)) return 1;
+        return Math.max(1, Math.min(7, numeric));
+    }
+
+    private formatTargetLabel(value: number): string {
+        if (value >= 7) return "Magick";
+        return String(value);
     }
 
     private async ensureDefaultName() {

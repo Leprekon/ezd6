@@ -8,6 +8,7 @@ export interface KeywordRule {
     critValue?: number;
     oneAlwaysFail?: boolean;
     allowBurnOnes?: boolean;
+    rerollOnes?: boolean;
     rollDialogue?: string;
     rollPower?: boolean;
 }
@@ -18,6 +19,7 @@ export interface ResolvedKeywordRule {
     critValue: number;
     oneAlwaysFail: boolean;
     allowBurnOnes: boolean;
+    rerollOnes: boolean;
     rollDialogue: string;
     rollPower: boolean;
 }
@@ -28,6 +30,7 @@ const BASE_KEYWORD_RULE: ResolvedKeywordRule = {
     critValue: 6,
     oneAlwaysFail: false,
     allowBurnOnes: false,
+    rerollOnes: false,
     rollDialogue: "",
     rollPower: false,
 };
@@ -46,6 +49,8 @@ export const KeywordRules: Record<string, KeywordRule> = {
     target4: {allowKarma: true,  allowConfirm: false,  critValue: 4},
     target5: {allowKarma: true,  allowConfirm: false,  critValue: 5},
     target6: {allowKarma: true,  allowConfirm: false,  critValue: 6},
+    magicksave: {allowKarma: false,  allowConfirm: false,  critValue: 6},
+    scroll:   { allowKarma: false, allowConfirm: false, rerollOnes: true },
 };
 
 export function resolveKeywordRule(keyword: string): ResolvedKeywordRule {

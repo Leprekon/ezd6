@@ -4,6 +4,34 @@ const normalizeString = (value: unknown): string => (typeof value === "string" ?
 
 const shouldTreatAsLocalizationKey = (value: string): boolean => value.startsWith("EZD6.");
 
+const resolveTranslationValue = (source: any, key: string): string => {
+    if (!source || !key) return "";
+    const parts = key.split(".");
+    let current: any = source;
+    for (const part of parts) {
+        if (!current || typeof current !== "object") return "";
+        current = current[part];
+    }
+    return typeof current === "string" ? current.trim() : "";
+};
+
+const getFallbackLocalizationValue = (localizationId: string, suffix: string): string => {
+    const id = normalizeString(localizationId);
+    if (!id) return "";
+    const fallback = (game as any)?.i18n?._fallback;
+    return resolveTranslationValue(fallback, `${id}.${suffix}`);
+};
+
+const resolveExportField = (
+    localizationId: string,
+    suffix: "Name" | "Desc",
+    fallback: unknown
+): string => {
+    const localized = getFallbackLocalizationValue(localizationId, suffix);
+    if (localized) return localized;
+    return normalizeString(fallback);
+};
+
 const buildExportEntry = (data: {
     localizationId: string;
     name?: string;
@@ -19,8 +47,8 @@ const buildExportEntry = (data: {
         fields[`${localizationId}.${suffix}`] = value;
     };
 
-    const nameValue = normalizeString(data.name);
-    const descValue = normalizeString(data.description);
+    const nameValue = resolveExportField(localizationId, "Name", data.name);
+    const descValue = resolveExportField(localizationId, "Desc", data.description);
     const rawCategory = normalizeString(data.category);
 
     addField("Name", nameValue);

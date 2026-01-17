@@ -118,6 +118,8 @@
   "EZD6.Compendium.Core.Inclinations.Inspiring.Name": "Inspiring",
   "EZD6.Compendium.Core.Inclinations.IronWill.Desc": "You have a boon under mental attack or feared.",
   "EZD6.Compendium.Core.Inclinations.IronWill.Name": "Iron Will",
+  "EZD6.Compendium.Core.Inclinations.Lockpicking.Desc": "No lock can defeat you. As long as you have lockpicking tools, you can always succeed in picking a normal mechanical lock. Roll 1D6 to see how long it takes (lower roll takes longer). \n\nYou start with a set of 3 lockpicks. A roll of 1 breaks your lockpicks.",
+  "EZD6.Compendium.Core.Inclinations.Lockpicking.Name": "Lockpicking",
   "EZD6.Compendium.Core.Inclinations.MagickalMutation.Desc": "Work out a minor non-damaging power with the RR (such as spider climbing, telescopic eyes, grabbing tongue, face morph, or bloodhound nose) that can be activated with your ‘free action’ and requires no roll. You also gain a physical feature that stands out, such as bulging eyes, a bestial nose, or extra long fingers. (Can only be taken once.)",
   "EZD6.Compendium.Core.Inclinations.MagickalMutation.Name": "Magickal Mutation",
   "EZD6.Compendium.Core.Inclinations.Marksman.Desc": "You have a boon in ranged weapons. \n\n_(Note: If already trained you can not take this inclination. You can not be double trained)._",

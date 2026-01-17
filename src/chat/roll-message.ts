@@ -425,8 +425,45 @@ function buildInitialStateFromMessage(msg: any): EZD6State | null {
     };
 }
 
-function buildController(msg: any) {
-    const baseState = buildInitialStateFromMessage(msg);
+async function applyRerollOnesState(baseState: EZD6State): Promise<EZD6State> {
+    const rule = resolveKeywordRule(baseState.keyword);
+    if (!rule.rerollOnes) return baseState;
+
+    const originalDice = [...baseState.originalDice];
+    const deltaDice = [...baseState.deltaDice];
+    const burnedOnes = [...baseState.burnedOnes];
+
+    const rollOnce = async () => {
+        const roll = await (new Roll("1d6")).evaluate();
+        const value = Number(roll.total);
+        return Number.isFinite(value) ? value : 1;
+    };
+
+    for (let i = 0; i < originalDice.length; i += 1) {
+        if (burnedOnes[i]) continue;
+        if (originalDice[i] !== 1) continue;
+
+        burnedOnes[i] = true;
+        let reroll = 1;
+        let safety = 50;
+        while (reroll === 1 && safety-- > 0) {
+            reroll = await rollOnce();
+            originalDice.push(reroll);
+            deltaDice.push(0);
+            burnedOnes.push(reroll === 1);
+        }
+    }
+
+    return {
+        ...baseState,
+        originalDice,
+        deltaDice,
+        burnedOnes,
+    };
+}
+
+function buildController(msg: any, initialState?: EZD6State) {
+    const baseState = initialState ?? buildInitialStateFromMessage(msg);
     if (!baseState) return null;
 
     const actor = getChatMessageActor(msg);
@@ -842,9 +879,10 @@ function buildInfoRenderer(msg: any) {
                 `</div>`;
         } else if (meta.kind === "save") {
             const target = Number.isFinite(meta.saveTarget) ? Math.max(0, Math.floor(meta.saveTarget as number)) : 0;
+            const targetLabel = target >= 7 ? "M" : String(target);
             infoRow = `<div class="ezd6-info-row ezd6-info-row--save">` +
                 `<span class="ezd6-info-label">${t("EZD6.Labels.Target", "Target")}:</span>` +
-                `<div class="ezd6-save-target"><strong class="ezd6-save-target-number">${target}</strong></div>` +
+                `<div class="ezd6-save-target"><strong class="ezd6-save-target-number">${targetLabel}</strong></div>` +
                 `</div>`;
         } else if (meta.kind === "equipment") {
             const qty = Number.isFinite(meta.equipmentQty) ? Math.max(0, Math.floor(meta.equipmentQty as number)) : 0;
@@ -934,7 +972,14 @@ export function registerChatMessageHooks() {
             const infoRenderer = isEzD6ChatMeta(resolvedMeta) && resolvedMeta.type === "info"
                 ? buildInfoRenderer(resolved)
                 : null;
-            const controller = infoRenderer ?? buildController(resolved);
+            let controller = infoRenderer;
+            if (!controller) {
+                const baseState = buildInitialStateFromMessage(resolved);
+                if (!baseState) return;
+                const hasState = !!resolved.flags?.ezd6State;
+                const initialState = hasState ? baseState : await applyRerollOnesState(baseState);
+                controller = buildController(resolved, initialState);
+            }
             if (!controller) return;
 
             const canModify = canCurrentUserModifyMessage(resolved);

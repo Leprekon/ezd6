@@ -13,7 +13,8 @@
         <span class="ezd6-label">{{localize "EZD6.Labels.Target"}}</span>
         <div class="ezd6-quantity-picker ezd6-save-target-picker" data-count="{{item.system.targetValue}}">
           <button class="ezd6-qty-btn" type="button" data-delta="-1">-</button>
-          <input class="ezd6-number-input ezd6-quantity-input" type="number" min="2" max="6" step="1" name="system.targetValue" value="{{item.system.targetValue}}">
+          <span class="ezd6-number-input ezd6-quantity-input ezd6-quantity-display" data-role="target-display"></span>
+          <input type="hidden" name="system.targetValue" value="{{item.system.targetValue}}">
           <button class="ezd6-qty-btn" type="button" data-delta="1">+</button>
         </div>
       </div>

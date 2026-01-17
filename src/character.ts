@@ -261,10 +261,11 @@ export class Character {
         const roll = new Roll(`${diceCount}d6`, {});
         await roll.evaluate();
         const rawTarget = Number(save.targetValue);
-        const target = Number.isFinite(rawTarget) && rawTarget > 0 ? Math.floor(rawTarget) : 6;
+        const target = Number.isFinite(rawTarget) ? Math.max(1, Math.min(7, Math.floor(rawTarget))) : 6;
         const saveLabel = t("EZD6.ItemLabels.Save", "Save");
         const saveTitle = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
-        const flavor = `${saveTitle} #target${target}`;
+        const tag = target >= 7 ? "#magicksave" : `#target${target}`;
+        const flavor = `${saveTitle} ${tag}`.trim();
         const descHtml = renderMarkdown(save.description ?? "");
         await roll.toMessage({
             flavor,
@@ -273,7 +274,7 @@ export class Character {
                 [EZD6_META_FLAG]: buildRollMeta({
                     title: saveTitle,
                     description: descHtml,
-                    tag: `#target${target}`,
+                    tag,
                     kind: "save",
                     saveTarget: target,
                 }),

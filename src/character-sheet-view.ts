@@ -900,6 +900,7 @@ export class CharacterSheetView {
         const fallbackTitle = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
         const title = this.getLocalizedSaveTitle(save, fallbackTitle);
         const targetValue = this.getSaveTargetValue(save);
+        const targetLabel = this.getSaveTargetLabel(targetValue);
         const diceCount = this.getSaveDiceCount(save);
         const iconPath = this.getSaveIcon(save);
 
@@ -913,20 +914,16 @@ export class CharacterSheetView {
         const name = createElement("span", "ezd6-save-row__title", title);
 
         const target = createElement("div", "ezd6-save-target");
-        const targetBadge = createElement("strong", "ezd6-save-target-number", String(targetValue));
+        const targetBadge = createElement("strong", "ezd6-save-target-number", targetLabel);
         target.appendChild(targetBadge);
 
         const rollBtn = createRollButton({
             className: "ezd6-task-btn ezd6-save-roll-btn",
-            title: tf(
-                "EZD6.Tooltips.RollSave",
-                { dice: diceCount, target: targetValue },
-                `Roll ${diceCount}d6 #target${targetValue}`
-            ).trim(),
+            title: this.buildSaveRollTitle(diceCount, targetValue),
             kinds: buildStandardRollKinds(diceCount),
             onClick: async (event) => {
                 event.stopPropagation();
-                const keyword = `target${targetValue}`;
+                const keyword = this.getSaveTargetKeyword(targetValue);
                 const performRoll = async (rolledDiceCount: number) => {
                     await this.rollSaveWithDice(save, rolledDiceCount);
                 };
@@ -1016,7 +1013,7 @@ export class CharacterSheetView {
 
     private buildSaveDetailContent(save: Save, wrapper: HTMLElement): HTMLElement {
         const targetValue = this.getSaveTargetValue(save);
-        const tag = `#target${targetValue}`;
+        const tag = this.getSaveTargetTag(targetValue);
         const canEdit = Boolean(this.options.editable);
         const saveLabel = t("EZD6.ItemLabels.Save", "Save");
         let messageBtn: HTMLButtonElement | null = null;
@@ -1305,10 +1302,11 @@ export class CharacterSheetView {
         const roll = new Roll(`${diceCount}d6`, {});
         await roll.evaluate();
         const target = this.getSaveTargetValue(save);
+        const tag = this.getSaveTargetTag(target);
         const saveLabel = t("EZD6.ItemLabels.Save", "Save");
         const fallbackTitle = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
         const saveTitle = this.getLocalizedSaveTitle(save, fallbackTitle);
-        const flavor = `${saveTitle} #target${target}`.trim();
+        const flavor = `${saveTitle} ${tag}`.trim();
         const icon = this.getSaveIcon(save);
         const rawDescription = typeof save.description === "string" ? save.description : "";
         const description = this.getLocalizedSaveDescription(save, rawDescription);
@@ -1319,7 +1317,7 @@ export class CharacterSheetView {
                 [EZD6_META_FLAG]: buildRollMeta({
                     title: saveTitle,
                     description,
-                    tag: `#target${target}`,
+                    tag,
                     icon,
                     kind: "save",
                     saveTarget: target,
@@ -1414,7 +1412,40 @@ export class CharacterSheetView {
 
     private getSaveTargetValue(save: Save): number {
         const raw = Number(save.targetValue);
-        return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 6;
+        if (!Number.isFinite(raw)) return 6;
+        return this.clampInt(Math.floor(raw), 1, 7);
+    }
+
+    private isMagickSaveTarget(targetValue: number): boolean {
+        return targetValue >= 7;
+    }
+
+    private getSaveTargetLabel(targetValue: number): string {
+        return this.isMagickSaveTarget(targetValue) ? "M" : String(targetValue);
+    }
+
+    private getSaveTargetTag(targetValue: number): string {
+        return this.isMagickSaveTarget(targetValue) ? "#magicksave" : `#target${targetValue}`;
+    }
+
+    private getSaveTargetKeyword(targetValue: number): string {
+        return this.isMagickSaveTarget(targetValue) ? "magicksave" : `target${targetValue}`;
+    }
+
+    private buildSaveRollTitle(diceCount: number, targetValue: number): string {
+        if (this.isMagickSaveTarget(targetValue)) {
+            const tag = this.getSaveTargetTag(targetValue);
+            return tf(
+                "EZD6.Tooltips.RollWithTag",
+                { dice: diceCount, tag },
+                `Roll ${diceCount}d6 ${tag}`
+            ).trim();
+        }
+        return tf(
+            "EZD6.Tooltips.RollSave",
+            { dice: diceCount, target: targetValue },
+            `Roll ${diceCount}d6 #target${targetValue}`
+        ).trim();
     }
 
     private getSaveDiceCount(save: Save): number {
@@ -2449,7 +2480,7 @@ export class CharacterSheetView {
                 const targetSave = this.character.saves.find((entry) => entry.id === save.id) ?? save;
                 targetSave.title = item?.name ?? targetSave.title;
                 targetSave.icon = item?.img ?? targetSave.icon;
-                targetSave.targetValue = Number.isFinite(targetValue) ? this.clampInt(Math.floor(targetValue), 2, 6) : 6;
+                targetSave.targetValue = Number.isFinite(targetValue) ? this.clampInt(Math.floor(targetValue), 1, 7) : 6;
                 targetSave.numberOfDice = Number.isFinite(numberOfDice) ? this.clampInt(Math.floor(numberOfDice), 1, 6) : 1;
                 targetSave.description = nextDescription;
                 targetSave.localizationId = nextLocalizationId;
@@ -2467,9 +2498,9 @@ export class CharacterSheetView {
         const rawDescription = typeof save.description === "string" ? save.description : "";
         const description = this.getLocalizedSaveDescription(save, rawDescription);
         const descHtml = this.renderDescriptionHtml(description);
-        const tag = `#target${this.getSaveTargetValue(save)}`;
-        const icon = this.getSaveIcon(save);
         const targetValue = this.getSaveTargetValue(save);
+        const tag = this.getSaveTargetTag(targetValue);
+        const icon = this.getSaveIcon(save);
         const contentPieces = [
             `<strong>${title}</strong>`,
             descHtml ? `<div>${descHtml}</div>` : "",
@@ -2588,6 +2619,7 @@ export class CharacterSheetView {
         const fallbackTitle = typeof save.title === "string" ? save.title.trim() || saveLabel : saveLabel;
         const title = this.getLocalizedSaveTitle(save, fallbackTitle);
         const targetValue = this.getSaveTargetValue(save);
+        const targetLabel = this.getSaveTargetLabel(targetValue);
         const diceCount = this.getSaveDiceCount(save);
         const iconPath = this.getSaveIcon(save);
 
@@ -2602,15 +2634,11 @@ export class CharacterSheetView {
         if (nameEl) nameEl.textContent = title;
 
         const targetEl = row.querySelector(".ezd6-save-target-number") as HTMLElement | null;
-        if (targetEl) targetEl.textContent = String(targetValue);
+        if (targetEl) targetEl.textContent = targetLabel;
 
         const rollBtn = row.querySelector(".ezd6-save-roll-btn") as HTMLButtonElement | null;
         if (rollBtn) {
-            rollBtn.title = tf(
-                "EZD6.Tooltips.RollSave",
-                { dice: diceCount, target: targetValue },
-                `Roll ${diceCount}d6 #target${targetValue}`
-            ).trim();
+            rollBtn.title = this.buildSaveRollTitle(diceCount, targetValue);
             const stack = rollBtn.querySelector(".ezd6-dice-stack") as HTMLElement | null;
             if (stack) {
                 stack.innerHTML = "";
