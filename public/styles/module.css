@@ -5,7 +5,7 @@
   gap: 10px;
   padding: 0 10px 0 0;
   margin-bottom: 2px;
-  background: rgba(255, 255, 255, 0.78);
+  background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 10px;
   flex-wrap: nowrap;
@@ -128,11 +128,68 @@
 
 /* Chat message body */
 .ezd6-chat-desc-card {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.78);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 10px;
   padding: 8px 10px;
   margin: 2px 0 6px;
+}
+
+/* Chat dice roller */
+.ezd6-chat-roller {
+  --ezd6-chat-roller-size: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0;
+  margin-top: 2px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  min-height: var(--ezd6-chat-roller-size);
+  overflow: hidden;
+}
+
+.ezd6-chat-dice-display {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  min-width: 120px;
+  min-height: 32px;
+  padding: 0 8px;
+}
+
+.ezd6-chat-dice-btn {
+  padding: 0;
+  line-height: 0;
+}
+
+.ezd6-chat-dice-stack {
+  gap: 2px;
+}
+
+.ezd6-chat-dice-stack .ezd6-die-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.ezd6-chat-dice-empty {
+  font-size: 22px;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.ezd6-chat-roller .ezd6-chat-dice-adjust {
+  height: var(--ezd6-chat-roller-size);
+  width: var(--ezd6-chat-roller-size);
+  min-width: var(--ezd6-chat-roller-size);
+  padding: 0;
+  border-radius: 10px;
+  align-self: stretch;
+  margin: 0;
+  flex: 0 0 auto;
 }
 
 /* Chat info rows */

@@ -1,5 +1,5 @@
 // src/index.ts
-import { registerChatMessageHooks, registerResourceChangeChatHooks } from "./chat";
+import { registerChatMessageHooks, registerChatRollerHooks, registerResourceChangeChatHooks } from "./chat";
 import { EZD6CharacterSheet } from "./actor-sheet";
 import { EZD6AbilityItemSheet } from "./ability-item-sheet";
 import { EZD6AspectItemSheet } from "./aspect-item-sheet";
@@ -17,6 +17,7 @@ export { Character, Ability, Resource, Save, DiceChangeBehavior } from "./charac
 export { CharacterSheetView } from "./character-sheet-view";
 
 registerChatMessageHooks();
+registerChatRollerHooks();
 registerResourceChangeChatHooks();
 registerCompendiumLocalization();
 registerCompendiumExportTool();
