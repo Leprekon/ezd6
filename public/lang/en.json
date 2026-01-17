@@ -244,9 +244,7 @@
         },
         "Inclinations": {
           "Alchemist": {
-            "Desc": "You know potion-making and have a boon in the identification of substances. Start with two free healing potions or roll random ones on the potion table. (Taking a potion is a free action.) 
-
-_Healing potion heals 2 strikes._",
+            "Desc": "You know potion-making and have a boon in the identification of substances. Start with two free healing potions or roll random ones on the potion table. (Taking a potion is a free action.) \n\n_Healing potion heals 2 strikes._",
             "Name": "Alchemist"
           },
           "Attuned": {
@@ -486,8 +484,8 @@ _Healing potion heals 2 strikes._",
           "Friar": {
             "Desc": "A holy roller, a pious servant or a crackpot… You decide.",
             "EmpathicHealing": {
-              "Desc": "As one who has studied the omens, you have the ability to manipulate luck in favor of the party. Party members can use karma against the Rabble Rouser when you are near.\n(Subtracting each karma spent on the RR rolls).",
-              "Name": "Strands of Fate"
+              "Desc": "Heal anyone within near range by absorbing one strike (they heal one, you gain one) as a free action.",
+              "Name": "Empathic Healing"
             },
             "HolyLight": {
               "Desc": "As an action you call down a holy light. The light can either **heal nearby allies or damage enemies**. To heal, roll dice equal to the number of near allies. For each **4+ rolled** you heal one strike on each ally of your choice. You may attack enemies near you for 1 strike each or 2 to undead and demons. Holy Light can be used once a day unless you spend **5 karma to recover** the ability. (Note: Unlike normal miracles or magick you can use karma to boost rolls to 4.)\n\n_Roll pear each ally._",
@@ -604,11 +602,11 @@ _Healing potion heals 2 strikes._",
       "Resources": {
         "HeroDie": {
           "Desc": "Earn at session start, expend to re-roll 1 die. Spend 5 Karma to replenish your HERO DIE.",
-          "Name": "Героический куб"
+          "Name": "Hero Die"
         },
         "Karma": {
           "Desc": "Earn 1 Karma on any failed roll. Limit one per turn for failed rolls. Add Karma to any roll, besides a 1. Cannot use on Magick or Miracles. Spend 5 Karma to replenish your HERO DIE.",
-          "Name": "Карма"
+          "Name": "Karma"
         },
         "Strikes": {
           "Desc": "**One hit = one strike of damage.**\nMagick and special abilities can help heroes heal strikes, however you can also recover one strike naturally by eating a meal and resting for the night.",
@@ -616,21 +614,21 @@ _Healing potion heals 2 strikes._",
         },
         "Wealth": {
           "Desc": "* **PAUPER** - Can barely scrounge enough cash for food and may have to go without meals.\n* **CASH POOR** - Can aff ord food and simple clothing but little else.\n* **MODERATE** - Can buy most gear, armor, weapons, and rented accommodations.\n* **WEALTHY** - Can easily aff ord transport like horses and wagons as well as permanent accommodations and retain a small staff.\n* **LORDLY WEALTH** - Can aff ord to own ships or other transport and a cohort of retainers.\n* **KINGLY WEALTH** - Money is no issue unless creating a massive project.",
-          "Name": "Богатство"
+          "Name": "Wealth"
         }
       },
       "Saves": {
         "Armor": {
           "Desc": "When hit, roll Armor to ignore 1 Strike.\nIf you are hit for multiple strikes (like a сrit) you get to make the roll for each strike point.",
-          "Name": "Броня"
+          "Name": "Armor"
         },
         "Magic": {
           "Desc": "The caster must equal or beat the resistance number of the highest resistance die roll.",
-          "Name": "Сопротивление магии"
+          "Name": "Magic Resistance"
         },
         "Miraculous": {
           "Desc": "Some events can happen that armor will not protect you from. In those cases make a miraculous save roll instead of an armor save.",
-          "Name": "Чудесный"
+          "Name": "Miraculous"
         }
       }
     },

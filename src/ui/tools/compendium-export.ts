@@ -4,32 +4,11 @@ const normalizeString = (value: unknown): string => (typeof value === "string" ?
 
 const shouldTreatAsLocalizationKey = (value: string): boolean => value.startsWith("EZD6.");
 
-const resolveTranslationValue = (source: any, key: string): string => {
-    if (!source || !key) return "";
-    const parts = key.split(".");
-    let current: any = source;
-    for (const part of parts) {
-        if (!current || typeof current !== "object") return "";
-        current = current[part];
-    }
-    return typeof current === "string" ? current.trim() : "";
-};
-
-const getFallbackLocalizationValue = (localizationId: string, suffix: string): string => {
-    const id = normalizeString(localizationId);
-    if (!id) return "";
-    const fallback = (game as any)?.i18n?._fallback;
-    return resolveTranslationValue(fallback, `${id}.${suffix}`);
-};
-
-const resolveExportField = (
-    localizationId: string,
-    suffix: "Name" | "Desc",
-    fallback: unknown
-): string => {
-    const localized = getFallbackLocalizationValue(localizationId, suffix);
-    if (localized) return localized;
-    return normalizeString(fallback);
+const mergeExportEntry = (target: Record<string, string>, entry: Record<string, string>) => {
+    Object.entries(entry).forEach(([key, value]) => {
+        if (key in target) return;
+        target[key] = value;
+    });
 };
 
 const buildExportEntry = (data: {
@@ -47,8 +26,8 @@ const buildExportEntry = (data: {
         fields[`${localizationId}.${suffix}`] = value;
     };
 
-    const nameValue = resolveExportField(localizationId, "Name", data.name);
-    const descValue = resolveExportField(localizationId, "Desc", data.description);
+    const nameValue = normalizeString(data.name);
+    const descValue = normalizeString(data.description);
     const rawCategory = normalizeString(data.category);
 
     addField("Name", nameValue);
@@ -77,16 +56,24 @@ const collectCompendiumLocalization = async (): Promise<ExportPayload> => {
         if (!packId) continue;
         if (!payload[packId]) payload[packId] = {};
 
-        for (const doc of docs) {
-            const system = doc?.system ?? {};
+        const orderedDocs = docs.slice().sort((a, b) => {
+            const aIsArchetype = a?.type === "archetype";
+            const bIsArchetype = b?.type === "archetype";
+            if (aIsArchetype === bIsArchetype) return 0;
+            return aIsArchetype ? 1 : -1;
+        });
+
+        for (const doc of orderedDocs) {
+            const source = doc?._source ?? {};
+            const system = source?.system ?? doc?.system ?? {};
             const entry = buildExportEntry({
                 localizationId: system.localizationId,
-                name: doc?.name,
+                name: source?.name ?? doc?.name,
                 description: system.description,
                 category: system.category,
             });
             if (!entry) continue;
-            Object.assign(payload[packId], entry);
+            mergeExportEntry(payload[packId], entry);
 
             if (doc?.type !== "archetype") continue;
             const abilities = Array.isArray(system.abilities) ? system.abilities : [];
@@ -104,7 +91,7 @@ const collectCompendiumLocalization = async (): Promise<ExportPayload> => {
                     description: itemSystem.description,
                     category: itemSystem.category,
                 });
-                if (fields) Object.assign(payload[packId], fields);
+                if (fields) mergeExportEntry(payload[packId], fields);
             });
 
             resources.forEach((resource: any) => {
@@ -113,7 +100,7 @@ const collectCompendiumLocalization = async (): Promise<ExportPayload> => {
                     name: resource?.title ?? resource?.name,
                     description: resource?.description,
                 });
-                if (fields) Object.assign(payload[packId], fields);
+                if (fields) mergeExportEntry(payload[packId], fields);
             });
 
             saves.forEach((save: any) => {
@@ -122,7 +109,7 @@ const collectCompendiumLocalization = async (): Promise<ExportPayload> => {
                     name: save?.title ?? save?.name,
                     description: save?.description,
                 });
-                if (fields) Object.assign(payload[packId], fields);
+                if (fields) mergeExportEntry(payload[packId], fields);
             });
         }
     }
