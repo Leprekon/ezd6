@@ -5,7 +5,7 @@ import { clampDimension, getTagOptions, normalizeTag } from "./ui/sheet-utils";
 import { DescriptionEditorController } from "./sheet/description-editor";
 import { getDescriptionEditor } from "./sheet/description-editor-utils";
 import { captureScrollState, restoreScrollState, ScrollState } from "./sheet/scroll-state";
-import { localize, resolveLocalizedField } from "./ui/i18n";
+import { localize } from "./ui/i18n";
 import { readDragEventData, resolveDroppedDocument } from "./ui/drag-drop";
 import { buildResourceFromItem, buildSaveFromItem } from "./ui/item-converters";
 import { getSystemPath } from "./system-path";
@@ -73,9 +73,6 @@ export class EZD6CharacterSheet extends ActorSheet {
 
         this.syncFromActor();
         if (this.normalizeResourceTags()) {
-            void this.actor?.update?.({ "system.resources": this.character.resources });
-        }
-        if (this.character.ensureDefaultResources()) {
             void this.actor?.update?.({ "system.resources": this.character.resources });
         }
         const canEdit = this.isEditable;
@@ -277,24 +274,6 @@ export class EZD6CharacterSheet extends ActorSheet {
                 updates["prototypeToken.texture.src"] = archetypeAvatar;
             }
             await this.actor.update(updates);
-        }
-
-        const archetypeDescription = typeof archetype?.system?.description === "string"
-            ? archetype.system.description
-            : "";
-        const archetypeLocalizationId = typeof archetype?.system?.localizationId === "string"
-            ? archetype.system.localizationId.trim()
-            : "";
-        const resolvedDesc = resolveLocalizedField(archetypeLocalizationId, "Desc", archetypeDescription);
-        const resolvedDescription = typeof resolvedDesc.value === "string" ? resolvedDesc.value : "";
-        const resolvedTrimmed = resolvedDescription.trim();
-        if (resolvedTrimmed) {
-            const currentDescription = typeof actorAny?.system?.description === "string"
-                ? actorAny.system.description.trim()
-                : "";
-            if (!currentDescription) {
-                await this.actor.update({ "system.description": resolvedDescription });
-            }
         }
 
         const options = getTagOptions();

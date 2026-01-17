@@ -1,5 +1,5 @@
 import { getDieImagePath, resolveKeywordRule } from "./ezd6-core";
-import { Character, Resource, Save, DEFAULT_AVATAR, DEFAULT_RESOURCE_ICON, isLockedResource } from "./character";
+import { Character, Resource, Save, DEFAULT_AVATAR, DEFAULT_RESOURCE_ICON } from "./character";
 import {
     buildDetailContent,
     buildStandardRollKinds,
@@ -188,6 +188,7 @@ export class CharacterSheetView {
         avatarWrapper.appendChild(avatar);
         if (this.options.editable && this.options.onAvatarPick) {
             avatarWrapper.classList.add("ezd6-avatar--clickable");
+            avatarWrapper.dataset.changeLabel = t("EZD6.Actions.Change", "Change");
             avatarWrapper.title = tooltip;
             avatarWrapper.addEventListener("click", () => {
                 const picker = new FilePicker({
@@ -533,7 +534,8 @@ export class CharacterSheetView {
         const canEdit = Boolean(this.options.editable);
 
         const equipmentLabel = t("EZD6.ItemLabels.Equipment", "Equipment");
-        const displayName = this.getLocalizedItemName(item, equipmentLabel);
+        const nameFallback = item?.name ?? equipmentLabel;
+        const displayName = this.getLocalizedItemName(item, nameFallback);
         const description = this.getLocalizedItemDescription(item, rawDescription);
         const descriptionHtml = this.renderDescriptionHtml(description);
         const wrapper = createElement("div", "ezd6-equipment-item");
@@ -987,18 +989,16 @@ export class CharacterSheetView {
                 void this.editResource(resource, wrapper);
             });
             actionButtons.push(editBtn);
-            if (!isLockedResource(resource)) {
-                const deleteBtn = createElement("button", "ezd6-equipment-delete-btn") as HTMLButtonElement;
-                deleteBtn.type = "button";
-                deleteBtn.title = tf("EZD6.Actions.Delete", { label: resourceLabel }, "Delete resource");
-                deleteBtn.appendChild(createElement("i", "fas fa-trash"));
-                deleteBtn.addEventListener("click", async (event) => {
-                    event.stopPropagation();
-                    const root = wrapper.closest(".ezd6-sheet") as HTMLElement | null;
-                    await this.deleteResource(resource.id, root ?? undefined);
-                });
-                actionButtons.push(deleteBtn);
-            }
+            const deleteBtn = createElement("button", "ezd6-equipment-delete-btn") as HTMLButtonElement;
+            deleteBtn.type = "button";
+            deleteBtn.title = tf("EZD6.Actions.Delete", { label: resourceLabel }, "Delete resource");
+            deleteBtn.appendChild(createElement("i", "fas fa-trash"));
+            deleteBtn.addEventListener("click", async (event) => {
+                event.stopPropagation();
+                const root = wrapper.closest(".ezd6-sheet") as HTMLElement | null;
+                await this.deleteResource(resource.id, root ?? undefined);
+            });
+            actionButtons.push(deleteBtn);
         }
 
         const tagSpan = createElement("span", "ezd6-resource-tag", tag);
@@ -2178,7 +2178,8 @@ export class CharacterSheetView {
             : "";
         const tag = this.normalizeAbilityTag(item?.system?.tag ?? "");
         const equipmentLabel = t("EZD6.ItemLabels.Equipment", "Equipment");
-        const title = this.getLocalizedItemName(item, equipmentLabel);
+        const nameFallback = item?.name ?? equipmentLabel;
+        const title = this.getLocalizedItemName(item, nameFallback);
         const icon = item?.img || "icons/containers/bags/coinpouch-simple-leather-tan.webp";
         const qtyValue = Math.max(0, Math.floor(Number(quantity ?? 0)));
         const contentPieces = [
@@ -2297,7 +2298,8 @@ export class CharacterSheetView {
     ) {
         if (!item) return;
         const equipmentLabel = t("EZD6.ItemLabels.Equipment", "Equipment");
-        const title = this.getLocalizedItemName(item, equipmentLabel);
+        const nameFallback = item?.name ?? equipmentLabel;
+        const title = this.getLocalizedItemName(item, nameFallback);
         if (numberOfDice > 0) {
             const normalizedTag = this.normalizeAbilityTag(tag);
             const keyword = this.getKeywordFromTag(tag);
@@ -2416,8 +2418,6 @@ export class CharacterSheetView {
     }
 
     private async deleteResource(resourceId: string, container?: HTMLElement) {
-        const target = this.character.resources.find((res) => res.id === resourceId);
-        if (target && isLockedResource(target)) return;
         this.character.resources = this.character.resources.filter((res) => res.id !== resourceId);
         if (this.expandedResourceId === resourceId) {
             this.expandedResourceId = null;

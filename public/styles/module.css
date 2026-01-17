@@ -557,7 +557,7 @@
 }
 
 .ezd6-avatar--clickable::after {
-  content: "Change";
+  content: attr(data-change-label);
   position: absolute;
   right: 10px;
   bottom: 10px;
@@ -712,7 +712,7 @@
 }
 
 .ezd6-section--description .editor .editor-edit::after {
-  content: "Edit";
+  content: attr(data-edit-label);
 }
 
 .ezd6-section--description .editor .editor-toolbar {
@@ -774,7 +774,7 @@
 }
 
 .ezd6-description-view--empty::before {
-  content: "Notes, bonds, background...";
+  content: attr(data-empty-text);
   color: rgba(0, 0, 0, 0.5);
 }
 
@@ -1918,7 +1918,7 @@
 }
 
 .ezd6-item-icon-field::after {
-  content: "Change";
+  content: attr(data-change-label);
   position: absolute;
   right: 8px;
   bottom: 8px;

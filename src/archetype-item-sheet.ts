@@ -2,8 +2,6 @@
 import { Character, DEFAULT_AVATAR, LEGACY_AVATAR_PLACEHOLDER } from "./character";
 import { CharacterSheetView } from "./character-sheet-view";
 import { clampDimension, getTagOptions, normalizeTag } from "./ui/sheet-utils";
-import { DescriptionEditorController } from "./sheet/description-editor";
-import { getDescriptionEditor } from "./sheet/description-editor-utils";
 import { captureScrollState, restoreScrollState, ScrollState } from "./sheet/scroll-state";
 import { localize } from "./ui/i18n";
 import { applyNativeItemFields } from "./ui/item-editor-utils";
@@ -23,12 +21,10 @@ type ArchetypeItemEntry = {
 export class EZD6ArchetypeItemSheet extends ItemSheet {
     private character: Character | null = null;
     private view: CharacterSheetView | null = null;
-    private descriptionController: DescriptionEditorController | null = null;
     private pendingScrollRestore: ScrollState = [];
     private localizationId = "";
     private nameOverride = "";
     private nameLocked = false;
-    private descriptionLocked = false;
 
     static get defaultOptions() {
         return foundry.utils.mergeObject(super.defaultOptions, {
@@ -59,20 +55,12 @@ export class EZD6ArchetypeItemSheet extends ItemSheet {
         const nameFallback = typeof data?.item?.name === "string"
             ? data.item.name
             : localize("EZD6.Defaults.Unnamed", "Unnamed");
-        const descFallback = typeof system.description === "string" ? system.description : "";
         applyNativeItemFields(data, {
             nameValue: nameFallback,
-            descriptionValue: descFallback,
         });
-        data.descriptionEditable = Boolean(data.editable);
-        if (data.system) {
-            data.system.description = descFallback;
-        }
-
         this.localizationId = localizationId;
         this.nameOverride = nameFallback;
         this.nameLocked = false;
-        this.descriptionLocked = false;
         return data;
     }
 
@@ -110,10 +98,6 @@ export class EZD6ArchetypeItemSheet extends ItemSheet {
         if (this.normalizeResourceTags()) {
             void this.item?.update?.({ "system.resources": this.character.resources });
         }
-        if (this.character.ensureDefaultResources()) {
-            void this.item?.update?.({ "system.resources": this.character.resources });
-        }
-
         const canEdit = this.isEditable;
         this.view = new CharacterSheetView(this.character, {
             onAvatarPick: canEdit
@@ -146,18 +130,6 @@ export class EZD6ArchetypeItemSheet extends ItemSheet {
         });
         this.view.render(root);
 
-        const descSection = html[0]?.querySelector?.(".ezd6-section--description") as HTMLElement | null;
-        const descBlock = descSection?.closest(".ezd6-section-block") as HTMLElement | null;
-        const descNode = descBlock ?? descSection;
-        if (descNode && !root.contains(descNode)) {
-            root.appendChild(descNode);
-        }
-
-        if (!this.descriptionController) {
-            this.descriptionController = new DescriptionEditorController((wrap) => getDescriptionEditor(this, wrap));
-        }
-        this.descriptionController.bind(html, this.item);
-
         const sheetRoot = html[0] as HTMLElement | undefined;
         if (sheetRoot) {
             sheetRoot.addEventListener("dragover", (event) => {
@@ -178,8 +150,6 @@ export class EZD6ArchetypeItemSheet extends ItemSheet {
     }
 
     async close(options?: any) {
-        this.descriptionController?.disconnect();
-        this.descriptionController = null;
         return super.close(options);
     }
 
@@ -191,7 +161,6 @@ export class EZD6ArchetypeItemSheet extends ItemSheet {
             ? rawAvatar
             : null;
         this.character.name = this.item?.name ?? "";
-        this.character.description = system.description ?? "";
         this.character.resources = Array.isArray(system.resources) ? system.resources : [];
         this.character.saves = Array.isArray(system.saves) ? system.saves : [];
     }

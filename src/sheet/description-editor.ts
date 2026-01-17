@@ -1,3 +1,5 @@
+import { localize } from "../ui/i18n";
+
 type DescriptionEditorGetter = (wrap: HTMLElement | null) => any;
 
 export class DescriptionEditorController {
@@ -25,6 +27,10 @@ export class DescriptionEditorController {
     syncDescriptionView(html: any, actor: any) {
         const view = html[0]?.querySelector?.(".ezd6-description-view") as HTMLElement | null;
         if (!view) return;
+        view.dataset.emptyText = localize(
+            "EZD6.Placeholders.DescriptionEmpty",
+            "Notes, bonds, background..."
+        );
         const value = actor?.system?.description ?? "";
         view.innerHTML = this.trimTrailingEmptyDescription(value);
         view.classList.toggle("ezd6-description-view--empty", !value);
@@ -78,6 +84,7 @@ export class DescriptionEditorController {
         const descWrap = html[0]?.querySelector?.(".ezd6-description-wrap");
         const editBtn = html[0]?.querySelector?.(".editor-edit");
         if (editBtn) {
+            editBtn.dataset.editLabel = localize("EZD6.Actions.EditLabel", "Edit");
             editBtn.addEventListener("click", () => {
                 if (descWrap) {
                     descWrap.style.setProperty("--desc-edit-height", "250px");

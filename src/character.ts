@@ -57,9 +57,6 @@ const DEFAULT_ABILITY_CATEGORIES = [
 export const DEFAULT_RESOURCE_ICON = "icons/svg/d20-black.svg";
 export const DEFAULT_AVATAR = getSystemPath("assets/avatars/ezd6-avatar.png");
 export const LEGACY_AVATAR_PLACEHOLDER = getSystemPath("assets/avatars/placeholder.png");
-const STRIKES_RESOURCE_ID = "res-strikes";
-const STRIKES_RESOURCE_TITLE = t("EZD6.Resources.Strikes", "Strikes");
-const STRIKES_RESOURCE_ICON = getSystemPath("assets/icons/strike.png");
 function createId(prefix: string): string {
     const random = Math.random().toString(36).slice(2, 8);
     return `${prefix}-${random}`;
@@ -71,12 +68,7 @@ function ensureKeyword(keyword?: string): string {
 }
 
 export function isLockedResource(resource: Resource): boolean {
-    return resource.locked === true || resource.id === STRIKES_RESOURCE_ID;
-}
-
-function isStrikesTitle(resource: Resource): boolean {
-    const title = typeof resource.title === "string" ? resource.title.trim() : "";
-    return title.toLowerCase() === STRIKES_RESOURCE_TITLE.toLowerCase();
+    return resource.locked === true;
 }
 
 /**
@@ -324,44 +316,5 @@ export class Character {
         });
     }
 
-    ensureDefaultResources(): boolean {
-        let changed = false;
-        let strikes = this.resources.find((res) => res.id === STRIKES_RESOURCE_ID)
-            ?? this.resources.find((res) => isStrikesTitle(res));
-
-        if (!strikes) {
-            this.addResource({
-                id: STRIKES_RESOURCE_ID,
-                title: STRIKES_RESOURCE_TITLE,
-                icon: STRIKES_RESOURCE_ICON,
-                rollKeyword: "health",
-                value: 3,
-                defaultValue: 3,
-                maxValue: 3,
-                locked: true,
-            });
-            return true;
-        }
-
-        if (!isLockedResource(strikes)) {
-            strikes.locked = true;
-            changed = true;
-        }
-
-        const rawMax = Number(strikes.maxValue ?? strikes.defaultMaxValue);
-        if (!Number.isFinite(rawMax) || rawMax <= 0) {
-            strikes.maxValue = 3;
-            changed = true;
-        }
-
-        const hasIcon = [strikes.icon, strikes.iconAvailable, strikes.iconSpent]
-            .some((entry) => typeof entry === "string" && entry.trim() !== "");
-        if (!hasIcon) {
-            strikes.icon = STRIKES_RESOURCE_ICON;
-            changed = true;
-        }
-
-        return changed;
-    }
 }
 
