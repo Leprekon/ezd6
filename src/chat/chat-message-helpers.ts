@@ -111,6 +111,7 @@ export function applyChatHeaderEnhancements(
     options: { actor?: any | null; speaker?: any | null; userName?: string | null; moveMeta?: boolean }
 ) {
     if (!root) return;
+    const doc = root.ownerDocument ?? document;
     const header = root.querySelector(".message-header") as HTMLElement | null;
     const sender = header?.querySelector(".message-sender") as HTMLElement | null;
     if (!header || !sender) return;
@@ -124,7 +125,7 @@ export function applyChatHeaderEnhancements(
     sender.textContent = name;
 
     if (!header.querySelector(".ezd6-chat-avatar")) {
-        const img = document.createElement("img");
+        const img = doc.createElement("img");
         img.className = "ezd6-chat-avatar";
         img.src = avatar;
         img.alt = name;
@@ -139,7 +140,7 @@ export function applyChatHeaderEnhancements(
     if (!content) return;
     let subhead = content.querySelector(".ezd6-chat-subhead") as HTMLElement | null;
     if (!subhead) {
-        subhead = document.createElement("div");
+        subhead = doc.createElement("div");
         subhead.className = "ezd6-chat-subhead";
         subhead.innerHTML = `<div class="ezd6-chat-subhead__left"></div><div class="ezd6-chat-subhead__right"></div>`;
         content.insertBefore(subhead, content.firstChild);
@@ -149,7 +150,7 @@ export function applyChatHeaderEnhancements(
     if (!right) return;
     let metaRow = right.querySelector(".ezd6-chat-subhead__meta") as HTMLElement | null;
     if (!metaRow) {
-        metaRow = document.createElement("div");
+        metaRow = doc.createElement("div");
         metaRow.className = "ezd6-chat-subhead__meta";
         right.insertBefore(metaRow, right.firstChild);
     }

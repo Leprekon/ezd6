@@ -13,7 +13,7 @@ function renderResourceChangeRow(row: ResourceChangeRow): string {
         <div class="ezd6-resource-change-row" data-resource-key="${escapeHtml(row.resourceKey)}" title="${escapeHtml(row.resourceName)}">
             <div class="ezd6-resource-change__counter"
                 data-delta="${delta}"
-                data-icon="${escapeHtml(row.resourceIcon)}"
+                data-ezd6-icon="${escapeHtml(row.resourceIcon)}"
                 data-title="${escapeHtml(row.resourceName)}"></div>
             <div class="ezd6-resource-change__result">
                 <span class="ezd6-resource-change__result-arrow">➔</span>
@@ -48,7 +48,7 @@ function getCounterIconLimit(counter: HTMLElement): number {
 
 function renderDeltaCounter(counter: HTMLElement) {
     const delta = Number(counter.dataset.delta ?? 0);
-    const iconPath = counter.dataset.icon ?? DEFAULT_RESOURCE_ICON;
+    const iconPath = counter.dataset.ezd6Icon ?? counter.dataset.icon ?? DEFAULT_RESOURCE_ICON;
     const title = counter.dataset.title ?? t("EZD6.ItemLabels.Resource", "Resource");
     const maxIcons = getCounterIconLimit(counter);
     const N = Math.max(1, Math.floor(maxIcons));

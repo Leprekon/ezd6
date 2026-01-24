@@ -195,18 +195,28 @@ interface EZD6State {
 }
 
 
-function findChatMessageElement(msgId: string): HTMLElement | null {
-    return document.querySelector(`[data-message-id="${msgId}"]`) as HTMLElement | null;
+function getChatDocument(root?: Element | null): Document {
+    return root?.ownerDocument ?? document;
 }
 
-function waitForMessageElement(msgId: string, timeout = 3000): Promise<HTMLElement> {
+function getChatLog(doc: Document): HTMLElement | null {
+    return doc.querySelector('#chat-log') as HTMLElement | null;
+}
+
+function findChatMessageElement(msgId: string, doc?: Document): HTMLElement | null {
+    const scope = doc ?? document;
+    return scope.querySelector(`[data-message-id="${msgId}"]`) as HTMLElement | null;
+}
+
+function waitForMessageElement(msgId: string, timeout = 3000, doc?: Document): Promise<HTMLElement> {
     return new Promise((resolve, reject) => {
-        const existing = findChatMessageElement(msgId);
+        const scope = doc ?? document;
+        const existing = findChatMessageElement(msgId, scope);
         if (existing) return resolve(existing);
-        const chatLog = document.querySelector('#chat-log');
+        const chatLog = getChatLog(scope);
         if (!chatLog) return reject(new Error('No #chat-log element'));
         const obs = new MutationObserver(() => {
-            const el = findChatMessageElement(msgId);
+            const el = findChatMessageElement(msgId, scope);
             if (el) {
                 obs.disconnect();
                 resolve(el);
@@ -215,15 +225,18 @@ function waitForMessageElement(msgId: string, timeout = 3000): Promise<HTMLEleme
         obs.observe(chatLog, { childList: true, subtree: true });
         setTimeout(() => {
             obs.disconnect();
-            const el = findChatMessageElement(msgId);
+            const el = findChatMessageElement(msgId, scope);
             if (el) return resolve(el);
             reject(new Error('Timed out waiting for message element'));
         }, timeout);
     });
 }
 
-function removeDuplicateMessageElements(msgId: string, preferred?: HTMLElement | null) {
-    const nodes = Array.from(document.querySelectorAll(`[data-message-id="${msgId}"]`));
+function removeDuplicateMessageElements(msgId: string, preferred?: HTMLElement | null, doc?: Document) {
+    const scope = preferred?.ownerDocument ?? doc ?? document;
+    const chatLog = getChatLog(scope);
+    if (!chatLog) return;
+    const nodes = Array.from(chatLog.querySelectorAll(`[data-message-id="${msgId}"]`));
     if (nodes.length <= 1) return;
 
     const keep = preferred ?? nodes[0];
@@ -234,9 +247,10 @@ function removeDuplicateMessageElements(msgId: string, preferred?: HTMLElement |
     }
 }
 
-function removeAllDuplicateMessageElements() {
+function removeAllDuplicateMessageElements(doc?: Document) {
     const seen = new Set<string>();
-    const chatLog = document.querySelector('#chat-log');
+    const scope = doc ?? document;
+    const chatLog = getChatLog(scope);
     if (!chatLog) return;
 
     const nodes = Array.from(chatLog.querySelectorAll('[data-message-id]')) as HTMLElement[];
@@ -256,12 +270,109 @@ function removeAllDuplicateMessageElements() {
 function scrollChatToBottomSoon() {
     setTimeout(() => {
         try {
-            const chat = ui?.chat?.element?.get(0);
+            const chat = getChatScrollElement(chatDoc ?? undefined);
             if (chat) chat.scrollTop = chat.scrollHeight;
         } catch (e) {
             // ignore
         }
     }, 60);
+}
+
+function isScrollable(el: HTMLElement): boolean {
+    const style = getComputedStyle(el);
+    const overflowY = style.overflowY;
+    if (overflowY === "visible" || overflowY === "hidden") return false;
+    return el.scrollHeight > el.clientHeight + 1;
+}
+
+function findChatScrollElement(chatLog: HTMLElement | null): HTMLElement | null {
+    const doc = chatLog?.ownerDocument ?? document;
+    if (chatLog) {
+        let current: HTMLElement | null = chatLog;
+        while (current && current !== doc.body) {
+            if (isScrollable(current)) return current;
+            current = current.parentElement;
+        }
+        if (isScrollable(chatLog)) return chatLog;
+    }
+    const chat = ui?.chat?.element?.get(0) as HTMLElement | undefined;
+    if (chat) return chat;
+    return chatLog;
+}
+
+function getChatScrollElement(doc?: Document): HTMLElement | null {
+    const scope = doc ?? document;
+    const chatLog = getChatLog(scope);
+    return findChatScrollElement(chatLog);
+}
+
+function getChatMessages(chatLog: HTMLElement): HTMLElement[] {
+    return Array.from(chatLog.querySelectorAll('[data-message-id]')) as HTMLElement[];
+}
+
+function findLastVisibleMessage(messages: HTMLElement[], scrollEl: HTMLElement): HTMLElement | null {
+    const viewport = scrollEl.getBoundingClientRect();
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+        const rect = messages[i].getBoundingClientRect();
+        if (rect.bottom > viewport.top && rect.top < viewport.bottom) {
+            return messages[i];
+        }
+    }
+    return null;
+}
+
+function shouldStickChatToBottom(doc?: Document): boolean {
+    const scope = doc ?? document;
+    const chatLog = getChatLog(scope);
+    const scrollEl = getChatScrollElement(scope);
+    if (!chatLog || !scrollEl) return false;
+    const messages = getChatMessages(chatLog);
+    if (!messages.length) return false;
+    const lastVisible = findLastVisibleMessage(messages, scrollEl);
+    return lastVisible === messages[messages.length - 1];
+}
+
+let chatResizeObserver: ResizeObserver | null = null;
+let chatResizeObservedEl: Element | null = null;
+let chatMutationObserver: MutationObserver | null = null;
+let chatScrollEl: HTMLElement | null = null;
+let chatStickToBottom = false;
+let chatDoc: Document | null = null;
+
+function registerChatResizeObserver(root?: Element | null) {
+    const doc = getChatDocument(root);
+    chatDoc = doc;
+    const chatLog = root
+        ? (root.querySelector('#chat-log') as HTMLElement | null)
+        : getChatLog(doc);
+    if (!chatLog || typeof ResizeObserver === "undefined") return;
+    chatScrollEl = findChatScrollElement(chatLog);
+    if (chatScrollEl) {
+        chatStickToBottom = shouldStickChatToBottom(doc);
+        chatScrollEl.removeEventListener("scroll", updateChatStickiness);
+        chatScrollEl.addEventListener("scroll", updateChatStickiness, { passive: true });
+    }
+    if (!chatResizeObserver) {
+        chatResizeObserver = new ResizeObserver(() => {
+            if (chatStickToBottom) scrollChatToBottomSoon();
+        });
+    }
+    if (chatResizeObservedEl !== chatLog) {
+        chatResizeObserver.disconnect();
+        chatResizeObserver.observe(chatLog);
+        chatResizeObservedEl = chatLog;
+    }
+    if (!chatMutationObserver) {
+        chatMutationObserver = new MutationObserver(() => {
+            if (chatStickToBottom) scrollChatToBottomSoon();
+        });
+    }
+    chatMutationObserver.disconnect();
+    chatMutationObserver.observe(chatLog, { childList: true, subtree: true });
+}
+
+function updateChatStickiness() {
+    chatStickToBottom = shouldStickChatToBottom(chatDoc ?? undefined);
 }
 
 function readMessageMeta(msg: any, fallbackKeyword?: string): MessageMeta {
@@ -928,11 +1039,12 @@ export function registerChatMessageHooks() {
     Hooks.once("ready", () => {
         const chatLog = document.querySelector('#chat-log');
         if (chatLog) {
-            removeAllDuplicateMessageElements();
+            removeAllDuplicateMessageElements(document);
 
-            const obs = new MutationObserver(() => removeAllDuplicateMessageElements());
+            const obs = new MutationObserver(() => removeAllDuplicateMessageElements(document));
             obs.observe(chatLog, { childList: true, subtree: true });
         }
+        registerChatResizeObserver(document.documentElement);
 
         game.socket?.on(SOCKET_NAMESPACE, async (payload: any) => {
             if (!payload || payload.action !== "updateMessage") return;
@@ -961,7 +1073,7 @@ export function registerChatMessageHooks() {
             trackProcessedMessage(msgId);
 
             // Always prune any duplicate DOM nodes that may already exist for this message.
-            setTimeout(() => removeDuplicateMessageElements(msgId), 0);
+            setTimeout(() => removeDuplicateMessageElements(msgId, null, document), 0);
 
             const isAuthor = resolved?.author?.id === game.user?.id;
             if (!isAuthor) {
@@ -985,9 +1097,9 @@ export function registerChatMessageHooks() {
             const canModify = canCurrentUserModifyMessage(resolved);
             const alreadyProcessed = !!resolved.flags?.ezd6Processed;
 
-            try { await waitForMessageElement(resolved.id); } catch (_) { /* ignore */ }
+            try { await waitForMessageElement(resolved.id, 3000, document); } catch (_) { /* ignore */ }
 
-            removeDuplicateMessageElements(resolved.id);
+            removeDuplicateMessageElements(resolved.id, null, document);
 
             const forceDomOnly = !isAuthor || (alreadyProcessed && !canModify);
 
@@ -1058,6 +1170,16 @@ export function registerChatMessageHooks() {
         }
     });
 
+    Hooks.on("renderChatLog", (_app: any, html: JQuery<HTMLElement> | HTMLElement) => {
+        const root = (html as any)[0] ?? html;
+        registerChatResizeObserver(root as HTMLElement);
+    });
+
+    Hooks.on("renderChatPopout", (_app: any, html: JQuery<HTMLElement> | HTMLElement) => {
+        const root = (html as any)[0] ?? html;
+        registerChatResizeObserver(root as HTMLElement);
+    });
+
     Hooks.on("deleteChatMessage", (msg: any) => {
         const resolved = resolveChatMessage(msg);
         if (!resolved?.id) return;
@@ -1071,3 +1193,5 @@ export function registerChatMessageHooks() {
         }
     });
 }
+
+

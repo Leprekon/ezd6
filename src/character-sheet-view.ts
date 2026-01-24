@@ -1559,19 +1559,38 @@ export class CharacterSheetView {
         return raw.trim();
     }
 
-    private parseCategory(raw: string): { raw: string; label: string; order: number | null } {
+    private splitCategoryLabel(raw: string): { matched: boolean; label: string; order: number | null } {
         const trimmed = raw.trim();
         const match = trimmed.match(/^(\d+)(?:\s*\.\s*|\s+)(.+)$/);
-        if (!match) {
-            return { raw: trimmed, label: this.resolveCategoryLabel(trimmed), order: null };
-        }
-        const label = this.resolveCategoryLabel(match[2].trim());
+        if (!match) return { matched: false, label: trimmed, order: null };
         const order = Number.parseInt(match[1], 10);
+        const label = match[2].trim();
         return {
-            raw: trimmed,
+            matched: true,
             label: label || trimmed,
             order: Number.isFinite(order) ? order : null,
         };
+    }
+
+    private parseCategory(raw: string): { raw: string; label: string; order: number | null } {
+        const trimmed = raw.trim();
+        const rawSplit = this.splitCategoryLabel(trimmed);
+        if (rawSplit.matched) {
+            const label = this.resolveCategoryLabel(rawSplit.label);
+            return { raw: trimmed, label: label || rawSplit.label || trimmed, order: rawSplit.order };
+        }
+
+        const localized = this.resolveCategoryLabel(trimmed);
+        const localizedSplit = this.splitCategoryLabel(localized);
+        if (localizedSplit.matched) {
+            return {
+                raw: trimmed,
+                label: localizedSplit.label || localized || trimmed,
+                order: localizedSplit.order,
+            };
+        }
+
+        return { raw: trimmed, label: localized, order: null };
     }
 
     private resolveCategoryLabel(raw: string): string {

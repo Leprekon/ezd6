@@ -43,23 +43,23 @@ const buildRollFormula = (count: number) => {
     return `${abs}d6${mode}`;
 };
 
-function buildChatRoller(): HTMLElement {
-    const wrap = document.createElement("div");
+function buildChatRoller(doc: Document): HTMLElement {
+    const wrap = doc.createElement("div");
     wrap.className = "ezd6-chat-roller";
 
-    const decBtn = document.createElement("button");
+    const decBtn = doc.createElement("button");
     decBtn.type = "button";
     decBtn.className = "ezd6-ability-dice-btn ezd6-chat-dice-adjust";
     decBtn.dataset.delta = "-1";
     decBtn.textContent = "-";
 
-    const incBtn = document.createElement("button");
+    const incBtn = doc.createElement("button");
     incBtn.type = "button";
     incBtn.className = "ezd6-ability-dice-btn ezd6-chat-dice-adjust";
     incBtn.dataset.delta = "1";
     incBtn.textContent = "+";
 
-    const display = document.createElement("span");
+    const display = doc.createElement("span");
     display.className = "ezd6-chat-dice-display";
 
     let current = 1;
@@ -70,14 +70,14 @@ function buildChatRoller(): HTMLElement {
         incBtn.disabled = current >= MAX_CHAT_DICE;
 
         if (current === 0) {
-            const dash = document.createElement("span");
+            const dash = doc.createElement("span");
             dash.className = "ezd6-chat-dice-empty";
             dash.textContent = "-";
             display.appendChild(dash);
             return;
         }
 
-        const diceBtn = document.createElement("button");
+        const diceBtn = doc.createElement("button");
         diceBtn.type = "button";
         diceBtn.className = "ezd6-task-btn ezd6-chat-dice-btn";
         diceBtn.title = buildRollTitle(current);
@@ -136,7 +136,7 @@ function injectChatRoller(root: HTMLElement | null) {
     const chatForm = root.querySelector("#chat-form") as HTMLFormElement | null;
     if (!chatForm) return;
     if (chatForm.querySelector(".ezd6-chat-roller")) return;
-    chatForm.appendChild(buildChatRoller());
+    chatForm.appendChild(buildChatRoller(root.ownerDocument ?? document));
 }
 
 export function registerChatRollerHooks() {
