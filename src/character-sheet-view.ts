@@ -2192,7 +2192,8 @@ export class CharacterSheetView {
 
     private async postAbilityMessage(item: any, description: string, label = t("EZD6.ItemLabels.Ability", "Ability")) {
         if (!item) return;
-        const title = this.getLocalizedItemName(item, label);
+        const nameFallback = item?.name ?? label;
+        const title = this.getLocalizedItemName(item, nameFallback);
         const tag = this.normalizeAbilityTag(item?.system?.tag ?? "");
         const icon = item?.type === "aspect"
             ? (item?.img && item.img !== LEGACY_DEFAULT_ICON
@@ -2297,7 +2298,8 @@ export class CharacterSheetView {
         label = t("EZD6.ItemLabels.Ability", "Ability")
     ) {
         if (!item) return;
-        const title = this.getLocalizedItemName(item, label);
+        const nameFallback = item?.name ?? label;
+        const title = this.getLocalizedItemName(item, nameFallback);
         if (numberOfDice > 0) {
             const normalizedTag = this.normalizeAbilityTag(tag);
             const keyword = this.getKeywordFromTag(tag);

@@ -58,10 +58,15 @@ const TASK_ROLLS = [
     },
 ] as const;
 
-const TASK_LAYOUT: Array<Array<(typeof TASK_ROLLS)[number]["id"]>> = [
-    ["single-bane", "normal", "single-boon"],
-    ["double-bane", "double-boon"],
-    ["triple-bane", "triple-boon"],
+const TASK_GRID: Array<{
+    id: (typeof TASK_ROLLS)[number]["id"];
+    position: "left-top" | "left-bottom" | "center" | "right-top" | "right-bottom";
+}> = [
+    { id: "single-bane", position: "left-top" },
+    { id: "normal", position: "center" },
+    { id: "single-boon", position: "right-top" },
+    { id: "double-bane", position: "left-bottom" },
+    { id: "double-boon", position: "right-bottom" },
 ];
 
 const taskMap = TASK_ROLLS.reduce((acc, task) => {
@@ -105,41 +110,35 @@ const createRollButton = (
 function buildChatRoller(doc: Document): HTMLElement {
     const wrap = doc.createElement("div");
     wrap.className = "ezd6-chat-roller";
-    TASK_LAYOUT.forEach((rowIds) => {
-        const row = doc.createElement("div");
-        row.className = "ezd6-chat-roller__row";
-        if (rowIds.length === 1) row.classList.add("is-single");
-        rowIds.forEach((id) => {
-            const task = taskMap[id];
-            const label = t(task.labelKey, task.labelFallback);
-            const btn = createRollButton(doc, {
-                className: "ezd6-task-btn ezd6-chat-task-btn",
-                title: `${label} (${task.formula})`,
-                kinds: [...task.dice],
-                onClick: async (event) => {
-                    event.preventDefault();
-                    try {
-                        const roll = new Roll(task.formula, {});
-                        await roll.evaluate();
-                        await roll.toMessage({
-                            flavor: `${label} #task`,
-                            speaker: ChatMessage.getSpeaker?.(),
-                            flags: {
-                                [EZD6_META_FLAG]: buildRollMeta({
-                                    title: label,
-                                    description: "",
-                                    tag: "#task",
-                                }),
-                            },
-                        });
-                    } catch (err) {
-                        console.error("EZD6 chat roll failed", err);
-                    }
-                },
-            });
-            row.appendChild(btn);
+    TASK_GRID.forEach(({ id, position }) => {
+        const task = taskMap[id];
+        const label = t(task.labelKey, task.labelFallback);
+        const btn = createRollButton(doc, {
+            className: `ezd6-task-btn ezd6-chat-task-btn ezd6-chat-task-btn--${position}`,
+            title: `${label} (${task.formula})`,
+            kinds: [...task.dice],
+            onClick: async (event) => {
+                event.preventDefault();
+                try {
+                    const roll = new Roll(task.formula, {});
+                    await roll.evaluate();
+                    await roll.toMessage({
+                        flavor: `${label} #task`,
+                        speaker: ChatMessage.getSpeaker?.(),
+                        flags: {
+                            [EZD6_META_FLAG]: buildRollMeta({
+                                title: label,
+                                description: "",
+                                tag: "#task",
+                            }),
+                        },
+                    });
+                } catch (err) {
+                    console.error("EZD6 chat roll failed", err);
+                }
+            },
         });
-        wrap.appendChild(row);
+        wrap.appendChild(btn);
     });
     return wrap;
 }
