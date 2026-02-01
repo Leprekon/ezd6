@@ -5,20 +5,35 @@ import { applyNativeItemFields } from "./ui/item-editor-utils";
 import { getSystemPath } from "./system-path";
 
 const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
+const mergeObject = (foundry as any)?.utils?.mergeObject as ((...args: any[]) => any) | undefined;
 
 export const buildAbilityLikeSheetOptions = (baseOptions: Record<string, any>, sheetClass: string) =>
-    foundry.utils.mergeObject(baseOptions, {
-        classes: ["ezd6-item-sheet", sheetClass],
-        width: 460,
-        height: 520,
-        minWidth: 480,
-        maxWidth: 660,
-        minHeight: 420,
-        maxHeight: 760,
-        resizable: true,
-        submitOnChange: true,
-        submitOnClose: true,
-    });
+    mergeObject
+        ? mergeObject(baseOptions, {
+            classes: ["ezd6-item-sheet", sheetClass],
+            width: 460,
+            height: 520,
+            minWidth: 480,
+            maxWidth: 660,
+            minHeight: 420,
+            maxHeight: 760,
+            resizable: true,
+            submitOnChange: true,
+            submitOnClose: true,
+        })
+        : {
+            ...baseOptions,
+            classes: ["ezd6-item-sheet", sheetClass],
+            width: 460,
+            height: 520,
+            minWidth: 480,
+            maxWidth: 660,
+            minHeight: 420,
+            maxHeight: 760,
+            resizable: true,
+            submitOnChange: true,
+            submitOnClose: true,
+        };
 
 export abstract class EZD6AbilityLikeItemSheet extends ItemSheet {
     protected abstract getItemLabel(): string;

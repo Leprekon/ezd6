@@ -6,6 +6,7 @@ import { getSystemPath } from "./system-path";
 
 const DEFAULT_EQUIPMENT_ICON = "icons/containers/bags/coinpouch-simple-leather-tan.webp";
 const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
+const mergeObject = (foundry as any)?.utils?.mergeObject as ((...args: any[]) => any) | undefined;
 
 const coerceQuantity = (value: unknown) => {
     const numeric = Number(value);
@@ -15,18 +16,32 @@ const coerceQuantity = (value: unknown) => {
 
 export class EZD6EquipmentItemSheet extends ItemSheet {
     static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            classes: ["ezd6-item-sheet", "ezd6-item-sheet--equipment"],
-            width: 460,
-            height: 520,
-            minWidth: 480,
-            maxWidth: 660,
-            minHeight: 420,
-            maxHeight: 760,
-            resizable: true,
-            submitOnChange: true,
-            submitOnClose: true,
-        });
+        return mergeObject
+            ? mergeObject(super.defaultOptions, {
+                classes: ["ezd6-item-sheet", "ezd6-item-sheet--equipment"],
+                width: 460,
+                height: 520,
+                minWidth: 480,
+                maxWidth: 660,
+                minHeight: 420,
+                maxHeight: 760,
+                resizable: true,
+                submitOnChange: true,
+                submitOnClose: true,
+            })
+            : {
+                ...super.defaultOptions,
+                classes: ["ezd6-item-sheet", "ezd6-item-sheet--equipment"],
+                width: 460,
+                height: 520,
+                minWidth: 480,
+                maxWidth: 660,
+                minHeight: 420,
+                maxHeight: 760,
+                resizable: true,
+                submitOnChange: true,
+                submitOnClose: true,
+            };
     }
 
     get template() {

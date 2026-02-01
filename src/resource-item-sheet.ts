@@ -6,21 +6,36 @@ import { getSystemPath } from "./system-path";
 
 const DEFAULT_RESOURCE_ICON = "icons/svg/d20-black.svg";
 const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
+const mergeObject = (foundry as any)?.utils?.mergeObject as ((...args: any[]) => any) | undefined;
 
 export class EZD6ResourceItemSheet extends ItemSheet {
     static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            classes: ["ezd6-item-sheet", "ezd6-item-sheet--resource"],
-            width: 420,
-            height: 600,
-            minWidth: 420,
-            maxWidth: 620,
-            minHeight: 520,
-            maxHeight: 720,
-            resizable: true,
-            submitOnChange: true,
-            submitOnClose: true,
-        });
+        return mergeObject
+            ? mergeObject(super.defaultOptions, {
+                classes: ["ezd6-item-sheet", "ezd6-item-sheet--resource"],
+                width: 420,
+                height: 600,
+                minWidth: 420,
+                maxWidth: 620,
+                minHeight: 520,
+                maxHeight: 720,
+                resizable: true,
+                submitOnChange: true,
+                submitOnClose: true,
+            })
+            : {
+                ...super.defaultOptions,
+                classes: ["ezd6-item-sheet", "ezd6-item-sheet--resource"],
+                width: 420,
+                height: 600,
+                minWidth: 420,
+                maxWidth: 620,
+                minHeight: 520,
+                maxHeight: 720,
+                resizable: true,
+                submitOnChange: true,
+                submitOnClose: true,
+            };
     }
 
     get template() {

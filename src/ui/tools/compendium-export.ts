@@ -40,7 +40,7 @@ const buildExportEntry = (data: {
 };
 
 const collectCompendiumLocalization = async (): Promise<ExportPayload> => {
-    const packs = Array.from((game as any)?.packs ?? []).filter((pack: any) => Boolean(pack));
+    const packs = Array.from((game as any)?.packs ?? []).filter((pack: any) => Boolean(pack)) as any[];
 
     const payload: ExportPayload = {};
 
@@ -52,7 +52,7 @@ const collectCompendiumLocalization = async (): Promise<ExportPayload> => {
             continue;
         }
 
-        const packId = String(pack?.collection ?? "");
+        const packId = String((pack as any)?.collection ?? "");
         if (!packId) continue;
         if (!payload[packId]) payload[packId] = {};
 

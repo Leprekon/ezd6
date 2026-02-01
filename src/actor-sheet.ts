@@ -10,6 +10,8 @@ import { readDragEventData, resolveDroppedDocument } from "./ui/drag-drop";
 import { buildResourceFromItem, buildSaveFromItem } from "./ui/item-converters";
 import { getSystemPath } from "./system-path";
 
+const mergeObject = (foundry as any)?.utils?.mergeObject as ((...args: any[]) => any) | undefined;
+
 export class EZD6CharacterSheet extends ActorSheet {
     private character: Character | null = null;
     private view: CharacterSheetView | null = null;
@@ -19,18 +21,32 @@ export class EZD6CharacterSheet extends ActorSheet {
     private actorUpdateHookId: number | null = null;
 
     static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            classes: ["ezd6-sheet-wrapper"],
-            width: 860,
-            height: 780,
-            minWidth: 820,
-            maxWidth: 1060,
-            minHeight: 640,
-            maxHeight: 1024,
-            resizable: true,
-            submitOnChange: true,
-            submitOnClose: true,
-        });
+        return mergeObject
+            ? mergeObject(super.defaultOptions, {
+                classes: ["ezd6-sheet-wrapper"],
+                width: 860,
+                height: 780,
+                minWidth: 820,
+                maxWidth: 1060,
+                minHeight: 640,
+                maxHeight: 1024,
+                resizable: true,
+                submitOnChange: true,
+                submitOnClose: true,
+            })
+            : {
+                ...super.defaultOptions,
+                classes: ["ezd6-sheet-wrapper"],
+                width: 860,
+                height: 780,
+                minWidth: 820,
+                maxWidth: 1060,
+                minHeight: 640,
+                maxHeight: 1024,
+                resizable: true,
+                submitOnChange: true,
+                submitOnClose: true,
+            };
     }
 
     get template() {
@@ -136,7 +152,7 @@ export class EZD6CharacterSheet extends ActorSheet {
         const options = getTagOptions();
         let changed = false;
         this.character.resources = this.character.resources.map((resource) => {
-            const raw = resource?.rollKeyword ?? resource?.tag;
+            const raw = resource?.rollKeyword ?? (resource as any)?.tag;
             const normalized = raw == null ? null : normalizeTag(String(raw), options);
             const next: any = { ...resource };
             if (normalized != null && normalized !== resource.rollKeyword) {
