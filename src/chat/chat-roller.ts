@@ -1,133 +1,146 @@
 import { buildRollMeta, EZD6_META_FLAG } from "./chat-meta";
-import { createDiceStack } from "../ui/sheet-utils";
+import { getDieImagePath } from "../ezd6-core";
 import { localize } from "../ui/i18n";
 
-const MIN_CHAT_DICE = -6;
-const MAX_CHAT_DICE = 6;
 const t = (key: string, fallback: string) => localize(key, fallback);
 
 type DieKind = "grey" | "green" | "red";
 
-const clampDice = (value: number) => Math.max(MIN_CHAT_DICE, Math.min(MAX_CHAT_DICE, value));
+const TASK_ROLLS = [
+    {
+        id: "double-bane",
+        labelKey: "EZD6.Tasks.DoubleBane",
+        labelFallback: "Double bane",
+        formula: "3d6kl",
+        dice: ["red", "red", "grey"] as const,
+    },
+    {
+        id: "single-bane",
+        labelKey: "EZD6.Tasks.SingleBane",
+        labelFallback: "Single bane",
+        formula: "2d6kl",
+        dice: ["red", "grey"] as const,
+    },
+    {
+        id: "normal",
+        labelKey: "EZD6.Tasks.NormalRoll",
+        labelFallback: "Normal roll",
+        formula: "1d6",
+        dice: ["grey"] as const,
+    },
+    {
+        id: "single-boon",
+        labelKey: "EZD6.Tasks.SingleBoon",
+        labelFallback: "Single boon",
+        formula: "2d6kh",
+        dice: ["grey", "green"] as const,
+    },
+    {
+        id: "double-boon",
+        labelKey: "EZD6.Tasks.DoubleBoon",
+        labelFallback: "Double boon",
+        formula: "3d6kh",
+        dice: ["grey", "green", "green"] as const,
+    },
+    {
+        id: "triple-bane",
+        labelKey: "EZD6.Tasks.TripleBane",
+        labelFallback: "Triple bane",
+        formula: "4d6kl",
+        dice: ["red", "red", "red", "grey"] as const,
+    },
+    {
+        id: "triple-boon",
+        labelKey: "EZD6.Tasks.TripleBoon",
+        labelFallback: "Triple boon",
+        formula: "4d6kh",
+        dice: ["grey", "green", "green", "green"] as const,
+    },
+] as const;
 
-const stepDice = (current: number, delta: number) => {
-    if (delta < 0) {
-        if (current <= MIN_CHAT_DICE) return MIN_CHAT_DICE;
-        if (current === 1) return -2;
-        return clampDice(current - 1);
+const TASK_LAYOUT: Array<Array<(typeof TASK_ROLLS)[number]["id"]>> = [
+    ["single-bane", "normal", "single-boon"],
+    ["double-bane", "double-boon"],
+    ["triple-bane", "triple-boon"],
+];
+
+const taskMap = TASK_ROLLS.reduce((acc, task) => {
+    acc[task.id] = task;
+    return acc;
+}, {} as Record<(typeof TASK_ROLLS)[number]["id"], (typeof TASK_ROLLS)[number]>);
+
+const createDiceStack = (doc: Document, kinds: DieKind[], className = "ezd6-dice-stack") => {
+    const diceRow = doc.createElement("span");
+    diceRow.className = className;
+    kinds.forEach((kind) => {
+        const dieImg = doc.createElement("img");
+        dieImg.className = "ezd6-die-icon";
+        dieImg.alt = `${kind} d6`;
+        dieImg.src = getDieImagePath(6, kind);
+        dieImg.draggable = false;
+        diceRow.appendChild(dieImg);
+    });
+    return diceRow;
+};
+
+const createRollButton = (
+    doc: Document,
+    options: {
+        className: string;
+        title: string;
+        kinds: DieKind[];
+        onClick: (event: MouseEvent) => void | Promise<void>;
     }
-    if (current >= MAX_CHAT_DICE) return MAX_CHAT_DICE;
-    if (current === -2) return 1;
-    return clampDice(current + 1);
-};
-
-const buildKinds = (count: number): DieKind[] => {
-    if (count === 0) return [];
-    const abs = Math.abs(count);
-    const rest = Math.max(0, abs - 1);
-    if (count > 0) return ["grey", ...Array.from({ length: rest }, () => "green")];
-    return [...Array.from({ length: rest }, () => "red"), "grey"];
-};
-
-const buildRollTitle = (count: number) => {
-    const abs = Math.abs(count);
-    const mode = count < 0 ? "kl" : "kh";
-    const tag = "#default";
-    const label = t("EZD6.Labels.Roll", "Roll");
-    return `${label} ${abs}d6${mode} ${tag}`.trim();
-};
-
-const buildRollFormula = (count: number) => {
-    const abs = Math.abs(count);
-    const mode = count < 0 ? "kl" : "kh";
-    return `${abs}d6${mode}`;
+) => {
+    const btn = doc.createElement("button");
+    btn.type = "button";
+    btn.className = options.className;
+    btn.title = options.title;
+    btn.dataset.ezd6IntentDisabled = "0";
+    btn.append(createDiceStack(doc, options.kinds));
+    btn.addEventListener("click", (event) => options.onClick(event));
+    return btn;
 };
 
 function buildChatRoller(doc: Document): HTMLElement {
     const wrap = doc.createElement("div");
     wrap.className = "ezd6-chat-roller";
-
-    const decBtn = doc.createElement("button");
-    decBtn.type = "button";
-    decBtn.className = "ezd6-ability-dice-btn ezd6-chat-dice-adjust";
-    decBtn.dataset.delta = "-1";
-    decBtn.textContent = "-";
-
-    const incBtn = doc.createElement("button");
-    incBtn.type = "button";
-    incBtn.className = "ezd6-ability-dice-btn ezd6-chat-dice-adjust";
-    incBtn.dataset.delta = "1";
-    incBtn.textContent = "+";
-
-    const display = doc.createElement("span");
-    display.className = "ezd6-chat-dice-display";
-
-    let current = 1;
-
-    const render = () => {
-        display.innerHTML = "";
-        decBtn.disabled = current <= MIN_CHAT_DICE;
-        incBtn.disabled = current >= MAX_CHAT_DICE;
-
-        if (current === 0) {
-            const dash = doc.createElement("span");
-            dash.className = "ezd6-chat-dice-empty";
-            dash.textContent = "-";
-            display.appendChild(dash);
-            return;
-        }
-
-        const diceBtn = doc.createElement("button");
-        diceBtn.type = "button";
-        diceBtn.className = "ezd6-task-btn ezd6-chat-dice-btn";
-        diceBtn.title = buildRollTitle(current);
-
-        const stack = createDiceStack(buildKinds(current), "ezd6-dice-stack ezd6-chat-dice-stack");
-        diceBtn.appendChild(stack);
-
-        diceBtn.addEventListener("click", async (event) => {
-            event.preventDefault();
-            if (!current) return;
-            try {
-                const formula = buildRollFormula(current);
-                const label = t("EZD6.Labels.Roll", "Roll");
-                const tag = "#default";
-                const roll = new Roll(formula, {});
-                await roll.evaluate();
-                await roll.toMessage({
-                    flavor: `${label} ${formula} ${tag}`.trim(),
-                    speaker: ChatMessage.getSpeaker?.(),
-                    flags: {
-                        [EZD6_META_FLAG]: buildRollMeta({
-                            title: label,
-                            description: "",
-                            tag,
-                        }),
-                    },
-                });
-                current = 1;
-                render();
-            } catch (err) {
-                console.error("EZD6 chat roll failed", err);
-            }
+    TASK_LAYOUT.forEach((rowIds) => {
+        const row = doc.createElement("div");
+        row.className = "ezd6-chat-roller__row";
+        if (rowIds.length === 1) row.classList.add("is-single");
+        rowIds.forEach((id) => {
+            const task = taskMap[id];
+            const label = t(task.labelKey, task.labelFallback);
+            const btn = createRollButton(doc, {
+                className: "ezd6-task-btn ezd6-chat-task-btn",
+                title: `${label} (${task.formula})`,
+                kinds: [...task.dice],
+                onClick: async (event) => {
+                    event.preventDefault();
+                    try {
+                        const roll = new Roll(task.formula, {});
+                        await roll.evaluate();
+                        await roll.toMessage({
+                            flavor: `${label} #task`,
+                            speaker: ChatMessage.getSpeaker?.(),
+                            flags: {
+                                [EZD6_META_FLAG]: buildRollMeta({
+                                    title: label,
+                                    description: "",
+                                    tag: "#task",
+                                }),
+                            },
+                        });
+                    } catch (err) {
+                        console.error("EZD6 chat roll failed", err);
+                    }
+                },
+            });
+            row.appendChild(btn);
         });
-
-        display.appendChild(diceBtn);
-    };
-
-    wrap.addEventListener("click", (event) => {
-        const target = event.target as HTMLElement | null;
-        const btn = target?.closest?.(".ezd6-chat-dice-adjust") as HTMLButtonElement | null;
-        if (!btn) return;
-        event.preventDefault();
-        const delta = Number(btn.dataset.delta ?? "0");
-        if (!Number.isFinite(delta) || !delta) return;
-        current = stepDice(current, delta);
-        render();
+        wrap.appendChild(row);
     });
-
-    render();
-    wrap.append(decBtn, display, incBtn);
     return wrap;
 }
 

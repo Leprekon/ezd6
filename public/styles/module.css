@@ -137,59 +137,30 @@
 
 /* Chat dice roller */
 .ezd6-chat-roller {
-  --ezd6-chat-roller-size: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0;
+  display: grid;
+  grid-template-rows: repeat(2, auto);
+  gap: 8px;
   margin-top: 2px;
-  padding: 0;
+  padding: 8px 10px;
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 10px;
-  min-height: var(--ezd6-chat-roller-size);
-  overflow: hidden;
 }
 
-.ezd6-chat-dice-display {
-  display: inline-flex;
+.ezd6-chat-roller__row {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.ezd6-chat-roller__row.is-single {
   justify-content: center;
-  flex: 1 1 auto;
-  min-width: 120px;
-  min-height: 32px;
-  padding: 0 8px;
 }
 
-.ezd6-chat-dice-btn {
-  padding: 0;
+.ezd6-chat-task-btn {
   line-height: 0;
-}
-
-.ezd6-chat-dice-stack {
-  gap: 2px;
-}
-
-.ezd6-chat-dice-stack .ezd6-die-icon {
-  width: 28px;
-  height: 28px;
-}
-
-.ezd6-chat-dice-empty {
-  font-size: 22px;
-  font-weight: 700;
-  color: rgba(0, 0, 0, 0.6);
-}
-
-.ezd6-chat-roller .ezd6-chat-dice-adjust {
-  height: var(--ezd6-chat-roller-size);
-  width: var(--ezd6-chat-roller-size);
-  min-width: var(--ezd6-chat-roller-size);
-  padding: 0;
-  border-radius: 10px;
-  align-self: stretch;
-  margin: 0;
-  flex: 0 0 auto;
 }
 
 /* Chat info rows */
@@ -1835,6 +1806,51 @@
 .ezd6-player-resources-btn:active {
   outline: none;
   box-shadow: none;
+}
+
+.ezd6-player-stream-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #f4c76a;
+  cursor: pointer;
+  user-select: none;
+  margin-left: auto;
+  margin-right: 8px;
+  flex: 0 0 auto;
+  width: fit-content;
+  max-width: max-content;
+  white-space: nowrap;
+}
+
+.ezd6-player-stream-toggle:hover span {
+  color: #ffe6a3;
+  text-decoration: underline;
+}
+
+.ezd6-player-stream-checkbox {
+  margin: 0;
+  width: 8px;
+  height: 8px;
+  accent-color: #f4c76a;
+}
+
+#players.ezd6-players-stream-mode .ezd6-player-stream-toggle {
+  color: #42ff00;
+}
+
+#players.ezd6-players-stream-mode .ezd6-player-stream-toggle:hover span {
+  color: #92ff6f;
+}
+
+#players.ezd6-players-stream-mode .ezd6-player-stream-checkbox {
+  accent-color: #42ff00;
+}
+
+#players.ezd6-players-stream-mode {
+  background: #42ff00;
 }
 }
 
