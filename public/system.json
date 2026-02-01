@@ -36,5 +36,18 @@
   "grid": {
     "distance": 5,
     "units": "ft"
-  }
+  },
+  "packs": [
+    {
+      "name": "ezd6-core",
+      "label": "EZD6 Core",
+      "system": "ezd6-reforged",
+      "path": "packs/ezd6-core",
+      "type": "Item",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "GAMEMASTER": "OWNER"
+      }
+    }
+  ]
 }
