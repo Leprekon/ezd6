@@ -692,7 +692,7 @@ function buildController(msg: any, initialState?: EZD6State) {
         if (canBurn) {
             const healthResource = actor ? findHealthResource(actor) : null;
             const healthValue = healthResource ? getCandidateValue(healthResource) : null;
-            const burnDisabled = healthResource ? healthValue <= 0 : false;
+            const burnDisabled = healthResource ? (healthValue ?? 0) <= 0 : false;
             const burnDisabledAttr = burnDisabled ? " disabled" : "";
             const spendHiddenClass = healthResource ? "" : " is-hidden";
             const burnDieClass = `ezd6-die-icon ezd6-burn1-die${burnDisabled ? " ezd6-die-icon--disabled" : ""}`;

@@ -6,21 +6,36 @@ import { getSystemPath } from "./system-path";
 
 const DEFAULT_SAVE_ICON = "icons/equipment/shield/heater-steel-worn.webp";
 const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
+const mergeObject = (foundry as any)?.utils?.mergeObject as ((...args: any[]) => any) | undefined;
 
 export class EZD6SaveItemSheet extends ItemSheet {
     static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            classes: ["ezd6-item-sheet", "ezd6-item-sheet--save"],
-            width: 460,
-            height: 420,
-            minWidth: 460,
-            maxWidth: 660,
-            minHeight: 340,
-            maxHeight: 560,
-            resizable: true,
-            submitOnChange: true,
-            submitOnClose: true,
-        });
+        return mergeObject
+            ? mergeObject(super.defaultOptions, {
+                classes: ["ezd6-item-sheet", "ezd6-item-sheet--save"],
+                width: 460,
+                height: 420,
+                minWidth: 460,
+                maxWidth: 660,
+                minHeight: 340,
+                maxHeight: 560,
+                resizable: true,
+                submitOnChange: true,
+                submitOnClose: true,
+            })
+            : {
+                ...super.defaultOptions,
+                classes: ["ezd6-item-sheet", "ezd6-item-sheet--save"],
+                width: 460,
+                height: 420,
+                minWidth: 460,
+                maxWidth: 660,
+                minHeight: 340,
+                maxHeight: 560,
+                resizable: true,
+                submitOnChange: true,
+                submitOnClose: true,
+            };
     }
 
     get template() {

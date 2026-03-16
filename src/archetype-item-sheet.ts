@@ -9,6 +9,8 @@ import { readDragEventData, resolveDroppedDocument } from "./ui/drag-drop";
 import { buildArchetypeEntryFromItem, buildResourceFromItem, buildSaveFromItem } from "./ui/item-converters";
 import { getSystemPath } from "./system-path";
 
+const mergeObject = (foundry as any)?.utils?.mergeObject as ((...args: any[]) => any) | undefined;
+
 type ArchetypeItemEntry = {
     id: string;
     name?: string;
@@ -27,18 +29,32 @@ export class EZD6ArchetypeItemSheet extends ItemSheet {
     private nameLocked = false;
 
     static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            classes: ["ezd6-sheet-wrapper", "ezd6-archetype-item-sheet"],
-            width: 860,
-            height: 780,
-            minWidth: 820,
-            maxWidth: 1060,
-            minHeight: 640,
-            maxHeight: 1024,
-            resizable: true,
-            submitOnChange: true,
-            submitOnClose: true,
-        });
+        return mergeObject
+            ? mergeObject(super.defaultOptions, {
+                classes: ["ezd6-sheet-wrapper", "ezd6-archetype-item-sheet"],
+                width: 860,
+                height: 780,
+                minWidth: 820,
+                maxWidth: 1060,
+                minHeight: 640,
+                maxHeight: 1024,
+                resizable: true,
+                submitOnChange: true,
+                submitOnClose: true,
+            })
+            : {
+                ...super.defaultOptions,
+                classes: ["ezd6-sheet-wrapper", "ezd6-archetype-item-sheet"],
+                width: 860,
+                height: 780,
+                minWidth: 820,
+                maxWidth: 1060,
+                minHeight: 640,
+                maxHeight: 1024,
+                resizable: true,
+                submitOnChange: true,
+                submitOnClose: true,
+            };
     }
 
     get template() {
@@ -55,8 +71,10 @@ export class EZD6ArchetypeItemSheet extends ItemSheet {
         const nameFallback = typeof data?.item?.name === "string"
             ? data.item.name
             : localize("EZD6.Defaults.Unnamed", "Unnamed");
+        const descFallback = typeof system.description === "string" ? system.description : "";
         applyNativeItemFields(data, {
             nameValue: nameFallback,
+            descriptionValue: descFallback,
         });
         this.localizationId = localizationId;
         this.nameOverride = nameFallback;
@@ -170,7 +188,7 @@ export class EZD6ArchetypeItemSheet extends ItemSheet {
         const options = getTagOptions();
         let changed = false;
         this.character.resources = this.character.resources.map((resource) => {
-            const raw = resource?.rollKeyword ?? resource?.tag;
+            const raw = resource?.rollKeyword ?? (resource as any)?.tag;
             const normalized = raw == null ? null : normalizeTag(String(raw), options);
             const next: any = { ...resource };
             if (normalized != null && normalized !== resource.rollKeyword) {

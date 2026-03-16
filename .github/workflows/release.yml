@@ -33,7 +33,25 @@ jobs:
           REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
         run: |
-          node -e "const fs=require('fs');const path=require('path');const tag=process.env.TAG||'';const version=tag.replace(/^v/,'');const repo=process.env.REPO;const file=path.join('dist','system.json');const data=JSON.parse(fs.readFileSync(file,'utf8'));data.version=version;data.manifest=`https://github.com/${repo}/releases/latest/download/system.json`;data.download=`https://github.com/${repo}/releases/download/${tag}/ezd6-reforged.zip`;data.url=`https://github.com/${repo}`;fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n');"
+          node - <<'NODE'
+          const fs = require("fs");
+          const path = require("path");
+
+          const tag = process.env.TAG || "";
+          const repo = process.env.REPO || "";
+          if (!tag || !repo) {
+            throw new Error(`Missing TAG or REPO env vars (TAG="${tag}", REPO="${repo}").`);
+          }
+
+          const version = tag.replace(/^v/, "");
+          const file = path.join("dist", "system.json");
+          const data = JSON.parse(fs.readFileSync(file, "utf8"));
+          data.version = version;
+          data.manifest = `https://github.com/${repo}/releases/latest/download/system.json`;
+          data.download = `https://github.com/${repo}/releases/download/${tag}/ezd6-reforged.zip`;
+          data.url = `https://github.com/${repo}`;
+          fs.writeFileSync(file, JSON.stringify(data, null, 2) + "\n");
+          NODE
 
       - name: Package
         run: |

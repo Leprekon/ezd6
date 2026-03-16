@@ -1352,6 +1352,7 @@ export class CharacterSheetView {
         if (this.canShowReplenishButton(resource, replenishState, diceCount, currentValue)) {
             slot.classList.add("has-replenish");
             const target = replenishState.target;
+            if (!target) return;
             const cost = this.getResourceReplenishCost(resource);
             const targetTag = this.getResourceTag(target);
             const targetIcon = this.getResourceIcon(target);
@@ -2148,7 +2149,12 @@ export class CharacterSheetView {
 
     private async showPowerRollDialog(dialogue: string): Promise<number | null> {
         return await new Promise<number | null>((resolve) => {
-            const dialog = new Dialog({
+            const DialogClass = (globalThis as any).Dialog;
+            if (!DialogClass) {
+                resolve(null);
+                return;
+            }
+            const dialog = new DialogClass({
                 title: t("EZD6.Dialogs.PowerRollTitle", "Power Roll"),
                 content: `<div class="ezd6-power-roll-dialogue"></div>`,
                 buttons: {},

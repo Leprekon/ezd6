@@ -216,12 +216,12 @@ export class DescriptionEditorController {
         return false;
     }
 
-    private trimTrailingEmptyDescription(html: string) {
+    private trimTrailingEmptyDescription(html: string): string {
         if (!html) return "";
         const container = document.createElement("div");
         container.innerHTML = html;
 
-        const isEmptyElement = (el: Element) => {
+        const isEmptyElement = (el: Element): boolean => {
             const hasMedia = el.querySelector("img, video, iframe, object, embed");
             if (hasMedia) return false;
             const text = el.textContent?.replace(/\u00a0/g, " ").trim() ?? "";
