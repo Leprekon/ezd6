@@ -12,6 +12,14 @@ type ResourceDisplay = {
 };
 
 const MAX_PLAYER_ICONS = 5;
+const PLAYER_ACTIVE_ROOT_SELECTOR = "#players-active";
+const PLAYER_INACTIVE_ROOT_SELECTOR = "#players-inactive";
+const PLAYER_LIST_SELECTOR = ".players-list";
+const PLAYER_ENTRY_SELECTOR = "li.player, li[data-user-id], li[data-user]";
+const PLAYER_STATS_SELECTOR = "#players-active #performance-stats";
+const HOTBAR_SELECTOR = "#hotbar";
+const ACTION_BAR_SELECTOR = "#action-bar";
+const BOTTOM_BAR_SELECTORS = "#ui-bottom .action-bar, #ui-bottom .hotbar";
 
 const resolveLocalizedText = (localizationId: string | null | undefined, suffix: string, fallback: string) =>
     resolveLocalizedField(localizationId, suffix, fallback).value;
@@ -54,17 +62,77 @@ const getResourceKey = (resource: any, title: string): string => {
     return `title:${title.toLowerCase()}`;
 };
 
-const getPlayerListRoot = (root: HTMLElement): HTMLElement | null => {
-    if (!root) return null;
-    if (root.matches?.("ol#players, ol.players, .players-list, #players")) return root;
-    return root.querySelector("ol#players, ol.players, .players-list, #players") as HTMLElement | null;
+const getPlayerLists = (): HTMLElement[] => {
+    const scoped = Array.from(document.querySelectorAll(
+        `${PLAYER_ACTIVE_ROOT_SELECTOR} ${PLAYER_LIST_SELECTOR}, ${PLAYER_INACTIVE_ROOT_SELECTOR} ${PLAYER_LIST_SELECTOR}`
+    )) as HTMLElement[];
+    if (scoped.length) return scoped;
+    return Array.from(document.querySelectorAll(PLAYER_LIST_SELECTOR)) as HTMLElement[];
 };
 
-const updatePlayersPanelWidth = (list: HTMLElement) => {
-    const panel = list.closest("#players") as HTMLElement | null;
-    if (!panel) return;
-    const width = panel.offsetWidth || list.scrollWidth;
-    document.documentElement.style.setProperty("--ezd6-players-width", `${width}px`);
+const parseTranslateX = (value: string): number => {
+    const match = value.match(/translateX\((-?\d+(?:\.\d+)?)px\)/);
+    if (!match) return 0;
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const applyBottomBarOffset = (rightMost: number) => {
+    const offset = Math.max(30, rightMost + 12);
+    const hotbar = document.querySelector(HOTBAR_SELECTOR) as HTMLElement | null;
+    const actionBar = document.querySelector(ACTION_BAR_SELECTOR) as HTMLElement | null;
+    const standaloneBars = Array.from(document.querySelectorAll(BOTTOM_BAR_SELECTORS)) as HTMLElement[];
+
+    const bars = new Set<HTMLElement>();
+    if (hotbar) bars.add(hotbar);
+    if (actionBar && (!hotbar || !hotbar.contains(actionBar))) bars.add(actionBar);
+    standaloneBars.forEach((bar) => {
+        if (!hotbar || !hotbar.contains(bar)) bars.add(bar);
+    });
+
+    const rightSidebar = (document.querySelector("#sidebar") ?? document.querySelector("#ui-right")) as HTMLElement | null;
+    const rightSidebarRect = rightSidebar?.getBoundingClientRect();
+    const rightLimit = rightSidebarRect && rightSidebarRect.width > 0 ? Math.floor(rightSidebarRect.left) - 12 : null;
+
+    bars.forEach((bar) => {
+        const rect = bar.getBoundingClientRect();
+        const currentTranslate = parseTranslateX(bar.style.transform || "");
+        const baseLeft = rect.left - currentTranslate;
+        const maxLeft = rightLimit == null ? Infinity : Math.max(0, rightLimit - Math.ceil(rect.width));
+        const targetLeft = Math.min(offset, maxLeft);
+        const delta = Math.max(0, Math.ceil(targetLeft - baseLeft));
+        const targetTransform = delta > 0 ? `translateX(${delta}px)` : "none";
+        bar.style.setProperty("left", "auto", "important");
+        bar.style.setProperty("right", "auto", "important");
+        if (bar.style.transform !== targetTransform) {
+            bar.style.setProperty("transform", targetTransform, "important");
+        }
+    });
+
+    if (hotbar && actionBar && hotbar.contains(actionBar)) {
+        actionBar.style.setProperty("left", "auto", "important");
+        actionBar.style.setProperty("right", "auto", "important");
+        actionBar.style.setProperty("transform", "none", "important");
+    }
+};
+
+const updatePlayersUiMetrics = () => {
+    const panels = Array.from(document.querySelectorAll(
+        `${PLAYER_ACTIVE_ROOT_SELECTOR}, ${PLAYER_INACTIVE_ROOT_SELECTOR}`
+    )) as HTMLElement[];
+    if (!panels.length) {
+        document.documentElement.style.removeProperty("--ezd6-players-right");
+        applyBottomBarOffset(0);
+        return;
+    }
+    const { rightMost } = panels.reduce((metrics, panel) => {
+        const rect = panel.getBoundingClientRect();
+        return {
+            rightMost: Math.max(metrics.rightMost, Math.ceil(rect.right)),
+        };
+    }, { rightMost: 0 });
+    document.documentElement.style.setProperty("--ezd6-players-right", `${rightMost}px`);
+    applyBottomBarOffset(rightMost);
 };
 
 const getUserIdFromPlayer = (node: HTMLElement): string => {
@@ -75,58 +143,51 @@ const getUserIdFromPlayer = (node: HTMLElement): string => {
         ?? "";
 };
 
-const getPlayerListHeader = (list: HTMLElement): HTMLElement | null => {
-    const panel = list.closest("#players") as HTMLElement | null;
-    if (!panel) return null;
-    return (panel.querySelector(".directory-header")
-        ?? panel.querySelector(".header")
-        ?? panel.querySelector("header")
-        ?? panel) as HTMLElement | null;
-};
+const getPlayerStatsBar = (): HTMLElement | null =>
+    document.querySelector(PLAYER_STATS_SELECTOR) as HTMLElement | null;
 
 let playerStreamMode = false;
 
-const getPlayersPanelRoot = (root: HTMLElement): HTMLElement | null => {
-    if (!root) return null;
-    if (root.matches?.("#players")) return root;
-    return root.querySelector("#players") as HTMLElement | null;
-};
-
-const setPlayersStreamMode = (panel: HTMLElement | null, enabled: boolean) => {
+const setPlayersStreamMode = (enabled: boolean) => {
     playerStreamMode = enabled;
-    if (panel) panel.classList.toggle("ezd6-players-stream-mode", enabled);
+    const active = document.querySelector(PLAYER_ACTIVE_ROOT_SELECTOR) as HTMLElement | null;
+    if (active) active.classList.toggle("ezd6-players-stream-mode", enabled);
+    const inactive = document.querySelector(PLAYER_INACTIVE_ROOT_SELECTOR) as HTMLElement | null;
+    if (inactive) inactive.classList.toggle("ezd6-players-stream-mode", enabled);
+    document.documentElement.classList.toggle("ezd6-players-stream-mode", enabled);
+    document.body?.classList?.toggle("ezd6-players-stream-mode", enabled);
+    const toggle = document.querySelector(`${PLAYER_ACTIVE_ROOT_SELECTOR} .ezd6-player-stream-toggle`) as HTMLButtonElement | null;
+    if (toggle) {
+        toggle.classList.toggle("is-enabled", enabled);
+        toggle.setAttribute("aria-pressed", enabled ? "true" : "false");
+    }
 };
 
-const ensurePlayerStreamToggle = (list: HTMLElement) => {
-    const header = getPlayerListHeader(list);
-    if (!header) return;
-    const titleRow = header.querySelector("h3") as HTMLElement | null;
-    if (!titleRow) return;
-    const existingBtn = titleRow.querySelector(".ezd6-player-resources-btn") as HTMLButtonElement | null;
-    if (existingBtn) existingBtn.remove();
-    let toggle = titleRow.querySelector(".ezd6-player-stream-toggle") as HTMLLabelElement | null;
+const ensurePlayerStreamToggle = () => {
+    const stats = getPlayerStatsBar();
+    if (!stats) return;
+    let toggle = stats.querySelector(".ezd6-player-stream-toggle") as HTMLButtonElement | null;
     if (!toggle) {
-        toggle = document.createElement("label");
+        toggle = document.createElement("button");
+        toggle.type = "button";
         toggle.className = "ezd6-player-stream-toggle";
         toggle.addEventListener("mousedown", (event) => event.stopPropagation());
         toggle.addEventListener("click", (event) => event.stopPropagation());
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.className = "ezd6-player-stream-checkbox";
-        checkbox.addEventListener("mousedown", (event) => event.stopPropagation());
-        checkbox.addEventListener("click", (event) => event.stopPropagation());
-        const text = document.createElement("span");
-        text.textContent = localize("EZD6.Actions.StreamMode", "Stream mode");
-        checkbox.checked = playerStreamMode;
-        checkbox.addEventListener("change", () => {
-            const panel = list.closest("#players") as HTMLElement | null;
-            setPlayersStreamMode(panel, checkbox.checked);
+        toggle.textContent = localize("EZD6.Actions.StreamMode", "Stream mode");
+        toggle.classList.toggle("is-enabled", playerStreamMode);
+        toggle.setAttribute("aria-pressed", playerStreamMode ? "true" : "false");
+        toggle.addEventListener("click", () => {
+            setPlayersStreamMode(!playerStreamMode);
         });
-        toggle.append(checkbox, text);
-        titleRow.appendChild(toggle);
+        const expandButton = stats.querySelector("#players-expand");
+        if (expandButton?.parentElement === stats) {
+            stats.insertBefore(toggle, expandButton);
+        } else {
+            stats.appendChild(toggle);
+        }
     } else {
-        const checkbox = toggle.querySelector("input") as HTMLInputElement | null;
-        if (checkbox) checkbox.checked = playerStreamMode;
+        toggle.classList.toggle("is-enabled", playerStreamMode);
+        toggle.setAttribute("aria-pressed", playerStreamMode ? "true" : "false");
     }
 };
 
@@ -210,41 +271,47 @@ const renderPlayerResourcesRow = (
 const renderPlayerResources = (html: HTMLElement | JQuery<HTMLElement>) => {
     const root = (html as any)?.[0] ?? html;
     if (!root) return;
-    const panel = getPlayersPanelRoot(root as HTMLElement);
-    setPlayersStreamMode(panel, playerStreamMode);
-    const list = getPlayerListRoot(root);
-    if (!list) return;
+    setPlayersStreamMode(playerStreamMode);
+    const lists = getPlayerLists();
+    ensurePlayerStreamToggle();
 
-    list.querySelectorAll(".ezd6-player-resources").forEach((node) => node.remove());
-    list.style.removeProperty("--ezd6-player-res-columns");
-    list.classList.add("ezd6-player-resources-list");
+    lists.forEach((list) => {
+        list.querySelectorAll(".ezd6-player-resources").forEach((node) => node.remove());
+        list.style.removeProperty("--ezd6-player-res-columns");
+        list.classList.add("ezd6-player-resources-list");
 
-    const players = Array.from(list.querySelectorAll("li.player, li[data-user-id], li[data-user]")) as HTMLElement[];
-    const columnKeys: string[] = [];
-    const columnSet = new Set<string>();
-    const playerEntries: Array<{ node: HTMLElement; resources: Map<string, ResourceDisplay> }> = [];
-    ensurePlayerStreamToggle(list);
+        const players = Array.from(list.querySelectorAll(PLAYER_ENTRY_SELECTOR)) as HTMLElement[];
+        const maxNameWidth = players.reduce((maxWidth, player) => {
+            const name = player.querySelector(".player-name") as HTMLElement | null;
+            if (!name) return maxWidth;
+            return Math.max(maxWidth, Math.ceil(name.getBoundingClientRect().width));
+        }, 0);
+        if (maxNameWidth > 0) {
+            list.style.setProperty("--ezd6-player-name-width", `${maxNameWidth}px`);
+        } else {
+            list.style.removeProperty("--ezd6-player-name-width");
+        }
+        const columnKeys: string[] = [];
+        const columnSet = new Set<string>();
+        const playerEntries: Array<{ node: HTMLElement; resources: Map<string, ResourceDisplay> }> = [];
 
-    players.forEach((player) => {
-        const userId = getUserIdFromPlayer(player);
-        const user = userId ? game?.users?.get?.(userId) : null;
-        const actor = getActorForUser(user);
-        if (!actor) return;
-        const resourceMap = buildPlayerResourceMap(actor, columnKeys, columnSet);
-        playerEntries.push({ node: player, resources: resourceMap });
+        players.forEach((player) => {
+            const userId = getUserIdFromPlayer(player);
+            const user = userId ? game?.users?.get?.(userId) : null;
+            const actor = getActorForUser(user);
+            if (!actor) return;
+            const resourceMap = buildPlayerResourceMap(actor, columnKeys, columnSet);
+            playerEntries.push({ node: player, resources: resourceMap });
+        });
+
+        if (!columnKeys.length) return;
+        list.style.setProperty("--ezd6-player-res-columns", String(columnKeys.length));
+
+        playerEntries.forEach(({ node, resources }) => {
+            renderPlayerResourcesRow(node, columnKeys, resources);
+        });
     });
-
-    if (!columnKeys.length) {
-        updatePlayersPanelWidth(list);
-        return;
-    }
-    list.style.setProperty("--ezd6-player-res-columns", String(columnKeys.length));
-
-    playerEntries.forEach(({ node, resources }) => {
-        renderPlayerResourcesRow(node, columnKeys, resources);
-    });
-
-    updatePlayersPanelWidth(list);
+    updatePlayersUiMetrics();
 };
 
 export const registerPlayerResourceDisplay = () => {
@@ -252,20 +319,72 @@ export const registerPlayerResourceDisplay = () => {
     const scheduleRender = typeof debounce === "function"
         ? debounce(() => ui?.players?.render?.(false), 100)
         : () => ui?.players?.render?.(false);
+    const scheduleDomRender = typeof debounce === "function"
+        ? debounce(() => {
+            const list = document.querySelector(`${PLAYER_ACTIVE_ROOT_SELECTOR} ${PLAYER_LIST_SELECTOR}`) as HTMLElement | null;
+            if (list) renderPlayerResources(list);
+            else updatePlayersUiMetrics();
+        }, 100)
+        : () => {
+            const list = document.querySelector(`${PLAYER_ACTIVE_ROOT_SELECTOR} ${PLAYER_LIST_SELECTOR}`) as HTMLElement | null;
+            if (list) renderPlayerResources(list);
+            else updatePlayersUiMetrics();
+        };
+    let observersInitialized = false;
 
-    Hooks.on("renderPlayerList", (_app: any, html: JQuery<HTMLElement> | HTMLElement) => {
+    const initLayoutObservers = () => {
+        if (observersInitialized) return;
+        observersInitialized = true;
+        if (typeof ResizeObserver === "function") {
+            const resizeObserver = new ResizeObserver(() => scheduleDomRender());
+            const watchNodes = Array.from(document.querySelectorAll(
+                `${PLAYER_ACTIVE_ROOT_SELECTOR}, ${PLAYER_INACTIVE_ROOT_SELECTOR}, ${HOTBAR_SELECTOR}, ${ACTION_BAR_SELECTOR}, #ui-bottom, #sidebar`
+            )) as HTMLElement[];
+            watchNodes.forEach((node) => resizeObserver.observe(node));
+        }
+        if (typeof MutationObserver === "function") {
+            const mutationObserver = new MutationObserver(() => scheduleDomRender());
+            const root = document.querySelector("#ui-right, #sidebar, body") as HTMLElement | null;
+            if (root) {
+                mutationObserver.observe(root, {
+                    attributes: true,
+                    childList: true,
+                    subtree: true,
+                    attributeFilter: ["class", "style"],
+                });
+            }
+        }
+    };
+
+    const onRenderPlayers = (_app: any, html: JQuery<HTMLElement> | HTMLElement) => {
         renderPlayerResources(html);
+    };
+
+    Hooks.on("renderPlayerList", onRenderPlayers);
+    Hooks.on("renderPlayers", onRenderPlayers);
+    Hooks.on("renderSidebarTab", (app: any, html: JQuery<HTMLElement> | HTMLElement) => {
+        const tabName = app?.tabName ?? app?.id ?? app?.options?.id ?? "";
+        if (tabName !== "players") return;
+        renderPlayerResources(html);
+    });
+    Hooks.on("ready", () => {
+        scheduleRender();
+        scheduleDomRender();
+        initLayoutObservers();
+        window.addEventListener("resize", scheduleDomRender);
     });
 
     Hooks.on("updateActor", (actor: any, diff: any) => {
         if (!diff?.system?.resources) return;
         if (!isActorLinkedToUser(actor)) return;
         scheduleRender();
+        scheduleDomRender();
     });
 
     Hooks.on("updateUser", (_user: any, diff: any) => {
         if (diff?.character != null || diff?.characterId != null) {
             scheduleRender();
+            scheduleDomRender();
         }
     });
 };
