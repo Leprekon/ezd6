@@ -166,17 +166,17 @@ export function registerResourceChangeChatHooks() {
         recordItemResourceSnapshot(actor);
     });
 
-    Hooks.on("renderChatMessage", (_message: any, html: JQuery<HTMLElement> | HTMLElement, msgData: any) => {
+    Hooks.on("renderChatMessageHTML", (_message: any, html: HTMLElement, msgData: any) => {
         const msg = resolveChatMessage(msgData?.message ?? _message);
         if (!msg?.flags?.[RESOURCE_CHANGE_FLAG]) return;
-        const root = (html as any)[0] ?? html;
-        applyChatHeaderEnhancements(root as HTMLElement, {
+        const root = html as HTMLElement;
+        applyChatHeaderEnhancements(root, {
             actor: getChatMessageActor(msg),
             speaker: msg?.speaker ?? msg?.data?.speaker,
             userName: msg?.author?.name ?? null,
             moveMeta: false,
         });
-        requestAnimationFrame(() => applyResourceChangeCounters(root as HTMLElement));
+        requestAnimationFrame(() => applyResourceChangeCounters(root));
     });
 
     Hooks.on("updateActor", (actor: any, diff: any, _options: any, userId: string) => {

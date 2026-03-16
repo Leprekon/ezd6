@@ -877,7 +877,6 @@ function buildController(msg: any, initialState?: EZD6State) {
         if (!root) return false;
         const container = root.querySelector('.ezd6-container') as HTMLElement | null;
         if (!container) return false;
-        const $root = jQuery(container);
 
         hydrateStateFromFlags();
         refreshParsedState();
@@ -887,8 +886,20 @@ function buildController(msg: any, initialState?: EZD6State) {
             return true;
         }
 
-        $root.find('.ezd6-buff-btn').off('click').on('click', async (ev: any) => {
-            ev.preventDefault();
+        const bindClick = (
+            selector: string,
+            handler: (ev: MouseEvent) => Promise<void> | void
+        ) => {
+            const nodes = container.querySelectorAll(selector) as NodeListOf<HTMLButtonElement>;
+            nodes.forEach((node) => {
+                node.onclick = (ev) => {
+                    ev.preventDefault();
+                    void handler(ev as MouseEvent);
+                };
+            });
+        };
+
+        bindClick(".ezd6-buff-btn", async () => {
             try {
                 const diceChangeState = getDiceChangeState(actor);
                 if (diceChangeState.match?.mode === "karma") {
@@ -913,11 +924,11 @@ function buildController(msg: any, initialState?: EZD6State) {
             }
         });
 
-        $root.find('.ezd6-confirm-btn').off('click').on('click', async (ev: any) => {
-            ev.preventDefault();
+        bindClick(".ezd6-confirm-btn", async () => {
             try {
                 const confRoll = await (new Roll('1d6')).evaluate();
-                const v = confRoll.total;
+                const v = Number(confRoll.total);
+                if (!Number.isFinite(v)) return;
                 pushNewConfirmedValue(v);
 
                 refreshParsedState();
@@ -929,8 +940,7 @@ function buildController(msg: any, initialState?: EZD6State) {
             }
         });
 
-        $root.find('.ezd6-burn1-btn').off('click').on('click', async (ev: any) => {
-            ev.preventDefault();
+        bindClick(".ezd6-burn1-btn", async () => {
             try {
                 const healthResource = actor ? findHealthResource(actor) : null;
                 if (healthResource) {
@@ -1075,8 +1085,7 @@ export function registerChatMessageHooks() {
             // Always prune any duplicate DOM nodes that may already exist for this message.
             setTimeout(() => removeDuplicateMessageElements(msgId, null, document), 0);
 
-            const isAuthor = resolved?.author?.id === game.user?.id;
-            if (!isAuthor) {
+            if (resolved?.author?.id !== game.user?.id) {
                 return;
             }
 
@@ -1101,7 +1110,7 @@ export function registerChatMessageHooks() {
 
             removeDuplicateMessageElements(resolved.id, null, document);
 
-            const forceDomOnly = !isAuthor || (alreadyProcessed && !canModify);
+            const forceDomOnly = alreadyProcessed && !canModify;
 
             await controller.persistAndRender({ canModify, forceDomOnly });
             scrollChatToBottomSoon();
@@ -1123,28 +1132,19 @@ export function registerChatMessageHooks() {
 
             bindHandlersIfReady();
 
-            const chatLog = document.querySelector('#chat-log');
-            if (chatLog) {
-                const observer = new MutationObserver(() => { bindHandlersIfReady(); });
-                observer.observe(chatLog, { childList: true, subtree: true });
-            }
-
         } catch (err) {
             console.error('EZD6 createChatMessage failed:', err);
         }
     });
 
-    Hooks.on("renderChatMessage", (_message: any, html: JQuery<HTMLElement> | HTMLElement, msgData: any) => {
+    Hooks.on("renderChatMessageHTML", async (_message: any, html: HTMLElement, msgData: any) => {
         try {
             const msg = resolveChatMessage(msgData?.message ?? _message);
             if (!msg) return;
 
             // Ensure only one DOM node exists for the chat message regardless of processing state,
             // preferring the element just rendered by Foundry.
-            const renderedRoot = (html as any)[0] ?? html;
-            removeDuplicateMessageElements(msg.id, renderedRoot as HTMLElement | null);
-
-            if (!msg.flags?.ezd6Processed) return;
+            removeDuplicateMessageElements(msg.id, html as HTMLElement | null);
 
             const canModify = canCurrentUserModifyMessage(msg);
             const msgMeta = msg?.flags?.[EZD6_META_FLAG];
@@ -1154,19 +1154,23 @@ export function registerChatMessageHooks() {
             const controller = infoRenderer ?? buildController(msg);
             if (!controller) return;
 
-            const root = (html as any)[0] ?? html;
-            controller.persistAndRender({ forceDomOnly: true, canModify, targetRoot: root });
+            const root = html as HTMLElement;
+            await controller.persistAndRender({
+                forceDomOnly: true,
+                canModify,
+                targetRoot: root
+            });
             controller.bindHandlers(root, canModify);
-            applyChatHeaderEnhancements(root as HTMLElement, {
+            applyChatHeaderEnhancements(root, {
                 actor: getChatMessageActor(msg),
                 speaker: msg?.speaker ?? msg?.data?.speaker,
                 userName: msg?.author?.name ?? null,
                 moveMeta: true,
             });
-            stripChatMessageFlavor(root as HTMLElement);
-            applyInfoResourceCounters(root as HTMLElement);
+            stripChatMessageFlavor(root);
+            applyInfoResourceCounters(root);
         } catch (err) {
-            console.error('EZD6 renderChatMessage failed:', err);
+            console.error('EZD6 renderChatMessageHTML failed:', err);
         }
     });
 

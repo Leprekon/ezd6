@@ -1,164 +1,360 @@
-import { buildRollMeta, EZD6_META_FLAG } from "./chat-meta";
 import { getDieImagePath } from "../ezd6-core";
-import { localize } from "../ui/i18n";
 
-const t = (key: string, fallback: string) => localize(key, fallback);
-
-type DieKind = "grey" | "green" | "red";
-
-const TASK_ROLLS = [
-    {
-        id: "double-bane",
-        labelKey: "EZD6.Tasks.DoubleBane",
-        labelFallback: "Double bane",
-        formula: "3d6kl",
-        dice: ["red", "red", "grey"] as const,
-    },
-    {
-        id: "single-bane",
-        labelKey: "EZD6.Tasks.SingleBane",
-        labelFallback: "Single bane",
-        formula: "2d6kl",
-        dice: ["red", "grey"] as const,
-    },
-    {
-        id: "normal",
-        labelKey: "EZD6.Tasks.NormalRoll",
-        labelFallback: "Normal roll",
-        formula: "1d6",
-        dice: ["grey"] as const,
-    },
-    {
-        id: "single-boon",
-        labelKey: "EZD6.Tasks.SingleBoon",
-        labelFallback: "Single boon",
-        formula: "2d6kh",
-        dice: ["grey", "green"] as const,
-    },
-    {
-        id: "double-boon",
-        labelKey: "EZD6.Tasks.DoubleBoon",
-        labelFallback: "Double boon",
-        formula: "3d6kh",
-        dice: ["grey", "green", "green"] as const,
-    },
-    {
-        id: "triple-bane",
-        labelKey: "EZD6.Tasks.TripleBane",
-        labelFallback: "Triple bane",
-        formula: "4d6kl",
-        dice: ["red", "red", "red", "grey"] as const,
-    },
-    {
-        id: "triple-boon",
-        labelKey: "EZD6.Tasks.TripleBoon",
-        labelFallback: "Triple boon",
-        formula: "4d6kh",
-        dice: ["grey", "green", "green", "green"] as const,
-    },
+const TAG_OPTIONS = [
+    "#default",
+    "#magick",
+    "#target5",
+    "#target4",
+    "#target3",
+    "#anythingBut1",
 ] as const;
 
-const TASK_GRID: Array<{
-    id: (typeof TASK_ROLLS)[number]["id"];
-    position: "left-top" | "left-bottom" | "center" | "right-top" | "right-bottom";
-}> = [
-    { id: "single-bane", position: "left-top" },
-    { id: "normal", position: "center" },
-    { id: "single-boon", position: "right-top" },
-    { id: "double-bane", position: "left-bottom" },
-    { id: "double-boon", position: "right-bottom" },
-];
+const DEFAULT_TAG = "#default";
+const ROLL_HEAD_PATTERN = /^\s*\/r(?:oll)?\s+(.+?)\s*$/i;
+const DICE_TOKEN_PATTERN = /^(\d+)d6(?:(kh|kl))?$/i;
+const MODE_TOKEN_PATTERN = /^(kh|kl)$/i;
+const TAG_TOKEN_PATTERN = /^#[a-z0-9_-]+$/i;
 
-const taskMap = TASK_ROLLS.reduce((acc, task) => {
-    acc[task.id] = task;
-    return acc;
-}, {} as Record<(typeof TASK_ROLLS)[number]["id"], (typeof TASK_ROLLS)[number]>);
+type RollMode = "kh" | "kl";
+type InputEl = HTMLInputElement | HTMLTextAreaElement;
+type ThemeMode = "light" | "dark";
 
-const createDiceStack = (doc: Document, kinds: DieKind[], className = "ezd6-dice-stack") => {
-    const diceRow = doc.createElement("span");
-    diceRow.className = className;
-    kinds.forEach((kind) => {
-        const dieImg = doc.createElement("img");
-        dieImg.className = "ezd6-die-icon";
-        dieImg.alt = `${kind} d6`;
-        dieImg.src = getDieImagePath(6, kind);
-        dieImg.draggable = false;
-        diceRow.appendChild(dieImg);
-    });
-    return diceRow;
+type ParsedRoll = {
+    dice: number;
+    mode: RollMode | null;
+    tag: string | null;
 };
 
-const createRollButton = (
-    doc: Document,
-    options: {
-        className: string;
-        title: string;
-        kinds: DieKind[];
-        onClick: (event: MouseEvent) => void | Promise<void>;
-    }
-) => {
-    const btn = doc.createElement("button");
-    btn.type = "button";
-    btn.className = options.className;
-    btn.title = options.title;
-    btn.dataset.ezd6IntentDisabled = "0";
-    btn.append(createDiceStack(doc, options.kinds));
-    btn.addEventListener("click", (event) => options.onClick(event));
-    return btn;
-};
-
-function buildChatRoller(doc: Document): HTMLElement {
-    const wrap = doc.createElement("div");
-    wrap.className = "ezd6-chat-roller";
-    TASK_GRID.forEach(({ id, position }) => {
-        const task = taskMap[id];
-        const label = t(task.labelKey, task.labelFallback);
-        const btn = createRollButton(doc, {
-            className: `ezd6-task-btn ezd6-chat-task-btn ezd6-chat-task-btn--${position}`,
-            title: `${label} (${task.formula})`,
-            kinds: [...task.dice],
-            onClick: async (event) => {
-                event.preventDefault();
-                try {
-                    const roll = new Roll(task.formula, {});
-                    await roll.evaluate();
-                    await roll.toMessage({
-                        flavor: `${label} #task`,
-                        speaker: ChatMessage.getSpeaker?.(),
-                        flags: {
-                            [EZD6_META_FLAG]: buildRollMeta({
-                                title: label,
-                                description: "",
-                                tag: "#task",
-                            }),
-                        },
-                    });
-                } catch (err) {
-                    console.error("EZD6 chat roll failed", err);
-                }
-            },
-        });
-        wrap.appendChild(btn);
-    });
-    return wrap;
+function normalizeTag(tag: string | null | undefined): string {
+    if (!tag) return DEFAULT_TAG;
+    const normalized = tag.trim().toLowerCase();
+    const match = TAG_OPTIONS.find((entry) => entry.toLowerCase() === normalized);
+    return match ?? DEFAULT_TAG;
 }
 
-function injectChatRoller(root: HTMLElement | null) {
-    if (!root) return;
-    const chatForm = root.querySelector("#chat-form") as HTMLFormElement | null;
-    if (!chatForm) return;
-    if (chatForm.querySelector(".ezd6-chat-roller")) return;
-    chatForm.appendChild(buildChatRoller(root.ownerDocument ?? document));
+function parseRollMessage(raw: string): ParsedRoll | null {
+    const head = raw.match(ROLL_HEAD_PATTERN);
+    if (!head) return null;
+    const tokens = head[1].trim().split(/\s+/).filter(Boolean);
+    if (!tokens.length) return null;
+
+    const first = tokens[0].match(DICE_TOKEN_PATTERN);
+    if (!first) return null;
+
+    const dice = Number.parseInt(first[1], 10);
+    if (!Number.isFinite(dice) || dice < 1) return null;
+
+    let mode: RollMode | null = first[2]?.toLowerCase() === "kl"
+        ? "kl"
+        : first[2]?.toLowerCase() === "kh"
+            ? "kh"
+            : null;
+    let tag: string | null = null;
+
+    for (let i = 1; i < tokens.length; i += 1) {
+        const token = tokens[i];
+        if (!mode && MODE_TOKEN_PATTERN.test(token)) {
+            mode = token.toLowerCase() as RollMode;
+            continue;
+        }
+        if (!tag && TAG_TOKEN_PATTERN.test(token)) {
+            tag = normalizeTag(token);
+            continue;
+        }
+        return null;
+    }
+
+    return { dice, mode, tag };
+}
+
+function buildRollMessage(dice: number, tag: string, mode?: RollMode | null): string {
+    const safeDice = Math.max(1, Math.floor(dice));
+    const suffix = mode ?? "";
+    return `/r ${safeDice}d6${suffix} ${normalizeTag(tag)}`;
+}
+
+function setInputValue(input: InputEl, value: string) {
+    input.value = value;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function getMessageInputs(scope: ParentNode): InputEl[] {
+    const selectors = ["#chat-message", 'textarea[name="content"]', 'input[name="content"]'];
+    const unique = new Set<InputEl>();
+    selectors.forEach((selector) => {
+        const nodes = scope.querySelectorAll(selector);
+        nodes.forEach((node) => unique.add(node as InputEl));
+    });
+    return Array.from(unique);
+}
+
+async function processChatCommand(command: string): Promise<boolean> {
+    const chat = (ui as any)?.chat;
+    if (!chat?.processMessage) return false;
+    try {
+        await chat.processMessage(command);
+        return true;
+    } catch (err) {
+        console.error("EZD6 chat roll failed", err);
+        return false;
+    }
+}
+
+function parseRgb(value: string): { r: number; g: number; b: number } | null {
+    const match = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (!match) return null;
+    return {
+        r: Number.parseInt(match[1], 10),
+        g: Number.parseInt(match[2], 10),
+        b: Number.parseInt(match[3], 10),
+    };
+}
+
+function luminance(rgb: { r: number; g: number; b: number }): number {
+    return (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+}
+
+function getThemeFromDom(doc: Document): ThemeMode {
+    const root = doc.documentElement;
+    const body = doc.body;
+    const classBlob = `${root?.className ?? ""} ${body?.className ?? ""}`.toLowerCase();
+    if (classBlob.includes("theme-light") || classBlob.includes("light-theme")) return "light";
+    if (classBlob.includes("theme-dark") || classBlob.includes("dark-theme")) return "dark";
+    const dataTheme = `${root?.getAttribute("data-theme") ?? body?.getAttribute("data-theme") ?? ""}`.toLowerCase();
+    if (dataTheme.includes("light")) return "light";
+    if (dataTheme.includes("dark")) return "dark";
+    return "dark";
+}
+
+function getThemeFromInput(input: InputEl, fallback: ThemeMode): ThemeMode {
+    const styles = input.ownerDocument.defaultView?.getComputedStyle(input);
+    if (!styles) return fallback;
+    const bg = parseRgb(styles.backgroundColor || "");
+    const fg = parseRgb(styles.color || "");
+    if (bg) return luminance(bg) < 0.5 ? "dark" : "light";
+    if (fg) return luminance(fg) > 0.6 ? "dark" : "light";
+    return fallback;
+}
+
+function applySelectThemeVars(input: InputEl, ...hosts: HTMLElement[]) {
+    const mode = getThemeFromInput(input, getThemeFromDom(input.ownerDocument));
+    const palette = mode === "light"
+        ? { bg: "#f8f6f3", fg: "#1f1f1f", border: "#b8b2aa" }
+        : { bg: "#101010", fg: "#f4f4f4", border: "#3a3a3a" };
+    hosts.forEach((host) => {
+        host.style.setProperty("--ezd6-select-bg", palette.bg);
+        host.style.setProperty("--ezd6-select-fg", palette.fg);
+        host.style.setProperty("--ezd6-select-border", palette.border);
+    });
+}
+
+function createIconButton(doc: Document, title: string, iconClass: string, className = ""): HTMLButtonElement {
+    const button = doc.createElement("button");
+    button.type = "button";
+    button.className = `ui-control icon ezd6-chat-roller-btn ${className}`.trim();
+    button.title = title;
+    button.innerHTML = `<i class="${iconClass}" aria-hidden="true"></i>`;
+    return button;
+}
+
+function createModeButton(doc: Document, title: string, className: string): { button: HTMLButtonElement; stack: HTMLElement } {
+    const button = doc.createElement("button");
+    button.type = "button";
+    button.className = `ui-control ezd6-chat-roller-btn ${className}`;
+    button.title = title;
+    button.setAttribute("aria-label", title);
+
+    const stack = doc.createElement("span");
+    stack.className = "ezd6-chat-roller-mode-stack";
+    button.appendChild(stack);
+    return { button, stack };
+}
+
+function buildChatControls(doc: Document, input: InputEl): { top: HTMLElement; bottom: HTMLElement } {
+    const topWrap = doc.createElement("div");
+    topWrap.className = "ezd6-chat-roller ezd6-chat-roller-top";
+
+    const rowTop = doc.createElement("div");
+    rowTop.className = "ezd6-chat-roller-row";
+    const adjustWrap = doc.createElement("div");
+    adjustWrap.className = "ezd6-chat-roller-dice-adjust";
+
+    const minusButton = createIconButton(doc, "Decrease d6 count", "fa-solid fa-minus");
+    const plusButton = createIconButton(doc, "Increase d6 count", "fa-solid fa-plus");
+    adjustWrap.append(minusButton, plusButton);
+
+    const tagSelect = doc.createElement("select");
+    tagSelect.className = "ezd6-chat-roller-select";
+    TAG_OPTIONS.forEach((tag) => {
+        const option = doc.createElement("option");
+        option.value = tag;
+        option.textContent = tag;
+        tagSelect.appendChild(option);
+    });
+    tagSelect.value = DEFAULT_TAG;
+    rowTop.append(adjustWrap, tagSelect);
+    topWrap.append(rowTop);
+
+    const bottomWrap = doc.createElement("div");
+    bottomWrap.className = "ezd6-chat-roller ezd6-chat-roller-bottom";
+    const rowBottom = doc.createElement("div");
+    rowBottom.className = "ezd6-chat-roller-roll-row";
+
+    const rollButton = createIconButton(doc, "Send Roll", "fa-solid fa-paper-plane", "ezd6-chat-roller-roll");
+    rollButton.setAttribute("aria-label", "Send Roll");
+    const bane = createModeButton(doc, "Bane", "ezd6-chat-roller-bane");
+    const boon = createModeButton(doc, "Boon", "ezd6-chat-roller-boon");
+    rowBottom.append(rollButton, bane.button, boon.button);
+    bottomWrap.append(rowBottom);
+
+    const renderModeDice = (container: HTMLElement, color: "red" | "green", count: number) => {
+        container.replaceChildren();
+        for (let i = 0; i < count; i += 1) {
+            const icon = doc.createElement("img");
+            icon.className = "ezd6-chat-roller-mode-icon";
+            icon.src = getDieImagePath(6, color);
+            icon.alt = color === "red" ? "Bane" : "Boon";
+            icon.draggable = false;
+            container.appendChild(icon);
+        }
+    };
+
+    const updateUiState = () => {
+        applySelectThemeVars(input, topWrap, bottomWrap);
+        const parsed = parseRollMessage(input.value ?? "");
+        minusButton.disabled = !parsed;
+
+        if (parsed?.tag) tagSelect.value = normalizeTag(parsed.tag);
+
+        const showDual = !!parsed && parsed.dice > 1;
+        rollButton.style.display = showDual ? "none" : "";
+        bane.button.style.display = showDual ? "" : "none";
+        boon.button.style.display = showDual ? "" : "none";
+
+        const iconCount = Math.max(1, Math.min(6, parsed?.dice ?? 1));
+        renderModeDice(bane.stack, "red", iconCount);
+        renderModeDice(boon.stack, "green", iconCount);
+    };
+
+    const submitCurrentInput = async (mode?: RollMode) => {
+        const raw = (input.value ?? "").trim();
+        if (!raw) return;
+        const parsed = parseRollMessage(raw);
+        const command = parsed
+            ? buildRollMessage(parsed.dice, parsed.tag ?? tagSelect.value, mode ?? parsed.mode ?? null)
+            : raw;
+
+        const sent = await processChatCommand(command);
+        if (!sent) return;
+        setInputValue(input, "");
+        tagSelect.value = DEFAULT_TAG;
+        updateUiState();
+    };
+
+    plusButton.addEventListener("click", () => {
+        const parsed = parseRollMessage(input.value ?? "");
+        if (!parsed) setInputValue(input, buildRollMessage(1, tagSelect.value));
+        else setInputValue(input, buildRollMessage(parsed.dice + 1, parsed.tag ?? tagSelect.value));
+        updateUiState();
+    });
+
+    minusButton.addEventListener("click", () => {
+        const parsed = parseRollMessage(input.value ?? "");
+        if (!parsed) return;
+        if (parsed.dice <= 1) setInputValue(input, "");
+        else setInputValue(input, buildRollMessage(parsed.dice - 1, parsed.tag ?? tagSelect.value));
+        updateUiState();
+    });
+
+    tagSelect.addEventListener("change", () => {
+        const parsed = parseRollMessage(input.value ?? "");
+        if (!parsed) return;
+        setInputValue(input, buildRollMessage(parsed.dice, tagSelect.value));
+        updateUiState();
+    });
+
+    rollButton.addEventListener("click", () => void submitCurrentInput());
+    bane.button.addEventListener("click", () => void submitCurrentInput("kl"));
+    boon.button.addEventListener("click", () => void submitCurrentInput("kh"));
+    input.addEventListener("input", updateUiState);
+
+    updateUiState();
+    return { top: topWrap, bottom: bottomWrap };
+}
+
+function ensureControlsForInput(input: InputEl) {
+    const form = input.closest("form.chat-form") as HTMLFormElement | null;
+    if (!form) return;
+    const chatControls = form.querySelector("#chat-controls") as HTMLElement | null;
+    if (!chatControls) return;
+
+    const existingTop = form.querySelector(".ezd6-chat-roller-top") as HTMLElement | null;
+    const existingBottom = form.querySelector(".ezd6-chat-roller-bottom") as HTMLElement | null;
+
+    if (existingTop && existingBottom) {
+        if (existingTop.previousElementSibling !== chatControls) {
+            chatControls.insertAdjacentElement("afterend", existingTop);
+        }
+        if (existingBottom.previousElementSibling !== input) {
+            input.insertAdjacentElement("afterend", existingBottom);
+        }
+        applySelectThemeVars(input, existingTop, existingBottom);
+        return;
+    }
+
+    existingTop?.remove();
+    existingBottom?.remove();
+
+    const controls = buildChatControls(input.ownerDocument, input);
+    chatControls.insertAdjacentElement("afterend", controls.top);
+    input.insertAdjacentElement("afterend", controls.bottom);
+}
+
+function injectChatRollers(scope: ParentNode) {
+    getMessageInputs(scope).forEach(ensureControlsForInput);
+}
+
+let observer: MutationObserver | null = null;
+let scheduled = false;
+
+function scheduleInject() {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+        scheduled = false;
+        injectChatRollers(document);
+    });
 }
 
 export function registerChatRollerHooks() {
     Hooks.on("renderChatLog", (_app: any, html: JQuery<HTMLElement> | HTMLElement) => {
         const root = (html as any)[0] ?? html;
-        injectChatRoller(root as HTMLElement);
+        injectChatRollers(root as ParentNode);
     });
 
     Hooks.on("renderChatPopout", (_app: any, html: JQuery<HTMLElement> | HTMLElement) => {
         const root = (html as any)[0] ?? html;
-        injectChatRoller(root as HTMLElement);
+        injectChatRollers(root as ParentNode);
+    });
+
+    Hooks.on("renderSidebarTab", (app: any, html: JQuery<HTMLElement> | HTMLElement) => {
+        const tabName = app?.tabName ?? app?.id ?? "";
+        if (tabName !== "chat") return;
+        const root = (html as any)[0] ?? html;
+        injectChatRollers(root as ParentNode);
+    });
+
+    Hooks.on("ready", () => {
+        injectChatRollers(document);
+        if (!observer && typeof MutationObserver !== "undefined") {
+            observer = new MutationObserver(() => scheduleInject());
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ["class", "style", "data-theme"],
+            });
+        }
     });
 }

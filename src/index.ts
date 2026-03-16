@@ -85,31 +85,33 @@ Hooks.on("preUpdateItem", (_document: any, changes: any) => {
 
 Hooks.once("init", () => {
     const systemId = getSystemId();
-    Actors.registerSheet(systemId, EZD6CharacterSheet, {
+    const actorSheets = (foundry as any).documents?.collections?.Actors ?? Actors;
+    const itemSheets = (foundry as any).documents?.collections?.Items ?? Items;
+    actorSheets.registerSheet(systemId, EZD6CharacterSheet, {
         types: ["character"],
         makeDefault: true,
     });
-    Items.registerSheet(systemId, EZD6AbilityItemSheet, {
+    itemSheets.registerSheet(systemId, EZD6AbilityItemSheet, {
         types: ["ability"],
         makeDefault: true,
     });
-    Items.registerSheet(systemId, EZD6AspectItemSheet, {
+    itemSheets.registerSheet(systemId, EZD6AspectItemSheet, {
         types: ["aspect"],
         makeDefault: true,
     });
-    Items.registerSheet(systemId, EZD6EquipmentItemSheet, {
+    itemSheets.registerSheet(systemId, EZD6EquipmentItemSheet, {
         types: ["equipment"],
         makeDefault: true,
     });
-    Items.registerSheet(systemId, EZD6ResourceItemSheet, {
+    itemSheets.registerSheet(systemId, EZD6ResourceItemSheet, {
         types: ["resource"],
         makeDefault: true,
     });
-    Items.registerSheet(systemId, EZD6SaveItemSheet, {
+    itemSheets.registerSheet(systemId, EZD6SaveItemSheet, {
         types: ["save"],
         makeDefault: true,
     });
-    Items.registerSheet(systemId, EZD6ArchetypeItemSheet, {
+    itemSheets.registerSheet(systemId, EZD6ArchetypeItemSheet, {
         types: ["archetype"],
         makeDefault: true,
     });
