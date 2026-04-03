@@ -6,7 +6,8 @@ import { renderResourceCounter } from "./resource-counter";
 
 type ResourceDisplay = {
     title: string;
-    iconPath: string;
+    availableIconPath: string;
+    spentIconPath: string;
     currentValue: number;
     maxValue: number;
 };
@@ -30,11 +31,13 @@ const getResourceTitle = (resource: any): string => {
     return resolveEntryName(resource?.localizationId, fallbackTitle, resolveLocalizedText);
 };
 
-const getResourceIcon = (resource: any): string => {
-    const icon = typeof resource?.icon === "string" ? resource.icon : "";
-    const iconAvailable = typeof resource?.iconAvailable === "string" ? resource.iconAvailable : "";
-    const iconSpent = typeof resource?.iconSpent === "string" ? resource.iconSpent : "";
-    return icon || iconAvailable || iconSpent || DEFAULT_RESOURCE_ICON;
+const getResourceIcons = (resource: any): { available: string; spent: string } => {
+    const icon = typeof resource?.icon === "string" ? resource.icon.trim() : "";
+    const iconAvailable = typeof resource?.iconAvailable === "string" ? resource.iconAvailable.trim() : "";
+    const iconSpent = typeof resource?.iconSpent === "string" ? resource.iconSpent.trim() : "";
+    const available = icon || iconAvailable || iconSpent || DEFAULT_RESOURCE_ICON;
+    const spent = iconSpent || icon || iconAvailable || DEFAULT_RESOURCE_ICON;
+    return { available, spent };
 };
 
 const getResourceValue = (resource: any): number => {
@@ -209,12 +212,16 @@ const isActorLinkedToUser = (actor: any): boolean => {
     });
 };
 
-const buildResourceDisplay = (resource: any): ResourceDisplay => ({
-    title: getResourceTitle(resource),
-    iconPath: getResourceIcon(resource),
-    currentValue: getResourceValue(resource),
-    maxValue: getResourceMaxValue(resource),
-});
+const buildResourceDisplay = (resource: any): ResourceDisplay => {
+    const icons = getResourceIcons(resource);
+    return {
+        title: getResourceTitle(resource),
+        availableIconPath: icons.available,
+        spentIconPath: icons.spent,
+        currentValue: getResourceValue(resource),
+        maxValue: getResourceMaxValue(resource),
+    };
+};
 
 const buildPlayerResourceMap = (
     actor: any,
@@ -254,7 +261,9 @@ const renderPlayerResourcesRow = (
             counter.className = "ezd6-resource-counter ezd6-player-resource-counter";
             renderResourceCounter(counter, {
                 title: data.title,
-                iconPath: data.iconPath,
+                iconPath: data.availableIconPath,
+                availableIconPath: data.availableIconPath,
+                spentIconPath: data.spentIconPath,
                 currentValue: data.currentValue,
                 maxValue: data.maxValue,
                 maxIcons: MAX_PLAYER_ICONS,

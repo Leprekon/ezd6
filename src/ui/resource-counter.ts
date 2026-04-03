@@ -5,12 +5,16 @@ export function renderResourceCounter(
     options: {
         title: string;
         iconPath: string;
+        availableIconPath?: string;
+        spentIconPath?: string;
         currentValue: number;
         maxValue: number;
         maxIcons?: number;
     }
 ) {
     const { title, iconPath } = options;
+    const availableIconPath = options.availableIconPath || iconPath;
+    const spentIconPath = options.spentIconPath || iconPath;
     const currentValue = Math.max(0, Math.floor(options.currentValue));
     const maxValue = Math.max(0, Math.floor(options.maxValue));
     const maxIcons = Math.max(1, Math.floor(options.maxIcons ?? 6));
@@ -22,7 +26,7 @@ export function renderResourceCounter(
     const appendIcon = (faded: boolean) => {
         const img = document.createElement("img");
         img.className = faded ? "ezd6-resource-icon ezd6-resource-icon--faded" : "ezd6-resource-icon";
-        img.src = iconPath;
+        img.src = faded ? spentIconPath : availableIconPath;
         img.alt = alt;
         img.draggable = false;
         counter.appendChild(img);

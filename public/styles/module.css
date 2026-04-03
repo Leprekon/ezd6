@@ -1925,19 +1925,20 @@
   filter: none !important;
 }
 
-#players-active.ezd6-players-stream-mode *,
-#players-inactive.ezd6-players-stream-mode * {
-  opacity: 1 !important;
-}
-
-.ezd6-players-stream-mode #players,
-.ezd6-players-stream-mode #players-active,
-.ezd6-players-stream-mode #players-inactive,
-.ezd6-players-stream-mode #players *,
-.ezd6-players-stream-mode #players-active *,
-.ezd6-players-stream-mode #players-inactive * {
+.ezd6-players-stream-mode :is(#players, #players-active, #players-inactive) {
   opacity: 1 !important;
   filter: none !important;
+}
+
+.ezd6-players-stream-mode :is(#players, #players-active, #players-inactive) :is(.players-list, li.player, #performance-stats) {
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+.ezd6-players-stream-mode .ezd6-resource-icon--faded,
+.ezd6-players-stream-mode .ezd6-resource-value-icon--faded {
+  filter: grayscale(100%) brightness(1.15) !important;
+  opacity: 0.65 !important;
 }
 
 .ezd6-player-resources-list > li.player {

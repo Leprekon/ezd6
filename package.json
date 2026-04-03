@@ -1,6 +1,6 @@
 {
   "name": "ezd6",
-  "version": "0.2",
+  "version": "0.2.1",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -10,6 +10,7 @@
     "bundle:copy": "node ./scripts/watch.js --once",
     "build": "npm run clean && npm run typecheck && npm run bundle",
     "i18n:update": "node ./scripts/localization-update.js",
+    "release:prepare": "node ./scripts/prepare-release.js",
     "watch": "node ./scripts/watch.js"
   },
   "keywords": [],
