@@ -122,7 +122,7 @@ const downloadExport = async () => {
     const entries = Object.entries(payload).filter(([, map]) => Object.keys(map).length > 0);
     if (!entries.length) return 0;
 
-    const saveData = (foundry as any)?.utils?.saveDataToFile;
+    const saveData = (foundry as any).utils.saveDataToFile;
     let count = 0;
     for (const [packId, map] of entries) {
         const filename = `${packId}.json`;
@@ -144,9 +144,9 @@ const downloadExport = async () => {
 };
 
 export function registerCompendiumExportTool() {
-    Hooks.on("renderCompendiumDirectory", (_app: any, html: any) => {
+    Hooks.on("renderCompendiumDirectory", (_app: any, html: HTMLElement) => {
         try {
-            const root = html?.[0] as HTMLElement | undefined;
+            const root = html;
             if (!root || root.querySelector(".ezd6-compendium-export")) return;
             const button = document.createElement("button");
             button.type = "button";

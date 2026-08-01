@@ -1,88 +1,35 @@
 // src/save-item-sheet.ts
-import { clampDimension } from "./ui/sheet-utils";
-import { format, localize } from "./ui/i18n";
+import { localize } from "./ui/i18n";
 import { applyNativeItemFields } from "./ui/item-editor-utils";
 import { getSystemPath } from "./system-path";
+import { EZD6ItemSheetV2 } from "./sheet/document-sheet-v2";
+import { bindDicePicker, ensureDefaultItemPresentation } from "./ui/item-sheet-controls";
 
 const DEFAULT_SAVE_ICON = "icons/equipment/shield/heater-steel-worn.webp";
-const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
-const mergeObject = (foundry as any)?.utils?.mergeObject as ((...args: any[]) => any) | undefined;
 
-export class EZD6SaveItemSheet extends ItemSheet {
-    static get defaultOptions() {
-        return mergeObject
-            ? mergeObject(super.defaultOptions, {
-                classes: ["ezd6-item-sheet", "ezd6-item-sheet--save"],
-                width: 460,
-                height: 420,
-                minWidth: 460,
-                maxWidth: 660,
-                minHeight: 340,
-                maxHeight: 560,
-                resizable: true,
-                submitOnChange: true,
-                submitOnClose: true,
-            })
-            : {
-                ...super.defaultOptions,
-                classes: ["ezd6-item-sheet", "ezd6-item-sheet--save"],
-                width: 460,
-                height: 420,
-                minWidth: 460,
-                maxWidth: 660,
-                minHeight: 340,
-                maxHeight: 560,
-                resizable: true,
-                submitOnChange: true,
-                submitOnClose: true,
-            };
-    }
+export class EZD6SaveItemSheet extends EZD6ItemSheetV2 {
+    static DEFAULT_OPTIONS = {
+        classes: ["ezd6-item-sheet-wrapper", "ezd6-item-sheet--save", "theme-light"],
+        position: { width: 460, height: 420 },
+        window: { resizable: true },
+        form: { submitOnChange: true, closeOnSubmit: false },
+    };
 
-    get template() {
-        return getSystemPath("templates/save-item-sheet.hbs");
-    }
+    static PARTS = {
+        sheet: { template: getSystemPath("templates/save-item-sheet.hbs"), root: true },
+    };
 
-    setPosition(position: any = {}) {
-        const minWidth = this.options.minWidth as number | undefined;
-        const maxWidth = this.options.maxWidth as number | undefined;
-        const minHeight = this.options.minHeight as number | undefined;
-        const maxHeight = this.options.maxHeight as number | undefined;
-        const width = Number.isFinite(position.width) ? position.width : this.position?.width;
-        const height = Number.isFinite(position.height) ? position.height : this.position?.height;
-
-        return super.setPosition({
-            ...position,
-            width: Number.isFinite(width) ? clampDimension(width, minWidth, maxWidth) : width,
-            height: Number.isFinite(height) ? clampDimension(height, minHeight, maxHeight) : height,
+    async _onRender(context: any, options: any) {
+        await super._onRender(context, options);
+        const root = this.element;
+        const label = localize("EZD6.ItemLabels.Save", "Save");
+        void ensureDefaultItemPresentation(this.item, {
+            label,
+            icon: DEFAULT_SAVE_ICON,
+            legacyNames: ["New Save"],
         });
-    }
-
-    activateListeners(html: any) {
-        super.activateListeners(html);
-        const root = html[0] ?? html;
-        void this.ensureDefaultName();
-        void this.ensureDefaultIcon();
-        this.refreshDicePicker(root);
+        bindDicePicker({ root, item: this.item, selector: ".ezd6-ability-dice-picker", min: 1, max: 6 });
         this.refreshTargetPicker(root);
-
-        const picker = root?.querySelector?.(".ezd6-ability-dice-picker") as HTMLElement | null;
-        if (!picker) return;
-        picker.addEventListener("click", async (event: Event) => {
-            const target = event.target as HTMLElement | null;
-            const btn = target?.closest?.(".ezd6-ability-dice-btn") as HTMLElement | null;
-            if (!btn) return;
-            event.preventDefault();
-
-            const delta = Number(btn.dataset.delta) || 0;
-            const current = Number((this.item as any)?.system?.numberOfDice ?? 1) || 1;
-            const next = Math.min(6, Math.max(1, current + delta));
-            if (next === current) return;
-
-            const formData = this._getSubmitData?.() ?? {};
-            formData["system.numberOfDice"] = next;
-            await this.item.update(formData);
-            this.refreshDicePicker(root, next);
-        });
 
         const targetPicker = root?.querySelector?.(".ezd6-save-target-picker") as HTMLElement | null;
         if (!targetPicker) return;
@@ -97,31 +44,30 @@ export class EZD6SaveItemSheet extends ItemSheet {
             const next = this.clampTarget(current + delta);
             if (next === current) return;
 
-            const formData = this._getSubmitData?.() ?? {};
-            formData["system.targetValue"] = next;
-            await this.item.update(formData);
+            await this.item.update({ "system.targetValue": next }, { render: false });
             this.refreshTargetPicker(root, next);
         });
 
     }
 
-    protected async _updateObject(_event: Event, formData: Record<string, any>) {
-        const rawTarget = Number(formData["system.targetValue"]);
+    _processFormData(event: Event, form: HTMLFormElement, formData: any) {
+        const data = super._processFormData(event, form, formData) as any;
+        const system = data.system ??= {};
+        const rawTarget = Number(system.targetValue);
         const clampedTarget = Number.isFinite(rawTarget)
             ? this.clampTarget(rawTarget)
             : this.clampTarget(1);
-        formData["system.targetValue"] = clampedTarget;
+        system.targetValue = clampedTarget;
 
-        const rawDice = Number(formData["system.numberOfDice"]);
+        const rawDice = Number(system.numberOfDice);
         if (Number.isFinite(rawDice)) {
-            formData["system.numberOfDice"] = Math.max(1, Math.min(6, Math.floor(rawDice)));
+            system.numberOfDice = Math.max(1, Math.min(6, Math.floor(rawDice)));
         }
-
-        await this.item.update(formData);
+        return data;
     }
 
-    getData(options?: any) {
-        const data = super.getData(options) as any;
+    async _prepareContext(options: any) {
+        const data = await super._prepareContext(options) as any;
         const system = data?.item?.system ?? {};
         const localizationId = typeof system.localizationId === "string" ? system.localizationId.trim() : "";
         data.isGM = game?.user?.isGM ?? false;
@@ -135,43 +81,6 @@ export class EZD6SaveItemSheet extends ItemSheet {
             descriptionValue: descFallback,
         });
         return data;
-    }
-
-    private refreshDicePicker(root: HTMLElement, count?: number) {
-        const picker = root?.querySelector?.(".ezd6-ability-dice-picker") as HTMLElement | null;
-        if (!picker) return;
-        const value = typeof count === "number"
-            ? count
-            : Number((this.item as any)?.system?.numberOfDice ?? picker.dataset.count ?? 1) || 1;
-        const clamped = Math.max(1, Math.min(6, Math.floor(value)));
-        picker.dataset.count = String(clamped);
-
-        const stack = picker.querySelector(".ezd6-ability-dice-stack") as HTMLElement | null;
-        if (stack) {
-            stack.innerHTML = "";
-            if (clamped <= 0) {
-                const dash = document.createElement("span");
-                dash.className = "ezd6-ability-dice-empty";
-                dash.textContent = "-";
-                stack.appendChild(dash);
-            } else {
-                for (let i = 0; i < clamped; i++) {
-                    const img = document.createElement("img");
-                    img.className = "ezd6-ability-dice-icon";
-                    img.src = getSystemPath("assets/dice/grey/d6-6.png");
-                    img.alt = "d6";
-                    stack.appendChild(img);
-                }
-            }
-        }
-
-        const input = root?.querySelector?.("input[name='system.numberOfDice']") as HTMLInputElement | null;
-        if (input) input.value = String(clamped);
-
-        const decBtn = picker.querySelector(".ezd6-ability-dice-btn[data-delta='-1']") as HTMLButtonElement | null;
-        const incBtn = picker.querySelector(".ezd6-ability-dice-btn[data-delta='1']") as HTMLButtonElement | null;
-        if (decBtn) decBtn.disabled = clamped <= 1;
-        if (incBtn) incBtn.disabled = clamped >= 6;
     }
 
     private refreshTargetPicker(root: HTMLElement, value?: number) {
@@ -206,20 +115,4 @@ export class EZD6SaveItemSheet extends ItemSheet {
         return String(value);
     }
 
-    private async ensureDefaultName() {
-        const current = this.item?.name ?? "";
-        const label = localize("EZD6.ItemLabels.Save", "Save");
-        const newItem = localize("EZD6.Defaults.NewItem", "New Item");
-        const newTyped = format("EZD6.Defaults.NewItemTyped", { itemLabel: label }, `New ${label}`);
-        if (!current || current === newItem || current === newTyped || current === "New Item" || current === "New Save") {
-            await this.item.update({ name: label });
-        }
-    }
-
-    private async ensureDefaultIcon() {
-        const current = this.item?.img ?? "";
-        if (!current || current === LEGACY_DEFAULT_ICON) {
-            await this.item.update({ img: DEFAULT_SAVE_ICON });
-        }
-    }
 }

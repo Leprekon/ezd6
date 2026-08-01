@@ -277,8 +277,7 @@ const renderPlayerResourcesRow = (
     container.appendChild(row);
 };
 
-const renderPlayerResources = (html: HTMLElement | JQuery<HTMLElement>) => {
-    const root = (html as any)?.[0] ?? html;
+const renderPlayerResources = (root: HTMLElement) => {
     if (!root) return;
     setPlayersStreamMode(playerStreamMode);
     const lists = getPlayerLists();
@@ -324,21 +323,13 @@ const renderPlayerResources = (html: HTMLElement | JQuery<HTMLElement>) => {
 };
 
 export const registerPlayerResourceDisplay = () => {
-    const debounce = (foundry as any)?.utils?.debounce;
-    const scheduleRender = typeof debounce === "function"
-        ? debounce(() => ui?.players?.render?.(false), 100)
-        : () => ui?.players?.render?.(false);
-    const scheduleDomRender = typeof debounce === "function"
-        ? debounce(() => {
+    const debounce = (foundry as any).utils.debounce;
+    const scheduleRender = debounce(() => ui?.players?.render?.({ force: false }), 100);
+    const scheduleDomRender = debounce(() => {
             const list = document.querySelector(`${PLAYER_ACTIVE_ROOT_SELECTOR} ${PLAYER_LIST_SELECTOR}`) as HTMLElement | null;
             if (list) renderPlayerResources(list);
             else updatePlayersUiMetrics();
-        }, 100)
-        : () => {
-            const list = document.querySelector(`${PLAYER_ACTIVE_ROOT_SELECTOR} ${PLAYER_LIST_SELECTOR}`) as HTMLElement | null;
-            if (list) renderPlayerResources(list);
-            else updatePlayersUiMetrics();
-        };
+        }, 100);
     let observersInitialized = false;
 
     const initLayoutObservers = () => {
@@ -365,17 +356,11 @@ export const registerPlayerResourceDisplay = () => {
         }
     };
 
-    const onRenderPlayers = (_app: any, html: JQuery<HTMLElement> | HTMLElement) => {
+    const onRenderPlayers = (_app: any, html: HTMLElement) => {
         renderPlayerResources(html);
     };
 
-    Hooks.on("renderPlayerList", onRenderPlayers);
     Hooks.on("renderPlayers", onRenderPlayers);
-    Hooks.on("renderSidebarTab", (app: any, html: JQuery<HTMLElement> | HTMLElement) => {
-        const tabName = app?.tabName ?? app?.id ?? app?.options?.id ?? "";
-        if (tabName !== "players") return;
-        renderPlayerResources(html);
-    });
     Hooks.on("ready", () => {
         scheduleRender();
         scheduleDomRender();

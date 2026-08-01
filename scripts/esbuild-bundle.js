@@ -27,15 +27,15 @@ function copyDir(src, dest) {
     try {
         await esbuild.build({
             entryPoints: ["./src/index.ts"],
-            outfile: "dist/bundle.js",
+            outfile: "dist/bundle-v14.js",
             bundle: true,
             sourcemap: true,
             platform: "browser",
             format: "esm",
-            target: ["es2019"],
+            target: ["es2022"],
         });
         copyDir("public", "dist");
-        console.log("esbuild: bundle written to dist/bundle.js (assets copied from public/)");
+        console.log("esbuild: bundle written to dist/bundle-v14.js (assets copied from public/)");
         closeInspector();
         process.exit(0);
     } catch (err) {

@@ -16,7 +16,7 @@ const MODE_TOKEN_PATTERN = /^(kh|kl)$/i;
 const TAG_TOKEN_PATTERN = /^#[a-z0-9_-]+$/i;
 
 type RollMode = "kh" | "kl";
-type InputEl = HTMLInputElement | HTMLTextAreaElement;
+type InputEl = HTMLElement & { value: string };
 type ThemeMode = "light" | "dark";
 
 type ParsedRoll = {
@@ -73,12 +73,6 @@ function buildRollMessage(dice: number, tag: string, mode?: RollMode | null): st
     return `/r ${safeDice}d6${suffix} ${normalizeTag(tag)}`;
 }
 
-function setInputValue(input: InputEl, value: string) {
-    input.value = value;
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    input.dispatchEvent(new Event("change", { bubbles: true }));
-}
-
 function getMessageInputs(scope: ParentNode): InputEl[] {
     const selectors = ["#chat-message", 'textarea[name="content"]', 'input[name="content"]'];
     const unique = new Set<InputEl>();
@@ -87,6 +81,33 @@ function getMessageInputs(scope: ParentNode): InputEl[] {
         nodes.forEach((node) => unique.add(node as InputEl));
     });
     return Array.from(unique);
+}
+
+function getInputText(input: InputEl): string {
+    const editable = input.querySelector?.('[contenteditable="true"]') as HTMLElement | null;
+    if (editable) return (editable.textContent ?? "").trim();
+    const raw = String(input.value ?? "");
+    if (!raw.includes("<")) return raw.trim();
+    const container = input.ownerDocument.createElement("div");
+    container.innerHTML = raw;
+    return (container.textContent ?? "").trim();
+}
+
+function setInputText(input: InputEl, value: string) {
+    const editable = input.querySelector?.('[contenteditable="true"]') as HTMLElement | null;
+    if (editable) {
+        editable.focus();
+        const selection = input.ownerDocument.defaultView?.getSelection();
+        const range = input.ownerDocument.createRange();
+        range.selectNodeContents(editable);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        if (input.ownerDocument.execCommand("insertText", false, value)) return;
+    }
+
+    input.value = value;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 async function processChatCommand(command: string): Promise<boolean> {
@@ -222,9 +243,8 @@ function buildChatControls(doc: Document, input: InputEl): { top: HTMLElement; b
 
     const updateUiState = () => {
         applySelectThemeVars(input, topWrap, bottomWrap);
-        const parsed = parseRollMessage(input.value ?? "");
+        const parsed = parseRollMessage(getInputText(input));
         minusButton.disabled = !parsed;
-
         if (parsed?.tag) tagSelect.value = normalizeTag(parsed.tag);
 
         const showDual = !!parsed && parsed.dice > 1;
@@ -238,7 +258,7 @@ function buildChatControls(doc: Document, input: InputEl): { top: HTMLElement; b
     };
 
     const submitCurrentInput = async (mode?: RollMode) => {
-        const raw = (input.value ?? "").trim();
+        const raw = getInputText(input);
         if (!raw) return;
         const parsed = parseRollMessage(raw);
         const command = parsed
@@ -247,58 +267,72 @@ function buildChatControls(doc: Document, input: InputEl): { top: HTMLElement; b
 
         const sent = await processChatCommand(command);
         if (!sent) return;
-        setInputValue(input, "");
+        setInputText(input, "");
         tagSelect.value = DEFAULT_TAG;
         updateUiState();
     };
 
     plusButton.addEventListener("click", () => {
-        const parsed = parseRollMessage(input.value ?? "");
-        if (!parsed) setInputValue(input, buildRollMessage(1, tagSelect.value));
-        else setInputValue(input, buildRollMessage(parsed.dice + 1, parsed.tag ?? tagSelect.value));
+        const parsed = parseRollMessage(getInputText(input));
+        const next = parsed?.dice ? parsed.dice + 1 : 1;
+        setInputText(input, buildRollMessage(next, parsed?.tag ?? tagSelect.value));
         updateUiState();
     });
 
     minusButton.addEventListener("click", () => {
-        const parsed = parseRollMessage(input.value ?? "");
+        const parsed = parseRollMessage(getInputText(input));
         if (!parsed) return;
-        if (parsed.dice <= 1) setInputValue(input, "");
-        else setInputValue(input, buildRollMessage(parsed.dice - 1, parsed.tag ?? tagSelect.value));
+        setInputText(input, parsed.dice <= 1
+            ? ""
+            : buildRollMessage(parsed.dice - 1, parsed.tag ?? tagSelect.value));
         updateUiState();
     });
 
     tagSelect.addEventListener("change", () => {
-        const parsed = parseRollMessage(input.value ?? "");
-        if (!parsed) return;
-        setInputValue(input, buildRollMessage(parsed.dice, tagSelect.value));
+        const parsed = parseRollMessage(getInputText(input));
+        if (parsed) setInputText(input, buildRollMessage(parsed.dice, tagSelect.value, parsed.mode));
         updateUiState();
     });
 
     rollButton.addEventListener("click", () => void submitCurrentInput());
     bane.button.addEventListener("click", () => void submitCurrentInput("kl"));
     boon.button.addEventListener("click", () => void submitCurrentInput("kh"));
-    input.addEventListener("input", updateUiState);
+    input.addEventListener("input", () => {
+        updateUiState();
+    });
 
     updateUiState();
     return { top: topWrap, bottom: bottomWrap };
 }
 
-function ensureControlsForInput(input: InputEl) {
-    const form = input.closest("form.chat-form") as HTMLFormElement | null;
-    if (!form) return;
-    const chatControls = form.querySelector("#chat-controls") as HTMLElement | null;
+function ensureControlsForInput(input: InputEl, suppliedChatControls?: HTMLElement | null) {
+    const container = input.parentElement;
+    if (!container) return;
+    const chatControls = suppliedChatControls
+        ?? container.querySelector("#chat-controls") as HTMLElement | null
+        ?? input.ownerDocument.querySelector("#chat-controls") as HTMLElement | null;
     if (!chatControls) return;
 
-    const existingTop = form.querySelector(".ezd6-chat-roller-top") as HTMLElement | null;
-    const existingBottom = form.querySelector(".ezd6-chat-roller-bottom") as HTMLElement | null;
+    const existingTop = input.ownerDocument.querySelector(".ezd6-chat-roller-top") as HTMLElement | null;
+    const existingBottom = input.ownerDocument.querySelector(".ezd6-chat-roller-bottom") as HTMLElement | null;
+
+    const placeControls = (top: HTMLElement, bottom: HTMLElement) => {
+        if (input.closest(".chat-form")) {
+            const editable = input.querySelector?.('[contenteditable="true"]') as HTMLElement | null;
+            if (editable) {
+                if (top.nextElementSibling !== editable) editable.insertAdjacentElement("beforebegin", top);
+            } else if (top.nextElementSibling !== input) {
+                input.insertAdjacentElement("beforebegin", top);
+            }
+            if (bottom.previousElementSibling !== input) input.insertAdjacentElement("afterend", bottom);
+        } else {
+            if (top.nextElementSibling !== input) input.insertAdjacentElement("beforebegin", top);
+            if (bottom.previousElementSibling !== input) input.insertAdjacentElement("afterend", bottom);
+        }
+    };
 
     if (existingTop && existingBottom) {
-        if (existingTop.previousElementSibling !== chatControls) {
-            chatControls.insertAdjacentElement("afterend", existingTop);
-        }
-        if (existingBottom.previousElementSibling !== input) {
-            input.insertAdjacentElement("afterend", existingBottom);
-        }
+        placeControls(existingTop, existingBottom);
         applySelectThemeVars(input, existingTop, existingBottom);
         return;
     }
@@ -307,12 +341,11 @@ function ensureControlsForInput(input: InputEl) {
     existingBottom?.remove();
 
     const controls = buildChatControls(input.ownerDocument, input);
-    chatControls.insertAdjacentElement("afterend", controls.top);
-    input.insertAdjacentElement("afterend", controls.bottom);
+    placeControls(controls.top, controls.bottom);
 }
 
 function injectChatRollers(scope: ParentNode) {
-    getMessageInputs(scope).forEach(ensureControlsForInput);
+    getMessageInputs(scope).forEach((input) => ensureControlsForInput(input));
 }
 
 let observer: MutationObserver | null = null;
@@ -328,21 +361,10 @@ function scheduleInject() {
 }
 
 export function registerChatRollerHooks() {
-    Hooks.on("renderChatLog", (_app: any, html: JQuery<HTMLElement> | HTMLElement) => {
-        const root = (html as any)[0] ?? html;
-        injectChatRollers(root as ParentNode);
-    });
-
-    Hooks.on("renderChatPopout", (_app: any, html: JQuery<HTMLElement> | HTMLElement) => {
-        const root = (html as any)[0] ?? html;
-        injectChatRollers(root as ParentNode);
-    });
-
-    Hooks.on("renderSidebarTab", (app: any, html: JQuery<HTMLElement> | HTMLElement) => {
-        const tabName = app?.tabName ?? app?.id ?? "";
-        if (tabName !== "chat") return;
-        const root = (html as any)[0] ?? html;
-        injectChatRollers(root as ParentNode);
+    Hooks.on("renderChatInput", (_app: any, elements: Record<string, HTMLElement>) => {
+        const input = elements["#chat-message"] as InputEl | undefined;
+        if (input) ensureControlsForInput(input, elements["#chat-controls"]);
+        scheduleInject();
     });
 
     Hooks.on("ready", () => {
@@ -352,8 +374,6 @@ export function registerChatRollerHooks() {
             observer.observe(document.body, {
                 childList: true,
                 subtree: true,
-                attributes: true,
-                attributeFilter: ["class", "style", "data-theme"],
             });
         }
     });

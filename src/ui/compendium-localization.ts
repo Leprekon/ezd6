@@ -1,11 +1,11 @@
 export function registerCompendiumLocalization() {
-    Hooks.on("renderCompendium", (app: any, html: any) => {
+    Hooks.on("renderCompendium", (app: any, html: HTMLElement) => {
         try {
             const pack = app?.collection ?? app?.compendium ?? app?.pack;
             if (!pack || pack.documentName !== "Item" || typeof pack.getIndex !== "function") return;
             void pack.getIndex({ fields: ["system.localizationId"] }).then((index: any[]) => {
                 const byId = new Map(index.map((entry) => [entry._id ?? entry.id, entry]));
-                const root = html?.[0] as HTMLElement | undefined;
+                const root = html;
                 if (!root) return;
                 root.querySelectorAll(".directory-item").forEach((node) => {
                     const el = node as HTMLElement;

@@ -12,6 +12,7 @@ import { Character, DEFAULT_RESOURCE_ICON } from "../character";
 import { renderResourceCounter } from "../ui/resource-counter";
 import { getTagOptions, normalizeTag } from "../ui/sheet-utils";
 import { localize } from "../ui/i18n";
+import { FoundryRoll } from "../foundry-api";
 import {
     SOCKET_NAMESPACE,
     applyChatHeaderEnhancements,
@@ -415,7 +416,7 @@ function readMessageMeta(msg: any, fallbackKeyword?: string): MessageMeta {
 }
 
 function renderMessageMeta(meta: MessageMeta): string {
-    const escape = (foundry as any)?.utils?.escapeHTML ?? ((value: string) => value);
+    const escape = (foundry as any).utils.escapeHTML;
     const title = escape(meta.title);
     const desc = meta.description ? `<div class="ezd6-roll-desc">${meta.description}</div>` : "";
     const descCard = desc ? `<div class="ezd6-chat-desc-card">${desc}</div>` : "";
@@ -545,7 +546,7 @@ async function applyRerollOnesState(baseState: EZD6State): Promise<EZD6State> {
     const burnedOnes = [...baseState.burnedOnes];
 
     const rollOnce = async () => {
-        const roll = await (new Roll("1d6")).evaluate();
+        const roll = await (new FoundryRoll("1d6")).evaluate();
         const value = Number(roll.total);
         return Number.isFinite(value) ? value : 1;
     };
@@ -926,7 +927,7 @@ function buildController(msg: any, initialState?: EZD6State) {
 
         bindClick(".ezd6-confirm-btn", async () => {
             try {
-                const confRoll = await (new Roll('1d6')).evaluate();
+                const confRoll = await (new FoundryRoll('1d6')).evaluate();
                 const v = Number(confRoll.total);
                 if (!Number.isFinite(v)) return;
                 pushNewConfirmedValue(v);
@@ -1174,14 +1175,8 @@ export function registerChatMessageHooks() {
         }
     });
 
-    Hooks.on("renderChatLog", (_app: any, html: JQuery<HTMLElement> | HTMLElement) => {
-        const root = (html as any)[0] ?? html;
-        registerChatResizeObserver(root as HTMLElement);
-    });
-
-    Hooks.on("renderChatPopout", (_app: any, html: JQuery<HTMLElement> | HTMLElement) => {
-        const root = (html as any)[0] ?? html;
-        registerChatResizeObserver(root as HTMLElement);
+    Hooks.on("renderChatLog", (_app: any, html: HTMLElement) => {
+        registerChatResizeObserver(html);
     });
 
     Hooks.on("deleteChatMessage", (msg: any) => {

@@ -7,24 +7,25 @@ Releases are triggered by pushing a Git tag that matches `v*`.
 1. Prepare the version:
 
 ```powershell
-npm run release:prepare -- 0.2.1
+$version = "0.4.1"
+npm run release:prepare -- $version
 ```
 
-2. Review the version bump in [package.json](/d:/Work/Projects/ezd6/package.json) and [public/system.json](/d:/Work/Projects/ezd6/public/system.json).
+2. Review the version bump in `package.json`, `package-lock.json`, and `public/system.json`.
 
 3. Commit and tag:
 
 ```powershell
-git add package.json public/system.json
-git commit -m "Release v0.2.1"
-git tag v0.2.1
+git add package.json package-lock.json public/system.json
+git commit -m "Release v$version"
+git tag "v$version"
 ```
 
 4. Push:
 
 ```powershell
-git push origin main
-git push origin v0.2.1
+git push origin HEAD
+git push origin "v$version"
 ```
 
 ## What GitHub does
@@ -42,5 +43,5 @@ The release workflow in [release.yml](/d:/Work/Projects/ezd6/.github/workflows/r
 To preview the version bump without writing files:
 
 ```powershell
-npm run release:prepare -- 0.2.1 --dry-run
+npm run release:prepare -- 0.4.1 --dry-run
 ```

@@ -1,12 +1,12 @@
 // src/equipment-item-sheet.ts
-import { clampDimension, getTagOptionMap, getTagOptions, normalizeTag } from "./ui/sheet-utils";
-import { format, localize } from "./ui/i18n";
+import { getTagOptionMap, getTagOptions, normalizeTag } from "./ui/sheet-utils";
+import { localize } from "./ui/i18n";
 import { applyNativeItemFields } from "./ui/item-editor-utils";
 import { getSystemPath } from "./system-path";
+import { EZD6ItemSheetV2 } from "./sheet/document-sheet-v2";
+import { bindDicePicker, ensureDefaultItemPresentation } from "./ui/item-sheet-controls";
 
 const DEFAULT_EQUIPMENT_ICON = "icons/containers/bags/coinpouch-simple-leather-tan.webp";
-const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
-const mergeObject = (foundry as any)?.utils?.mergeObject as ((...args: any[]) => any) | undefined;
 
 const coerceQuantity = (value: unknown) => {
     const numeric = Number(value);
@@ -14,57 +14,20 @@ const coerceQuantity = (value: unknown) => {
     return Math.max(0, Math.floor(numeric));
 };
 
-export class EZD6EquipmentItemSheet extends ItemSheet {
-    static get defaultOptions() {
-        return mergeObject
-            ? mergeObject(super.defaultOptions, {
-                classes: ["ezd6-item-sheet", "ezd6-item-sheet--equipment"],
-                width: 460,
-                height: 520,
-                minWidth: 480,
-                maxWidth: 660,
-                minHeight: 420,
-                maxHeight: 760,
-                resizable: true,
-                submitOnChange: true,
-                submitOnClose: true,
-            })
-            : {
-                ...super.defaultOptions,
-                classes: ["ezd6-item-sheet", "ezd6-item-sheet--equipment"],
-                width: 460,
-                height: 520,
-                minWidth: 480,
-                maxWidth: 660,
-                minHeight: 420,
-                maxHeight: 760,
-                resizable: true,
-                submitOnChange: true,
-                submitOnClose: true,
-            };
-    }
+export class EZD6EquipmentItemSheet extends EZD6ItemSheetV2 {
+    static DEFAULT_OPTIONS = {
+        classes: ["ezd6-item-sheet-wrapper", "ezd6-item-sheet--equipment", "theme-light"],
+        position: { width: 480, height: 520 },
+        window: { resizable: true },
+        form: { submitOnChange: true, closeOnSubmit: false },
+    };
 
-    get template() {
-        return getSystemPath("templates/equipment-item-sheet.hbs");
-    }
+    static PARTS = {
+        sheet: { template: getSystemPath("templates/equipment-item-sheet.hbs"), root: true },
+    };
 
-    setPosition(position: any = {}) {
-        const minWidth = this.options.minWidth as number | undefined;
-        const maxWidth = this.options.maxWidth as number | undefined;
-        const minHeight = this.options.minHeight as number | undefined;
-        const maxHeight = this.options.maxHeight as number | undefined;
-        const width = Number.isFinite(position.width) ? position.width : this.position?.width;
-        const height = Number.isFinite(position.height) ? position.height : this.position?.height;
-
-        return super.setPosition({
-            ...position,
-            width: Number.isFinite(width) ? clampDimension(width, minWidth, maxWidth) : width,
-            height: Number.isFinite(height) ? clampDimension(height, minHeight, maxHeight) : height,
-        });
-    }
-
-    getData(options?: any) {
-        const data = super.getData(options) as any;
+    async _prepareContext(options: any) {
+        const data = await super._prepareContext(options) as any;
         const system = data?.item?.system ?? {};
         const localizationId = typeof system.localizationId === "string" ? system.localizationId.trim() : "";
         data.tagOptions = getTagOptionMap();
@@ -83,11 +46,15 @@ export class EZD6EquipmentItemSheet extends ItemSheet {
         return data;
     }
 
-    activateListeners(html: any) {
-        super.activateListeners(html);
-        const root = html[0] ?? html;
-        void this.ensureDefaultName();
-        void this.ensureDefaultIcon();
+    async _onRender(context: any, options: any) {
+        await super._onRender(context, options);
+        const root = this.element;
+        const label = localize("EZD6.ItemLabels.Equipment", "Equipment");
+        void ensureDefaultItemPresentation(this.item, {
+            label,
+            icon: DEFAULT_EQUIPMENT_ICON,
+            legacyNames: ["New Equipment"],
+        });
 
         const system = (this.item as any)?.system ?? {};
         if (system.quantity == null && system.defaultQuantity != null) {
@@ -95,7 +62,7 @@ export class EZD6EquipmentItemSheet extends ItemSheet {
             this.item.update({ "system.quantity": migrated }, { render: false });
         }
 
-        this.refreshDicePicker(root);
+        bindDicePicker({ root, item: this.item, selector: ".ezd6-ability-dice-picker", min: 0, max: 5 });
 
         const picker = root?.querySelector?.(".ezd6-quantity-picker") as HTMLElement | null;
         const qtyField = root?.querySelector?.(".ezd6-item-field--quantity") as HTMLElement | null;
@@ -106,9 +73,7 @@ export class EZD6EquipmentItemSheet extends ItemSheet {
             };
             syncQtyVisibility();
             qtyToggle.addEventListener("change", async () => {
-                const formData = this._getSubmitData?.() ?? {};
-                formData["system.quantifiable"] = qtyToggle.checked;
-                await this.item.update(formData, { render: false });
+                await this.item.update({ "system.quantifiable": qtyToggle.checked }, { render: false });
                 syncQtyVisibility();
             });
         }
@@ -142,9 +107,7 @@ export class EZD6EquipmentItemSheet extends ItemSheet {
                 const next = coerceQuantity(current + delta);
                 if (next === current) return;
 
-                const formData = this._getSubmitData?.() ?? {};
-                formData["system.quantity"] = next;
-                await this.item.update(formData, { render: false });
+                await this.item.update({ "system.quantity": next }, { render: false });
                 syncPicker(next);
             });
 
@@ -152,9 +115,7 @@ export class EZD6EquipmentItemSheet extends ItemSheet {
             if (input) {
                 const commit = async () => {
                     const next = coerceQuantity(input.value);
-                    const formData = this._getSubmitData?.() ?? {};
-                    formData["system.quantity"] = next;
-                    await this.item.update(formData, { render: false });
+                    await this.item.update({ "system.quantity": next }, { render: false });
                     syncPicker(next);
                 };
                 input.addEventListener("change", commit);
@@ -162,87 +123,17 @@ export class EZD6EquipmentItemSheet extends ItemSheet {
             }
         }
 
-        const dicePicker = root?.querySelector?.(".ezd6-ability-dice-picker") as HTMLElement | null;
-        if (!dicePicker) return;
-        dicePicker.addEventListener("click", async (event: Event) => {
-            const target = event.target as HTMLElement | null;
-            const btn = target?.closest?.(".ezd6-ability-dice-btn") as HTMLElement | null;
-            if (!btn) return;
-            event.preventDefault();
-
-            const delta = Number(btn.dataset.delta) || 0;
-            const current = Number((this.item as any)?.system?.numberOfDice ?? 0) || 0;
-            const next = Math.min(5, Math.max(0, current + delta));
-            if (next === current) return;
-
-            const formData = this._getSubmitData?.() ?? {};
-            formData["system.numberOfDice"] = next;
-            await this.item.update(formData, { render: false });
-            this.refreshDicePicker(root, next);
-        });
     }
 
-    protected async _updateObject(_event: Event, formData: Record<string, any>) {
-        if ("system.tag" in formData) {
-            formData["system.tag"] = normalizeTag(formData["system.tag"], getTagOptions());
+    _processFormData(event: Event, form: HTMLFormElement, formData: any) {
+        const data = super._processFormData(event, form, formData) as any;
+        if (data.system && "tag" in data.system) {
+            data.system.tag = normalizeTag(data.system.tag, getTagOptions());
         }
-        if ("system.quantity" in formData) {
-            formData["system.quantity"] = coerceQuantity(formData["system.quantity"]);
+        if (data.system && "quantity" in data.system) {
+            data.system.quantity = coerceQuantity(data.system.quantity);
         }
-
-        await this.item.update(formData, { render: false });
+        return data;
     }
 
-    private async ensureDefaultName() {
-        const current = this.item?.name ?? "";
-        const label = localize("EZD6.ItemLabels.Equipment", "Equipment");
-        const newItem = localize("EZD6.Defaults.NewItem", "New Item");
-        const newTyped = format("EZD6.Defaults.NewItemTyped", { itemLabel: label }, `New ${label}`);
-        if (!current || current === newItem || current === newTyped || current === "New Item" || current === "New Equipment") {
-            await this.item.update({ name: label });
-        }
-    }
-
-    private async ensureDefaultIcon() {
-        const current = this.item?.img ?? "";
-        if (!current || current === LEGACY_DEFAULT_ICON) {
-            await this.item.update({ img: DEFAULT_EQUIPMENT_ICON });
-        }
-    }
-
-    private refreshDicePicker(root: HTMLElement, count?: number) {
-        const picker = root?.querySelector?.(".ezd6-ability-dice-picker") as HTMLElement | null;
-        if (!picker) return;
-        const value = typeof count === "number"
-            ? count
-            : Number((this.item as any)?.system?.numberOfDice ?? picker.dataset.count ?? 0) || 0;
-        picker.dataset.count = String(value);
-
-        const stack = picker.querySelector(".ezd6-ability-dice-stack") as HTMLElement | null;
-        if (stack) {
-            stack.innerHTML = "";
-            if (value <= 0) {
-                const dash = document.createElement("span");
-                dash.className = "ezd6-ability-dice-empty";
-                dash.textContent = "-";
-                stack.appendChild(dash);
-            } else {
-                for (let i = 0; i < value; i++) {
-                    const img = document.createElement("img");
-                    img.className = "ezd6-ability-dice-icon";
-                    img.src = getSystemPath("assets/dice/grey/d6-6.png");
-                    img.alt = "d6";
-                    stack.appendChild(img);
-                }
-            }
-        }
-
-        const input = root?.querySelector?.("input[name='system.numberOfDice']") as HTMLInputElement | null;
-        if (input) input.value = String(value);
-
-        const decBtn = picker.querySelector(".ezd6-ability-dice-btn[data-delta='-1']") as HTMLButtonElement | null;
-        const incBtn = picker.querySelector(".ezd6-ability-dice-btn[data-delta='1']") as HTMLButtonElement | null;
-        if (decBtn) decBtn.disabled = value <= 0;
-        if (incBtn) incBtn.disabled = value >= 5;
-    }
 }

@@ -608,6 +608,35 @@
 }
 
 
+/* EZD6 sheets use a light parchment surface regardless of the user's global UI theme. */
+.application.ezd6-sheet-wrapper,
+.application.ezd6-item-sheet-wrapper {
+  --background: var(--background-parchment, url("/ui/parchment.jpg") repeat);
+  color-scheme: light;
+}
+
+.application.ezd6-sheet-wrapper .window-content,
+.application.ezd6-item-sheet-wrapper .window-content {
+  background: var(--background-parchment, url("/ui/parchment.jpg") repeat);
+  color: var(--color-dark-2, #191919);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-sizing: border-box;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.application.ezd6-sheet-wrapper .window-content {
+  padding: 0;
+}
+
+.application.ezd6-item-sheet-wrapper .window-content {
+  flex-flow: column nowrap;
+  gap: 12px;
+  padding: 12px;
+  align-items: stretch;
+}
+
 .ezd6-sheet {
   display: flex;
   flex-direction: column;
@@ -616,8 +645,8 @@
   box-sizing: border-box;
   width: 100%;
   max-width: none;
-  height: 100%;
-  min-height: 0;
+  height: auto;
+  min-height: 100%;
   margin: 0;
 }
 .ezd6-sheet__layout {
@@ -632,6 +661,7 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  overflow: auto;
 }
 
 .ezd6-sheet__col {
@@ -648,9 +678,8 @@
 }
 
 .ezd6-sheet-root {
-  min-height: 600px;
-  height: 100%;
-  min-height: 0;
+  height: auto;
+  min-height: 100%;
 }
 
 
@@ -783,164 +812,115 @@
   border-radius: 6px;
   padding: 0;
   box-sizing: border-box;
-  --desc-pad: 8px;
 }
 
-.ezd6-section--description .editor,
-.ezd6-section--description .editor-content,
-.ezd6-section--description .editor-content > * {
+.ezd6-section--description prose-mirror {
+  display: flex;
+  flex-direction: column;
   width: 100%;
+  min-height: 200px;
+  height: 100%;
+  padding: 0;
+  box-sizing: border-box;
+  color: #111;
+  overflow: auto;
+  gap: 0;
+  --menu-button-height: 28px;
+  --menu-padding: 3px 4px;
+  --menu-height: calc(var(--menu-button-height) + 6px);
 }
 
-.ezd6-section--description .editor {
+.ezd6-section--description prose-mirror[open] {
+  height: var(--desc-edit-height, 250px);
+  min-height: var(--desc-edit-height, 250px);
+  overflow: hidden;
+}
+
+.ezd6-description-wrap:has(prose-mirror[open]) {
+  min-height: var(--desc-edit-height, 250px);
+  height: var(--desc-edit-height, 250px);
+}
+
+.ezd6-section--description prose-mirror .editor-container {
   min-height: 0;
-  height: 0;
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
+  gap: 0;
+}
+
+.ezd6-section--description prose-mirror.inactive .editor-content {
+  padding: 8px 10px;
+}
+
+.ezd6-section--description prose-mirror.active .editor-content {
+  padding: 6px 8px;
+}
+
+.ezd6-section--description prose-mirror .menu-container {
+  flex: 0 0 var(--menu-height);
+  width: 100%;
+  height: var(--menu-height);
+  min-height: var(--menu-height);
+  margin: 0;
   overflow: visible;
 }
 
-.ezd6-section--description .editor-content {
-  min-height: 120px;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  padding: var(--desc-pad);
+.ezd6-section--description prose-mirror menu {
+  height: 100%;
+  min-height: var(--menu-height);
   box-sizing: border-box;
-  display: block;
-  color: #111;
+  border-radius: 0;
+  overflow: visible;
 }
 
-.ezd6-section--description .editor .editor-edit,
-.ezd6-section--description .editor .editor-save {
-  position: absolute;
-  top: var(--desc-pad);
-  right: var(--desc-pad);
-  z-index: 5;
+.ezd6-section--description prose-mirror button.toggle {
+  top: 5px;
+  right: 5px;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: #403a35;
+  border: 1px solid #211e1b;
+  border-radius: 5px;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+}
+
+.ezd6-section--description prose-mirror button.toggle i {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 0.15s ease;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  margin: 0;
+  line-height: 1;
+  text-align: center;
 }
 
-.ezd6-section--description .editor .editor-edit {
-  height: 22px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.55);
-  color: white;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  border: none;
-  box-shadow: none;
+.ezd6-section--description prose-mirror:hover button.toggle:enabled {
+  display: inline-flex;
+}
+
+.ezd6-section--description prose-mirror button.toggle:hover,
+.ezd6-section--description prose-mirror button.toggle:focus-visible {
+  color: #fff;
+  background: #181614;
+  border-color: #000;
+  box-shadow: 0 0 0 2px rgba(128, 0, 0, 0.35), 0 3px 7px rgba(0, 0, 0, 0.38);
+  transform: translateY(-1px);
   outline: none;
 }
 
-.ezd6-section--description .editor .editor-edit i,
-.ezd6-section--description .editor .editor-edit svg {
-  display: none;
-}
-
-.ezd6-section--description .editor .editor-edit::after {
-  content: attr(data-edit-label);
-}
-
-.ezd6-section--description .editor .editor-toolbar {
-  position: absolute;
-  top: var(--desc-pad);
-  right: var(--desc-pad);
-  left: var(--desc-pad);
-  z-index: 2;
-  width: calc(100% - (var(--desc-pad) * 2));
-  box-sizing: border-box;
-}
-
-.ezd6-description-view {
-  min-height: 200px;
-  max-height: none;
-  height: 100%;
-  flex: 1 1 auto;
-  overflow: auto;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  padding: var(--desc-pad);
-  padding-bottom: var(--desc-pad);
-  box-sizing: border-box;
-  color: #111;
-  user-select: text !important;
-  -webkit-user-select: text !important;
-}
-
-.ezd6-description-view * {
-  user-select: text !important;
-  -webkit-user-select: text !important;
-}
-
-.ezd6-description-view > :first-child {
+.ezd6-section--description prose-mirror > :first-child {
   margin-top: 0;
 }
 
-.ezd6-description-view > :last-child {
+.ezd6-section--description prose-mirror > :last-child {
   margin-bottom: 0;
-}
-
-.ezd6-description-view p,
-.ezd6-description-view ul,
-.ezd6-description-view ol {
-  margin: 0 0 6px;
-}
-
-.ezd6-description-wrap:hover .editor-edit {
-  opacity: 1;
-}
-
-.ezd6-description-wrap.is-editing .editor-save {
-  opacity: 1;
-}
-
-.ezd6-description-wrap.is-editing .editor-edit {
-  opacity: 0;
-}
-
-.ezd6-description-view--empty::before {
-  content: attr(data-empty-text);
-  color: rgba(0, 0, 0, 0.5);
-}
-
-.ezd6-section--description .editor:not(.active) .editor-content {
-  display: none;
-}
-
-.ezd6-section--description .editor.active {
-  position: static;
-  height: auto;
-  min-height: var(--desc-edit-height, 250px);
-  pointer-events: auto;
-}
-
-.ezd6-section--description .tox-tinymce {
-  height: calc(var(--desc-edit-height, 250px) - (var(--desc-pad) * 2)) !important;
-}
-
-.ezd6-section--description .tox-edit-area__iframe {
-  min-height: calc(var(--desc-edit-height, 250px) - (var(--desc-pad) * 2) - 24px);
-}
-
-.ezd6-description-wrap.is-editing {
-  min-height: var(--desc-edit-height, 250px);
-  max-height: none;
-  padding: var(--desc-pad);
-  padding-left: calc(var(--desc-pad) + 6px);
-}
-
-.ezd6-description-wrap.is-editing .ezd6-description-view {
-  display: none;
 }
 
 .ezd6-description-spacer {
@@ -969,16 +949,24 @@
 }
 
 .ezd6-section__add-btn {
+  --button-size: 22px;
   border: 1px solid rgba(0, 0, 0, 0.2);
   background: white;
   color: rgba(0, 0, 0, 0.7);
   border-radius: 999px;
   width: 22px;
+  min-width: 22px;
+  max-width: 22px;
   height: 22px;
+  min-height: 22px;
+  max-height: 22px;
+  flex: 0 0 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
+  margin: 0;
+  line-height: 1;
   cursor: pointer;
   font-weight: 700;
   box-shadow: none;
@@ -1526,6 +1514,8 @@
   border-radius: 6px;
   border: 1px solid rgba(0, 0, 0, 0.2);
   resize: vertical;
+  box-sizing: border-box;
+  color: #111;
 }
 
 .ezd6-number-input,
@@ -1536,6 +1526,26 @@
   border: 1px solid rgba(0, 0, 0, 0.2);
   background: #fff;
   box-sizing: border-box;
+  color: #111;
+}
+
+.application.ezd6-sheet-wrapper input,
+.application.ezd6-sheet-wrapper textarea,
+.application.ezd6-sheet-wrapper select,
+.application.ezd6-item-sheet-wrapper input,
+.application.ezd6-item-sheet-wrapper textarea,
+.application.ezd6-item-sheet-wrapper select {
+  color: #111;
+  -webkit-text-fill-color: #111;
+}
+
+.application.ezd6-sheet-wrapper input::placeholder,
+.application.ezd6-sheet-wrapper textarea::placeholder,
+.application.ezd6-item-sheet-wrapper input::placeholder,
+.application.ezd6-item-sheet-wrapper textarea::placeholder {
+  color: rgba(0, 0, 0, 0.58);
+  -webkit-text-fill-color: rgba(0, 0, 0, 0.58);
+  opacity: 1;
 }
 
 .ezd6-quantity-input {
@@ -1713,6 +1723,25 @@
 .ezd6-task-btn--placeholder {
   visibility: hidden;
   pointer-events: none;
+}
+
+.application.ezd6-power-roll-dialog,
+.dialog.ezd6-power-roll-dialog {
+  --background: #eee9df;
+  color-scheme: light;
+  background: #eee9df;
+  color: #1f1f1f;
+}
+
+.application.ezd6-power-roll-dialog .window-content,
+.dialog.ezd6-power-roll-dialog .window-content {
+  background: #eee9df !important;
+  color: #1f1f1f;
+}
+
+.application.ezd6-power-roll-dialog .dialog-content,
+.dialog.ezd6-power-roll-dialog .dialog-content {
+  background: transparent;
 }
 
 .ezd6-power-roll-dialogue {
@@ -2258,6 +2287,8 @@
   display: flex;
   align-items: stretch;
   gap: 12px;
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .ezd6-item-icon-field {
@@ -2311,6 +2342,7 @@
   gap: 8px;
   flex: 1 1 auto;
   justify-content: space-between;
+  min-width: 0;
 }
 
 .ezd6-item-title-group .ezd6-text-input {
@@ -2323,7 +2355,7 @@
   line-height: 40px;
 }
 
-.ezd6-item-sheet .ezd6-item-title {
+.application.ezd6-item-sheet-wrapper .ezd6-item-title {
   font-family: "Neucha", "Comic Sans MS", cursive;
   font-size: 22px;
   font-weight: 700;
@@ -2335,18 +2367,31 @@
   line-height: 40px;
   background: rgba(255, 255, 255, 0.7) !important;
   box-shadow: none !important;
+  color: #111 !important;
+  -webkit-text-fill-color: #111 !important;
+}
+
+.application.ezd6-item-sheet-wrapper .ezd6-item-title::placeholder {
+  color: rgba(0, 0, 0, 0.58) !important;
+  -webkit-text-fill-color: rgba(0, 0, 0, 0.58) !important;
+  opacity: 1;
 }
 
 .ezd6-item-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .ezd6-item-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 0 0 auto;
+  min-width: 0;
+  margin: 0;
 }
 
 .ezd6-item-field--checkbox {
@@ -2408,12 +2453,16 @@
   align-items: center;
   justify-content: center;
   box-shadow: none;
+  color: #111;
+  -webkit-text-fill-color: #111;
 }
 
 .ezd6-ability-dice-btn:disabled,
 .ezd6-qty-btn:disabled {
   opacity: 0.4;
   cursor: default;
+  color: #555;
+  -webkit-text-fill-color: #555;
 }
 
 

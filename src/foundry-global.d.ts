@@ -5,25 +5,12 @@ declare const Hooks: import("@league-of-foundry-developers/foundry-vtt-types").H
 declare const game: import("@league-of-foundry-developers/foundry-vtt-types").Game;
 declare const ui: import("@league-of-foundry-developers/foundry-vtt-types").UI;
 declare const canvas: import("@league-of-foundry-developers/foundry-vtt-types").Canvas;
-declare const ChatMessage: import("@league-of-foundry-developers/foundry-vtt-types").ChatMessage;
-declare const ChatMessageRenderOptions: import("@league-of-foundry-developers/foundry-vtt-types").ChatMessageRenderOptions;
-declare const Roll: import("@league-of-foundry-developers/foundry-vtt-types").Roll;
-declare const Actors: any;
-declare const ActorSheet: any;
-declare const Items: any;
-declare const ItemSheet: any;
-declare const FilePicker: any;
-
-// V12+ uses namespaced Dice terms
+// Namespaced API used by Foundry v14.
 declare const foundry: {
     dice: {
         terms: {
             Die: typeof import("@league-of-foundry-developers/foundry-vtt-types").Die;
-            FudgeDie: any; // optional if you use fudge dice
-            // ...add other dice terms if needed
+            FudgeDie: any;
         };
-    };
-    utils?: {
-        mergeObject?: (original: any, other: any, options?: any) => any;
     };
 };

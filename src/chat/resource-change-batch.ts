@@ -1,5 +1,6 @@
 import { canCurrentUserModifyMessage, safeUpdateChatMessage } from "./chat-message-helpers";
 import { renderResourceChangeHtml } from "./resource-change-render";
+import { FoundryChatMessage } from "../foundry-api";
 import {
     PendingBatch,
     ResourceChangeFlag,
@@ -105,10 +106,10 @@ async function flushResourceChanges(actorId: string) {
     const merged = await applyChangesToLastMessage(batch);
     if (merged) return;
 
-    const speaker = ChatMessage.getSpeaker?.({ actor: batch.actor }) ?? ChatMessage.getSpeaker?.();
+    const speaker = FoundryChatMessage.getSpeaker?.({ actor: batch.actor }) ?? FoundryChatMessage.getSpeaker?.();
     const flag = buildFlagFromBatch(batch);
     const content = renderResourceChangeHtml(flag);
-    await ChatMessage.create({
+    await FoundryChatMessage.create({
         content,
         speaker,
         flags: {

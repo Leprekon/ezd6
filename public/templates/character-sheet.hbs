@@ -1,13 +1,13 @@
-<form class="ezd6-sheet-form" autocomplete="off">
+<div class="ezd6-sheet-form">
   <div class="ezd6-sheet-root"></div>
   <div class="ezd6-section-block">
     <div class="ezd6-section__title">{{localize "EZD6.Labels.Description"}}</div>
     <section class="ezd6-section ezd6-section--description">
       <div class="ezd6-description-wrap">
-        {{editor system.description target="system.description" button=editable editable=editable owner=owner}}
-        <div class="ezd6-description-view">{{{system.description}}}</div>
+        <prose-mirror name="system.description" value="{{system.description}}" toggled
+          data-document-uuid="{{actor.uuid}}" collaborate {{#unless editable}}disabled{{/unless}}>{{{descriptionHTML}}}</prose-mirror>
       </div>
       <div class="ezd6-description-spacer"></div>
     </section>
   </div>
-</form>
+</div>

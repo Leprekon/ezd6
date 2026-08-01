@@ -1,86 +1,49 @@
 // src/actor-sheet.ts
 import { Character, DEFAULT_AVATAR, LEGACY_AVATAR_PLACEHOLDER } from "./character";
 import { CharacterSheetView } from "./character-sheet-view";
-import { clampDimension, getTagOptions, normalizeTag } from "./ui/sheet-utils";
-import { DescriptionEditorController } from "./sheet/description-editor";
-import { getDescriptionEditor } from "./sheet/description-editor-utils";
+import { getTagOptions, normalizeTag } from "./ui/sheet-utils";
 import { captureScrollState, restoreScrollState, ScrollState } from "./sheet/scroll-state";
 import { localize } from "./ui/i18n";
 import { readDragEventData, resolveDroppedDocument } from "./ui/drag-drop";
 import { buildResourceFromItem, buildSaveFromItem } from "./ui/item-converters";
 import { getSystemPath } from "./system-path";
+import { EZD6ActorSheetV2 } from "./sheet/document-sheet-v2";
 
-const mergeObject = (foundry as any)?.utils?.mergeObject as ((...args: any[]) => any) | undefined;
-
-export class EZD6CharacterSheet extends ActorSheet {
+export class EZD6CharacterSheet extends EZD6ActorSheetV2 {
     private character: Character | null = null;
     private view: CharacterSheetView | null = null;
-    private descriptionController: DescriptionEditorController | null = null;
     private pendingScrollRestore: ScrollState = [];
     private itemUpdateHookId: number | null = null;
     private actorUpdateHookId: number | null = null;
 
-    static get defaultOptions() {
-        return mergeObject
-            ? mergeObject(super.defaultOptions, {
-                classes: ["ezd6-sheet-wrapper"],
-                width: 860,
-                height: 780,
-                minWidth: 820,
-                maxWidth: 1060,
-                minHeight: 640,
-                maxHeight: 1024,
-                resizable: true,
-                submitOnChange: true,
-                submitOnClose: true,
-            })
-            : {
-                ...super.defaultOptions,
-                classes: ["ezd6-sheet-wrapper"],
-                width: 860,
-                height: 780,
-                minWidth: 820,
-                maxWidth: 1060,
-                minHeight: 640,
-                maxHeight: 1024,
-                resizable: true,
-                submitOnChange: true,
-                submitOnClose: true,
-            };
+    static DEFAULT_OPTIONS = {
+        classes: ["ezd6-sheet-wrapper", "theme-light"],
+        position: { width: 860, height: 780 },
+        window: { resizable: true },
+        form: { submitOnChange: true, closeOnSubmit: false },
+    };
+
+    static PARTS = {
+        sheet: { template: getSystemPath("templates/character-sheet.hbs"), root: true },
+    };
+
+    async _prepareContext(options: any) {
+        const context = await super._prepareContext(options) as any;
+        context.descriptionHTML = await (foundry as any).applications.ux.TextEditor.implementation.enrichHTML(
+            this.actor.system?.description ?? "",
+            { secrets: this.actor.isOwner, relativeTo: this.actor },
+        );
+        return context;
     }
 
-    get template() {
-        return getSystemPath("templates/character-sheet.hbs");
+    async _preRender(context: any, options: any) {
+        this.pendingScrollRestore = this.rendered ? captureScrollState(this.element) : [];
+        await super._preRender(context, options);
     }
 
-    setPosition(position: any = {}) {
-        const minWidth = this.options.minWidth as number | undefined;
-        const maxWidth = this.options.maxWidth as number | undefined;
-        const minHeight = this.options.minHeight as number | undefined;
-        const maxHeight = this.options.maxHeight as number | undefined;
-        const width = Number.isFinite(position.width) ? position.width : this.position?.width;
-        const height = Number.isFinite(position.height) ? position.height : this.position?.height;
-
-        return super.setPosition({
-            ...position,
-            width: Number.isFinite(width) ? clampDimension(width, minWidth, maxWidth) : width,
-            height: Number.isFinite(height) ? clampDimension(height, minHeight, maxHeight) : height,
-        });
-    }
-
-    getData(options?: any) {
-        return super.getData(options);
-    }
-
-    protected async _render(force?: boolean, options?: any) {
-        this.pendingScrollRestore = captureScrollState(this.element?.[0] as HTMLElement | null);
-        await super._render(force, options);
-        restoreScrollState(this.pendingScrollRestore);
-    }
-
-    activateListeners(html: any) {
-        super.activateListeners(html);
-        const root = html[0]?.querySelector?.(".ezd6-sheet-root") as HTMLElement | null;
+    async _onRender(context: any, options: any) {
+        await super._onRender(context, options);
+        const root = this.element.querySelector(".ezd6-sheet-root") as HTMLElement | null;
         if (!root) return;
 
         if (!this.character) {
@@ -110,25 +73,16 @@ export class EZD6CharacterSheet extends ActorSheet {
             mode: "character",
         });
         this.view.render(root);
-        const descSection = html[0]?.querySelector?.(".ezd6-section--description") as HTMLElement | null;
+        const descSection = this.element.querySelector(".ezd6-section--description") as HTMLElement | null;
         const descBlock = descSection?.closest(".ezd6-section-block") as HTMLElement | null;
         const descNode = descBlock ?? descSection;
         if (descNode && !root.contains(descNode)) {
             root.appendChild(descNode);
         }
 
-        if (!this.descriptionController) {
-            this.descriptionController = new DescriptionEditorController((wrap) => getDescriptionEditor(this, wrap));
-        }
-        this.descriptionController.bind(html, this.actor);
         this.registerItemUpdateHook();
         this.registerActorUpdateHook();
-
-    }
-
-    protected async _updateObject(_event: Event, formData: Record<string, any>) {
-        if (!this.actor) return;
-        await this.actor.update(formData);
+        restoreScrollState(this.pendingScrollRestore);
     }
 
     private syncFromActor() {
@@ -214,9 +168,7 @@ export class EZD6CharacterSheet extends ActorSheet {
         return super._onDrop(event);
     }
 
-    async close(options?: any) {
-        this.descriptionController?.disconnect();
-        this.descriptionController = null;
+    _onClose(options?: any) {
         if (this.itemUpdateHookId !== null) {
             Hooks.off("updateItem", this.itemUpdateHookId);
             this.itemUpdateHookId = null;
@@ -225,7 +177,7 @@ export class EZD6CharacterSheet extends ActorSheet {
             Hooks.off("updateActor", this.actorUpdateHookId);
             this.actorUpdateHookId = null;
         }
-        return super.close(options);
+        return super._onClose(options);
     }
 
     private registerItemUpdateHook() {
@@ -475,6 +427,6 @@ export class EZD6CharacterSheet extends ActorSheet {
     }
 
     private getSheetRoot() {
-        return this.element?.[0]?.querySelector?.(".ezd6-sheet-root") as HTMLElement | null;
+        return this.rendered ? this.element.querySelector(".ezd6-sheet-root") as HTMLElement | null : null;
     }
 }

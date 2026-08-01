@@ -3,6 +3,7 @@ import { buildRollMeta, EZD6_META_FLAG } from "./chat/chat-meta";
 import { localize } from "./ui/i18n";
 import { renderMarkdown } from "./ui/markdown";
 import { getSystemPath } from "./system-path";
+import { FoundryChatMessage, FoundryRoll } from "./foundry-api";
 
 export type DiceChangeBehavior = "none" | "karma" | "stress";
 
@@ -233,11 +234,11 @@ export class Character {
             const formula = `${ability.numberOfDice}d6`;
             const flavor = `${ability.title} #${keyword}`;
             const descHtml = renderMarkdown(ability.description ?? "");
-            const roll = new Roll(formula, {});
+            const roll = new FoundryRoll(formula, {});
             await roll.evaluate();
             await roll.toMessage({
                 flavor,
-                speaker: speaker ?? ChatMessage.getSpeaker?.(),
+                speaker: speaker ?? FoundryChatMessage.getSpeaker?.(),
                 flags: {
                     [EZD6_META_FLAG]: buildRollMeta({
                         title: ability.title,
@@ -252,7 +253,7 @@ export class Character {
                 `<strong>${ability.title}</strong>`,
                 descHtml ? `<div>${descHtml}</div>` : "",
             ];
-            await ChatMessage.create({ content: contentPieces.join(""), speaker: speaker ?? ChatMessage.getSpeaker?.() });
+            await FoundryChatMessage.create({ content: contentPieces.join(""), speaker: speaker ?? FoundryChatMessage.getSpeaker?.() });
         }
     }
 
@@ -260,7 +261,7 @@ export class Character {
         const save = this.saves.find((s) => s.id === saveId);
         if (!save) return;
         const diceCount = Number.isFinite(save.numberOfDice) ? Math.max(0, Math.floor(save.numberOfDice)) : 0;
-        const roll = new Roll(`${diceCount}d6`, {});
+        const roll = new FoundryRoll(`${diceCount}d6`, {});
         await roll.evaluate();
         const rawTarget = Number(save.targetValue);
         const target = Number.isFinite(rawTarget) ? Math.max(1, Math.min(7, Math.floor(rawTarget))) : 6;
@@ -271,7 +272,7 @@ export class Character {
         const descHtml = renderMarkdown(save.description ?? "");
         await roll.toMessage({
             flavor,
-            speaker: speaker ?? ChatMessage.getSpeaker?.(),
+            speaker: speaker ?? FoundryChatMessage.getSpeaker?.(),
             flags: {
                 [EZD6_META_FLAG]: buildRollMeta({
                     title: saveTitle,
@@ -285,12 +286,12 @@ export class Character {
     }
 
     async rollTask(label: string, formula: string, speaker?: any) {
-        const roll = new Roll(formula, {});
+        const roll = new FoundryRoll(formula, {});
         await roll.evaluate();
         const flavor = `${label} #task`;
         await roll.toMessage({
             flavor,
-            speaker: speaker ?? ChatMessage.getSpeaker?.(),
+            speaker: speaker ?? FoundryChatMessage.getSpeaker?.(),
             flags: {
                 [EZD6_META_FLAG]: buildRollMeta({
                     title: label,
@@ -302,13 +303,13 @@ export class Character {
     }
 
     async rollMagick(diceCount: number, speaker?: any) {
-        const roll = new Roll(`${diceCount}d6`, {});
+        const roll = new FoundryRoll(`${diceCount}d6`, {});
         await roll.evaluate();
         const magickLabel = t("EZD6.Magic.Magick", "Magick");
         const flavor = `${magickLabel} ${diceCount}d6 #magick`;
         await roll.toMessage({
             flavor,
-            speaker: speaker ?? ChatMessage.getSpeaker?.(),
+            speaker: speaker ?? FoundryChatMessage.getSpeaker?.(),
             flags: {
                 [EZD6_META_FLAG]: buildRollMeta({
                     title: magickLabel,

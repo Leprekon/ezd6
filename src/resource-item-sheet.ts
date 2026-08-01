@@ -1,49 +1,27 @@
 // src/resource-item-sheet.ts
-import { clampDimension, getTagOptionMap, getTagOptions, normalizeTag } from "./ui/sheet-utils";
-import { format, localize } from "./ui/i18n";
+import { getTagOptionMap, getTagOptions, normalizeTag } from "./ui/sheet-utils";
+import { localize } from "./ui/i18n";
 import { applyNativeItemFields } from "./ui/item-editor-utils";
 import { getSystemPath } from "./system-path";
+import { EZD6ItemSheetV2 } from "./sheet/document-sheet-v2";
+import { bindDicePicker, ensureDefaultItemPresentation } from "./ui/item-sheet-controls";
 
 const DEFAULT_RESOURCE_ICON = "icons/svg/d20-black.svg";
-const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
-const mergeObject = (foundry as any)?.utils?.mergeObject as ((...args: any[]) => any) | undefined;
 
-export class EZD6ResourceItemSheet extends ItemSheet {
-    static get defaultOptions() {
-        return mergeObject
-            ? mergeObject(super.defaultOptions, {
-                classes: ["ezd6-item-sheet", "ezd6-item-sheet--resource"],
-                width: 420,
-                height: 600,
-                minWidth: 420,
-                maxWidth: 620,
-                minHeight: 520,
-                maxHeight: 720,
-                resizable: true,
-                submitOnChange: true,
-                submitOnClose: true,
-            })
-            : {
-                ...super.defaultOptions,
-                classes: ["ezd6-item-sheet", "ezd6-item-sheet--resource"],
-                width: 420,
-                height: 600,
-                minWidth: 420,
-                maxWidth: 620,
-                minHeight: 520,
-                maxHeight: 720,
-                resizable: true,
-                submitOnChange: true,
-                submitOnClose: true,
-            };
-    }
+export class EZD6ResourceItemSheet extends EZD6ItemSheetV2 {
+    static DEFAULT_OPTIONS = {
+        classes: ["ezd6-item-sheet-wrapper", "ezd6-item-sheet--resource", "theme-light"],
+        position: { width: 420, height: 600 },
+        window: { resizable: true },
+        form: { submitOnChange: true, closeOnSubmit: false },
+    };
 
-    get template() {
-        return getSystemPath("templates/resource-item-sheet.hbs");
-    }
+    static PARTS = {
+        sheet: { template: getSystemPath("templates/resource-item-sheet.hbs"), root: true },
+    };
 
-    getData(options?: any) {
-        const data = super.getData(options) as any;
+    async _prepareContext(options: any) {
+        const data = await super._prepareContext(options) as any;
         const system = data?.item?.system ?? {};
         const rawLogic = typeof system.replenishLogic === "string" ? system.replenishLogic : "disabled";
         const logic = this.getReplenishLogic(rawLogic);
@@ -68,14 +46,18 @@ export class EZD6ResourceItemSheet extends ItemSheet {
         return data;
     }
 
-    activateListeners(html: any) {
-        super.activateListeners(html);
-        const root = html[0] ?? html;
-        void this.ensureDefaultName();
-        void this.ensureDefaultIcon();
+    async _onRender(context: any, options: any) {
+        await super._onRender(context, options);
+        const root = this.element;
+        const label = localize("EZD6.ItemLabels.Resource", "Resource");
+        void ensureDefaultItemPresentation(this.item, {
+            label,
+            icon: DEFAULT_RESOURCE_ICON,
+            legacyNames: ["New Resource"],
+        });
         this.refreshPicker(root, "value");
         this.refreshPicker(root, "maxValue");
-        this.refreshDicePicker(root);
+        bindDicePicker({ root, item: this.item, selector: ".ezd6-resource-dice-picker", min: 0, max: 3 });
         this.refreshReplenishCostPicker(root);
         this.toggleReplenishFields(root);
 
@@ -96,29 +78,8 @@ export class EZD6ResourceItemSheet extends ItemSheet {
             const next = this.clampValue(current + delta, fallback);
             if (next === current) return;
 
-            const formData = this._getSubmitData?.() ?? {};
-            formData[`system.${key}`] = next;
-            await this.item.update(formData);
+            await this.item.update({ [`system.${key}`]: next }, { render: false });
             this.refreshPicker(root, key, next);
-        });
-
-        const dicePicker = root?.querySelector?.(".ezd6-resource-dice-picker") as HTMLElement | null;
-        if (!dicePicker) return;
-        dicePicker.addEventListener("click", async (event: Event) => {
-            const target = event.target as HTMLElement | null;
-            const btn = target?.closest?.(".ezd6-ability-dice-btn") as HTMLElement | null;
-            if (!btn) return;
-            event.preventDefault();
-
-            const delta = Number(btn.dataset.delta) || 0;
-            const current = Number((this.item as any)?.system?.numberOfDice ?? 0) || 0;
-            const next = Math.min(3, Math.max(0, current + delta));
-            if (next === current) return;
-
-            const formData = this._getSubmitData?.() ?? {};
-            formData["system.numberOfDice"] = next;
-            await this.item.update(formData);
-            this.refreshDicePicker(root, next);
         });
 
         const logicSelect = root?.querySelector?.("select[name='system.replenishLogic']") as HTMLSelectElement | null;
@@ -141,9 +102,7 @@ export class EZD6ResourceItemSheet extends ItemSheet {
             const next = this.clampReplenishCost(current + delta);
             if (next === current) return;
 
-            const formData = this._getSubmitData?.() ?? {};
-            formData["system.replenishCost"] = next;
-            await this.item.update(formData);
+            await this.item.update({ "system.replenishCost": next }, { render: false });
             this.refreshReplenishCostPicker(root, next);
         });
 
@@ -154,9 +113,7 @@ export class EZD6ResourceItemSheet extends ItemSheet {
                 const next = this.clampReplenishCost(Number.isFinite(raw) ? raw : 1);
                 if (String(next) === replenishInput.value) return;
                 replenishInput.value = String(next);
-                const formData = this._getSubmitData?.() ?? {};
-                formData["system.replenishCost"] = next;
-                await this.item.update(formData);
+                await this.item.update({ "system.replenishCost": next }, { render: false });
                 this.refreshReplenishCostPicker(root, next);
             };
             replenishInput.addEventListener("blur", () => {
@@ -168,50 +125,34 @@ export class EZD6ResourceItemSheet extends ItemSheet {
         }
     }
 
-    setPosition(position: any = {}) {
-        const minWidth = this.options.minWidth as number | undefined;
-        const maxWidth = this.options.maxWidth as number | undefined;
-        const minHeight = this.options.minHeight as number | undefined;
-        const maxHeight = this.options.maxHeight as number | undefined;
-        const width = Number.isFinite(position.width) ? position.width : this.position?.width;
-        const height = Number.isFinite(position.height) ? position.height : this.position?.height;
-
-        return super.setPosition({
-            ...position,
-            width: Number.isFinite(width) ? clampDimension(width, minWidth, maxWidth) : width,
-            height: Number.isFinite(height) ? clampDimension(height, minHeight, maxHeight) : height,
-        });
-    }
-
-    protected async _updateObject(_event: Event, formData: Record<string, any>) {
-        if ("system.tag" in formData) {
-            formData["system.tag"] = normalizeTag(formData["system.tag"], getTagOptions());
+    _processFormData(event: Event, form: HTMLFormElement, formData: any) {
+        const data = super._processFormData(event, form, formData) as any;
+        const system = data.system ??= {};
+        if ("tag" in system) {
+            system.tag = normalizeTag(system.tag, getTagOptions());
         }
-        if ("system.replenishTag" in formData) {
-            const rawReplenish = String(formData["system.replenishTag"] ?? "");
-            formData["system.replenishTag"] = rawReplenish.trim()
+        if ("replenishTag" in system) {
+            const rawReplenish = String(system.replenishTag ?? "");
+            system.replenishTag = rawReplenish.trim()
                 ? normalizeTag(rawReplenish, getTagOptions())
                 : "";
         }
-        if ("system.replenishLogic" in formData) {
-            const rawLogic = String(formData["system.replenishLogic"] ?? "disabled");
-            formData["system.replenishLogic"] = this.getReplenishLogic(rawLogic);
+        if ("replenishLogic" in system) {
+            system.replenishLogic = this.getReplenishLogic(String(system.replenishLogic ?? "disabled"));
         }
-        if ("system.replenishCost" in formData) {
-            const rawCost = Number(formData["system.replenishCost"]);
-            formData["system.replenishCost"] = this.clampReplenishCost(
+        if ("replenishCost" in system) {
+            const rawCost = Number(system.replenishCost);
+            system.replenishCost = this.clampReplenishCost(
                 Number.isFinite(rawCost) ? rawCost : 1
             );
         }
-        const rawValue = Number(formData["system.value"]);
-        formData["system.value"] = this.clampValue(rawValue, 1);
-        const rawMaxValue = Number(formData["system.maxValue"]);
-        formData["system.maxValue"] = this.clampValue(rawMaxValue, 0);
-        const rawDice = Number(formData["system.numberOfDice"]);
+        system.value = this.clampValue(Number(system.value), 1);
+        system.maxValue = this.clampValue(Number(system.maxValue), 0);
+        const rawDice = Number(system.numberOfDice);
         if (Number.isFinite(rawDice)) {
-            formData["system.numberOfDice"] = Math.max(0, Math.min(3, Math.floor(rawDice)));
+            system.numberOfDice = Math.max(0, Math.min(3, Math.floor(rawDice)));
         }
-        await this.item.update(formData);
+        return data;
     }
 
     private clampValue(value: number, fallback: number): number {
@@ -234,13 +175,6 @@ export class EZD6ResourceItemSheet extends ItemSheet {
     private getReplenishCost(): number {
         const raw = Number((this.item as any)?.system?.replenishCost ?? 1);
         return this.clampReplenishCost(Number.isFinite(raw) ? raw : 1);
-    }
-
-    private async ensureDefaultIcon() {
-        const current = this.item?.img ?? "";
-        if (!current || current === LEGACY_DEFAULT_ICON) {
-            await this.item.update({ img: DEFAULT_RESOURCE_ICON });
-        }
     }
 
     private clampReplenishCost(value: number): number {
@@ -320,43 +254,6 @@ export class EZD6ResourceItemSheet extends ItemSheet {
         }
     }
 
-    private refreshDicePicker(root: HTMLElement, count?: number) {
-        const picker = root?.querySelector?.(".ezd6-resource-dice-picker") as HTMLElement | null;
-        if (!picker) return;
-        const value = typeof count === "number"
-            ? count
-            : Number((this.item as any)?.system?.numberOfDice ?? picker.dataset.count ?? 0) || 0;
-        const clamped = Math.max(0, Math.min(3, Math.floor(value)));
-        picker.dataset.count = String(clamped);
-
-        const stack = picker.querySelector(".ezd6-ability-dice-stack") as HTMLElement | null;
-        if (stack) {
-            stack.innerHTML = "";
-            if (clamped <= 0) {
-                const dash = document.createElement("span");
-                dash.className = "ezd6-ability-dice-empty";
-                dash.textContent = "-";
-                stack.appendChild(dash);
-            } else {
-                for (let i = 0; i < clamped; i++) {
-                    const img = document.createElement("img");
-                    img.className = "ezd6-ability-dice-icon";
-                    img.src = getSystemPath("assets/dice/grey/d6-6.png");
-                    img.alt = "d6";
-                    stack.appendChild(img);
-                }
-            }
-        }
-
-        const input = root?.querySelector?.("input[name='system.numberOfDice']") as HTMLInputElement | null;
-        if (input) input.value = String(clamped);
-
-        const decBtn = picker.querySelector(".ezd6-ability-dice-btn[data-delta='-1']") as HTMLButtonElement | null;
-        const incBtn = picker.querySelector(".ezd6-ability-dice-btn[data-delta='1']") as HTMLButtonElement | null;
-        if (decBtn) decBtn.disabled = clamped <= 0;
-        if (incBtn) incBtn.disabled = clamped >= 3;
-    }
-
     private refreshReplenishCostPicker(root: HTMLElement, value?: number) {
         const picker = root?.querySelector?.(".ezd6-replenish-cost-picker") as HTMLElement | null;
         if (!picker) return;
@@ -375,13 +272,4 @@ export class EZD6ResourceItemSheet extends ItemSheet {
         if (incBtn) incBtn.disabled = clamped >= 100;
     }
 
-    private async ensureDefaultName() {
-        const current = this.item?.name ?? "";
-        const label = localize("EZD6.ItemLabels.Resource", "Resource");
-        const newItem = localize("EZD6.Defaults.NewItem", "New Item");
-        const newTyped = format("EZD6.Defaults.NewItemTyped", { itemLabel: label }, `New ${label}`);
-        if (!current || current === newItem || current === newTyped || current === "New Item" || current === "New Resource") {
-            await this.item.update({ name: label });
-        }
-    }
 }

@@ -2,7 +2,7 @@ import { DEFAULT_RESOURCE_ICON } from "../character";
 import { format, localize } from "../ui/i18n";
 import { ResourceChangeFlag, ResourceChangeRow } from "./resource-change-types";
 
-const escapeHtml = (foundry as any)?.utils?.escapeHTML ?? ((value: string) => value);
+const escapeHtml = (foundry as any).utils.escapeHTML;
 const t = (key: string, fallback: string) => localize(key, fallback);
 const tf = (key: string, data: Record<string, any>, fallback: string) => format(key, data, fallback);
 

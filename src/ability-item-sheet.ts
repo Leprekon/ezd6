@@ -1,10 +1,8 @@
 // src/ability-item-sheet.ts
-import { buildAbilityLikeSheetOptions, EZD6AbilityLikeItemSheet } from "./ability-like-item-sheet";
+import { EZD6AbilityLikeItemSheet } from "./ability-like-item-sheet";
 
 export class EZD6AbilityItemSheet extends EZD6AbilityLikeItemSheet {
-    static get defaultOptions() {
-        return buildAbilityLikeSheetOptions(super.defaultOptions, "ezd6-item-sheet--ability");
-    }
+    static DEFAULT_OPTIONS: any = { classes: ["ezd6-item-sheet--ability", "theme-light"] };
 
     protected getItemLabel(): string {
         return "EZD6.ItemLabels.Ability";

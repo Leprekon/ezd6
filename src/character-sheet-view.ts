@@ -20,6 +20,7 @@ import {
 import { renderResourceCounter as renderResourceCounterShared } from "./ui/resource-counter";
 import { buildInfoMeta, buildRollMeta, EZD6_META_FLAG } from "./chat/chat-meta";
 import { renderMarkdown } from "./ui/markdown";
+import { FoundryChatMessage, FoundryDialogV2, FoundryFilePicker, FoundryRoll } from "./foundry-api";
 
 const LEGACY_DEFAULT_ICON = "icons/svg/item-bag.svg";
 const t = (key: string, fallback: string) => localize(key, fallback);
@@ -191,7 +192,7 @@ export class CharacterSheetView {
             avatarWrapper.dataset.changeLabel = t("EZD6.Actions.Change", "Change");
             avatarWrapper.title = tooltip;
             avatarWrapper.addEventListener("click", () => {
-                const picker = new FilePicker({
+                const picker = new FoundryFilePicker({
                     type: "image",
                     current: this.character.avatarUrl ?? "",
                     callback: (path: string) => {
@@ -202,7 +203,7 @@ export class CharacterSheetView {
                         avatarWrapper.classList.remove("ezd6-avatar--empty");
                     },
                 });
-                picker.render(true);
+                picker.render({ force: true });
             });
         }
         section.appendChild(avatarWrapper);
@@ -470,7 +471,7 @@ export class CharacterSheetView {
                     });
                     return;
                 }
-                item?.sheet?.render?.(true);
+                item?.sheet?.render?.({ force: true });
             });
 
             const deleteBtn = createElement("button", "ezd6-ability-delete-btn") as HTMLButtonElement;
@@ -645,7 +646,7 @@ export class CharacterSheetView {
                     });
                     return;
                 }
-                item?.sheet?.render?.(true);
+                item?.sheet?.render?.({ force: true });
             });
 
             const deleteBtn = createElement("button", "ezd6-equipment-delete-btn") as HTMLButtonElement;
@@ -1273,7 +1274,7 @@ export class CharacterSheetView {
         const fallbackTitle = typeof resource.title === "string" ? resource.title.trim() || resourceLabel : resourceLabel;
         const title = this.getLocalizedResourceTitle(resource, fallbackTitle);
         const icon = this.getResourceIcon(resource);
-        const roll = new Roll(`${diceCount}d6`, {});
+        const roll = new FoundryRoll(`${diceCount}d6`, {});
         await roll.evaluate();
         const flavor = `${title} ${tag}`.trim();
         const rawDescription = typeof resource.description === "string" ? resource.description : "";
@@ -1299,7 +1300,7 @@ export class CharacterSheetView {
     private async rollSaveWithDice(save: Save, diceCountOverride?: number) {
         const override = Number.isFinite(diceCountOverride) ? Math.floor(diceCountOverride as number) : null;
         const diceCount = override !== null ? this.clampInt(override, 1, 6) : this.getSaveDiceCount(save);
-        const roll = new Roll(`${diceCount}d6`, {});
+        const roll = new FoundryRoll(`${diceCount}d6`, {});
         await roll.evaluate();
         const target = this.getSaveTargetValue(save);
         const tag = this.getSaveTargetTag(target);
@@ -1512,12 +1513,12 @@ export class CharacterSheetView {
     }
 
     private openImagePicker(current: string, onPick: (path: string) => void) {
-        const picker = new FilePicker({
+        const picker = new FoundryFilePicker({
             type: "image",
             current: current ?? "",
             callback: (path: string) => onPick(path),
         });
-        picker.render(true);
+        picker.render({ force: true });
     }
 
     private async persistResources() {
@@ -2087,7 +2088,7 @@ export class CharacterSheetView {
         const actor = this.options.actor;
         if (!actor?.createEmbeddedDocuments) return;
         const [created] = await actor.createEmbeddedDocuments("Item", [data]);
-        created?.sheet?.render?.(true);
+        created?.sheet?.render?.({ force: true });
     }
 
     private async createEquipmentItem() {
@@ -2111,7 +2112,7 @@ export class CharacterSheetView {
         const actor = this.options.actor;
         if (!actor?.createEmbeddedDocuments) return;
         const [created] = await actor.createEmbeddedDocuments("Item", [data]);
-        created?.sheet?.render?.(true);
+        created?.sheet?.render?.({ force: true });
     }
 
     private normalizeAbilityTag(tag: string): string {
@@ -2123,7 +2124,7 @@ export class CharacterSheetView {
     }
 
     private getChatSpeaker(): any {
-        return ChatMessage.getSpeaker?.({ actor: this.options.actor }) ?? ChatMessage.getSpeaker?.();
+        return FoundryChatMessage.getSpeaker?.({ actor: this.options.actor }) ?? FoundryChatMessage.getSpeaker?.();
     }
 
     private getKeywordFromTag(tag: string): string {
@@ -2148,52 +2149,25 @@ export class CharacterSheetView {
     }
 
     private async showPowerRollDialog(dialogue: string): Promise<number | null> {
-        return await new Promise<number | null>((resolve) => {
-            const DialogClass = (globalThis as any).Dialog;
-            if (!DialogClass) {
-                resolve(null);
-                return;
-            }
-            const dialog = new DialogClass({
-                title: t("EZD6.Dialogs.PowerRollTitle", "Power Roll"),
-                content: `<div class="ezd6-power-roll-dialogue"></div>`,
-                buttons: {},
-                render: (html: any) => {
-                    const root = html?.[0] as HTMLElement | undefined;
-                    const container = root?.querySelector(".ezd6-power-roll-dialogue") as HTMLElement | null;
-                    if (!container) return;
-                    container.innerHTML = "";
-                    const trimmed = (dialogue ?? "").trim();
-                    if (trimmed) {
-                        const text = createElement("div", "ezd6-power-roll-dialogue__text");
-                        text.innerHTML = trimmed;
-                        container.appendChild(text);
-                    }
-                    const buttons = createElement("div", "ezd6-task-buttons");
-                    [1, 2, 3].forEach((diceCount) => {
-                        const btn = createRollButton({
-                            className: "ezd6-task-btn ezd6-power-roll-btn",
-                            title: tf(
-                                "EZD6.Tooltips.DiceCount",
-                                { count: diceCount },
-                                `${diceCount} die${diceCount === 1 ? "" : "s"}`
-                            ),
-                            kinds: Array.from({ length: diceCount }, () => "grey" as const),
-                            onClick: (event) => {
-                                event.preventDefault();
-                                event.stopPropagation();
-                                resolve(diceCount);
-                                dialog.close();
-                            },
-                        });
-                        buttons.appendChild(btn);
-                    });
-                    container.appendChild(buttons);
-                },
-                close: () => resolve(null),
-            });
-            dialog.render(true);
+        const result = await FoundryDialogV2.wait({
+            classes: ["ezd6-power-roll-dialog", "theme-light"],
+            window: { title: t("EZD6.Dialogs.PowerRollTitle", "Power Roll") },
+            content: `<div class="ezd6-power-roll-dialogue"><div class="ezd6-power-roll-dialogue__text">${dialogue ?? ""}</div></div>`,
+            buttons: [1, 2, 3].map((diceCount) => ({
+                action: String(diceCount),
+                label: tf(
+                    "EZD6.Tooltips.DiceCount",
+                    { count: diceCount },
+                    `${diceCount} die${diceCount === 1 ? "" : "s"}`,
+                ),
+                icon: "fa-solid fa-dice-d6",
+                callback: () => diceCount,
+                default: diceCount === 1,
+            })),
+            rejectClose: false,
+            modal: true,
         });
+        return typeof result === "number" ? result : null;
     }
 
     private async postAbilityMessage(item: any, description: string, label = t("EZD6.ItemLabels.Ability", "Ability")) {
@@ -2213,7 +2187,7 @@ export class CharacterSheetView {
             `<strong>${title}</strong>`,
             descHtml ? `<div>${descHtml}</div>` : "",
         ];
-        await ChatMessage.create({
+        await FoundryChatMessage.create({
             content: contentPieces.join(""),
             speaker: this.getChatSpeaker(),
             flags: {
@@ -2246,7 +2220,7 @@ export class CharacterSheetView {
             tag ? `<div>${tag}</div>` : "",
             details,
         ];
-        await ChatMessage.create({
+        await FoundryChatMessage.create({
             content: contentPieces.join(""),
             speaker: this.getChatSpeaker(),
             flags: {
@@ -2278,7 +2252,7 @@ export class CharacterSheetView {
             `<strong>${title}</strong>`,
             descHtml ? `<div>${descHtml}</div>` : "",
         ];
-        await ChatMessage.create({
+        await FoundryChatMessage.create({
             content: contentPieces.join(""),
             speaker: this.getChatSpeaker(),
             flags: {
@@ -2320,7 +2294,7 @@ export class CharacterSheetView {
                         ? item.img
                         : "icons/magic/symbols/cog-orange-red.webp");
                 const descHtml = this.renderDescriptionHtml(description);
-                const roll = new Roll(formula, {});
+                const roll = new FoundryRoll(formula, {});
                 await roll.evaluate();
                 await roll.toMessage({
                     flavor,
@@ -2344,7 +2318,7 @@ export class CharacterSheetView {
             `<strong>${title}</strong>`,
             descHtml ? `<div>${descHtml}</div>` : "",
         ];
-        await ChatMessage.create({ content: contentPieces.join(""), speaker: this.getChatSpeaker() });
+        await FoundryChatMessage.create({ content: contentPieces.join(""), speaker: this.getChatSpeaker() });
     }
 
     private async rollEquipmentItem(
@@ -2367,7 +2341,7 @@ export class CharacterSheetView {
                 const flavor = `${title} ${normalizedTag}`.trim();
                 const icon = item?.img || "icons/containers/bags/coinpouch-simple-leather-tan.webp";
                 const descHtml = this.renderDescriptionHtml(description);
-                const roll = new Roll(formula, {});
+                const roll = new FoundryRoll(formula, {});
                 await roll.evaluate();
                 await roll.toMessage({
                     flavor,
@@ -2395,7 +2369,7 @@ export class CharacterSheetView {
             descHtml ? `<div>${descHtml}</div>` : "",
             qtyLine,
         ];
-        await ChatMessage.create({ content: contentPieces.join(""), speaker: this.getChatSpeaker() });
+        await FoundryChatMessage.create({ content: contentPieces.join(""), speaker: this.getChatSpeaker() });
     }
 
     private async setEquipmentQuantity(item: any, nextValue: number, rerenderFrom: HTMLElement) {
@@ -2536,7 +2510,7 @@ export class CharacterSheetView {
             `<strong>${title}</strong>`,
             descHtml ? `<div>${descHtml}</div>` : "",
         ];
-        await ChatMessage.create({
+        await FoundryChatMessage.create({
             content: contentPieces.join(""),
             speaker: this.getChatSpeaker(),
             flags: {
@@ -2696,12 +2670,11 @@ export class CharacterSheetView {
     }
 
     private async openTemporaryItemEditor(data: Record<string, any>, onUpdate: (item: any) => void) {
-        const ItemClass = (globalThis as any).CONFIG?.Item?.documentClass ?? (globalThis as any).Item;
-        const idFactory = (foundry as any)?.utils?.randomID ?? (globalThis as any).randomID;
+        const ItemClass = (globalThis as any).CONFIG.Item.documentClass;
         const userId = game?.user?.id;
         const ownerLevel = (globalThis as any)?.CONST?.DOCUMENT_OWNERSHIP_LEVELS?.OWNER ?? 3;
         const tempData = {
-            _id: typeof idFactory === "function" ? idFactory() : `tmp-${Math.random().toString(36).slice(2, 10)}`,
+            _id: (foundry as any).utils.randomID(),
             ownership: userId ? { [userId]: ownerLevel } : undefined,
             ...data,
         };
@@ -2710,16 +2683,15 @@ export class CharacterSheetView {
             ui?.notifications?.error?.(t("EZD6.Notifications.FailedToOpenEditor", "Failed to open editor."));
             return;
         }
-        const expand = (foundry as any)?.utils?.expandObject;
         tempItem.update = async function update(this: any, updateData: Record<string, any>) {
-            const expanded = typeof expand === "function" ? expand(updateData) : updateData;
+            const expanded = (foundry as any).utils.expandObject(updateData);
             this.updateSource(expanded);
             this.prepareData?.();
             onUpdate(this);
             return this;
         };
 
-        tempItem.sheet?.render?.(true);
+        tempItem.sheet?.render?.({ force: true });
     }
 
     private async createResourceEntry() {

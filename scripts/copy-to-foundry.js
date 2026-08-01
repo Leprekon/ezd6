@@ -2,7 +2,8 @@
 const fs = require("fs");
 const path = require("path");
 
-const FOUNDARY_SYSTEMS_PATH = "C:\\Users\\lepre\\AppData\\Local\\FoundryVTT\\Data\\systems\\ezd6-reforged"; // system folder
+const FOUNDRY_SYSTEMS_PATH = "C:\\Users\\lepre\\AppData\\Local\\FoundryVTT\\Data\\systems\\ezd6-reforged"; // system folder
+const OBSOLETE_FILES = ["template.json"];
 
 function copyDir(src, dest) {
     if (!fs.existsSync(src)) {
@@ -29,14 +30,21 @@ function copyDir(src, dest) {
 
 try {
     console.log("Copying EZD6 system to Foundry...");
-    fs.mkdirSync(FOUNDARY_SYSTEMS_PATH, { recursive: true });
+    fs.mkdirSync(FOUNDRY_SYSTEMS_PATH, { recursive: true });
 
     if (!fs.existsSync("dist")) {
         console.error("Build output not found. Run npm run build before copying.");
         process.exit(1);
     }
 
-    copyDir("dist", FOUNDARY_SYSTEMS_PATH);
+    copyDir("dist", FOUNDRY_SYSTEMS_PATH);
+
+    for (const obsoleteFile of OBSOLETE_FILES) {
+        const obsoletePath = path.join(FOUNDRY_SYSTEMS_PATH, obsoleteFile);
+        if (!fs.existsSync(obsoletePath)) continue;
+        fs.rmSync(obsoletePath);
+        console.log(`Removed obsolete file: ${obsoletePath}`);
+    }
 
     console.log("Copy finished successfully!");
 } catch (err) {

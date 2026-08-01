@@ -1,30 +1,77 @@
 {
   "id": "ezd6-reforged",
-  "name": "ezd6-reforged",
+  "type": "system",
   "title": "EZD6 Reforged",
   "description": "A simple EZD6 tabletop RPG system for Foundry VTT.",
-  "version": "0.2.1",
+  "version": "0.4.1",
   "url": "https://github.com/Leprekon/ezd6",
   "manifest": "https://github.com/Leprekon/ezd6/releases/latest/download/system.json",
   "download": "https://github.com/Leprekon/ezd6/releases/latest/download/ezd6-reforged.zip",
   "authors": [
     {
-      "name": "Your Name",
-      "url": "",
-      "email": ""
+      "name": "Leprekon",
+      "url": "https://github.com/Leprekon"
     }
   ],
   "compatibility": {
-    "minimum": "13",
-    "verified": "13"
+    "minimum": "14",
+    "verified": "14"
   },
   "esmodules": [
-    "bundle.js"
+    "bundle-v14.js"
   ],
   "styles": [
     "styles/module.css"
   ],
-  "template": "template.json",
+  "media": [],
+  "documentTypes": {
+    "Actor": {
+      "character": {
+        "label": "Character",
+        "htmlFields": [
+          "description"
+        ]
+      }
+    },
+    "Item": {
+      "ability": {
+        "label": "Ability",
+        "htmlFields": [
+          "description"
+        ]
+      },
+      "aspect": {
+        "label": "Aspect",
+        "htmlFields": [
+          "description"
+        ]
+      },
+      "equipment": {
+        "label": "Equipment",
+        "htmlFields": [
+          "description"
+        ]
+      },
+      "resource": {
+        "label": "Resource",
+        "htmlFields": [
+          "description"
+        ]
+      },
+      "save": {
+        "label": "Save",
+        "htmlFields": [
+          "description"
+        ]
+      },
+      "archetype": {
+        "label": "Archetype",
+        "htmlFields": [
+          "description"
+        ]
+      }
+    }
+  },
   "languages": [
     {
       "lang": "en",

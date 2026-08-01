@@ -17,6 +17,7 @@ if (!/^\d+\.\d+(?:\.\d+)?$/.test(version)) {
 
 const rootDir = path.resolve(__dirname, "..");
 const packageFile = path.join(rootDir, "package.json");
+const packageLockFile = path.join(rootDir, "package-lock.json");
 const systemFile = path.join(rootDir, "public", "system.json");
 
 const updateJsonVersion = (file) => {
@@ -29,7 +30,22 @@ const updateJsonVersion = (file) => {
   return file;
 };
 
-const updatedFiles = [updateJsonVersion(packageFile), updateJsonVersion(systemFile)];
+const updatePackageLockVersion = (file) => {
+  const raw = fs.readFileSync(file, "utf8");
+  const data = JSON.parse(raw);
+  data.version = version;
+  if (data.packages?.[""]) data.packages[""].version = version;
+  if (!dryRun) {
+    fs.writeFileSync(file, JSON.stringify(data, null, 2) + "\n");
+  }
+  return file;
+};
+
+const updatedFiles = [
+  updateJsonVersion(packageFile),
+  updatePackageLockVersion(packageLockFile),
+  updateJsonVersion(systemFile),
+];
 const tag = `v${version}`;
 
 console.log(`${dryRun ? "[dry-run] Would update" : "Updated"}:`);
@@ -40,7 +56,7 @@ updatedFiles.forEach((file) => {
 console.log("");
 console.log("Release steps:");
 console.log(`1. Review changes`);
-console.log(`2. Commit: git add package.json public/system.json && git commit -m "Release ${tag}"`);
+console.log(`2. Commit: git add package.json package-lock.json public/system.json && git commit -m "Release ${tag}"`);
 console.log(`3. Tag: git tag ${tag}`);
-console.log(`4. Push: git push origin main && git push origin ${tag}`);
+console.log(`4. Push: git push origin HEAD && git push origin ${tag}`);
 console.log("5. GitHub Actions will build and publish the release from the tag");

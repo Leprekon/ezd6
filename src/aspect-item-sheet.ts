@@ -1,10 +1,8 @@
 // src/aspect-item-sheet.ts
-import { buildAbilityLikeSheetOptions, EZD6AbilityLikeItemSheet } from "./ability-like-item-sheet";
+import { EZD6AbilityLikeItemSheet } from "./ability-like-item-sheet";
 
 export class EZD6AspectItemSheet extends EZD6AbilityLikeItemSheet {
-    static get defaultOptions() {
-        return buildAbilityLikeSheetOptions(super.defaultOptions, "ezd6-item-sheet--aspect");
-    }
+    static DEFAULT_OPTIONS: any = { classes: ["ezd6-item-sheet--aspect", "theme-light"] };
 
     protected getItemLabel(): string {
         return "EZD6.ItemLabels.Aspect";

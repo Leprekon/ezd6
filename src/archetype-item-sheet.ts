@@ -1,15 +1,14 @@
 // src/archetype-item-sheet.ts
 import { Character, DEFAULT_AVATAR, LEGACY_AVATAR_PLACEHOLDER } from "./character";
 import { CharacterSheetView } from "./character-sheet-view";
-import { clampDimension, getTagOptions, normalizeTag } from "./ui/sheet-utils";
+import { getTagOptions, normalizeTag } from "./ui/sheet-utils";
 import { captureScrollState, restoreScrollState, ScrollState } from "./sheet/scroll-state";
 import { localize } from "./ui/i18n";
 import { applyNativeItemFields } from "./ui/item-editor-utils";
 import { readDragEventData, resolveDroppedDocument } from "./ui/drag-drop";
 import { buildArchetypeEntryFromItem, buildResourceFromItem, buildSaveFromItem } from "./ui/item-converters";
 import { getSystemPath } from "./system-path";
-
-const mergeObject = (foundry as any)?.utils?.mergeObject as ((...args: any[]) => any) | undefined;
+import { EZD6ItemSheetV2 } from "./sheet/document-sheet-v2";
 
 type ArchetypeItemEntry = {
     id: string;
@@ -20,7 +19,7 @@ type ArchetypeItemEntry = {
     system?: Record<string, any>;
 };
 
-export class EZD6ArchetypeItemSheet extends ItemSheet {
+export class EZD6ArchetypeItemSheet extends EZD6ItemSheetV2 {
     private character: Character | null = null;
     private view: CharacterSheetView | null = null;
     private pendingScrollRestore: ScrollState = [];
@@ -28,41 +27,19 @@ export class EZD6ArchetypeItemSheet extends ItemSheet {
     private nameOverride = "";
     private nameLocked = false;
 
-    static get defaultOptions() {
-        return mergeObject
-            ? mergeObject(super.defaultOptions, {
-                classes: ["ezd6-sheet-wrapper", "ezd6-archetype-item-sheet"],
-                width: 860,
-                height: 780,
-                minWidth: 820,
-                maxWidth: 1060,
-                minHeight: 640,
-                maxHeight: 1024,
-                resizable: true,
-                submitOnChange: true,
-                submitOnClose: true,
-            })
-            : {
-                ...super.defaultOptions,
-                classes: ["ezd6-sheet-wrapper", "ezd6-archetype-item-sheet"],
-                width: 860,
-                height: 780,
-                minWidth: 820,
-                maxWidth: 1060,
-                minHeight: 640,
-                maxHeight: 1024,
-                resizable: true,
-                submitOnChange: true,
-                submitOnClose: true,
-            };
-    }
+    static DEFAULT_OPTIONS = {
+        classes: ["ezd6-sheet-wrapper", "ezd6-archetype-item-sheet", "theme-light"],
+        position: { width: 860, height: 780 },
+        window: { resizable: true },
+        form: { submitOnChange: true, closeOnSubmit: false },
+    };
 
-    get template() {
-        return getSystemPath("templates/archetype-item-sheet.hbs");
-    }
+    static PARTS = {
+        sheet: { template: getSystemPath("templates/archetype-item-sheet.hbs"), root: true },
+    };
 
-    getData(options?: any) {
-        const data = super.getData(options) as any;
+    async _prepareContext(options: any) {
+        const data = await super._prepareContext(options) as any;
         const system = data?.item?.system ?? {};
         const localizationId = typeof system.localizationId === "string" ? system.localizationId.trim() : "";
         data.localizationId = localizationId;
@@ -82,30 +59,14 @@ export class EZD6ArchetypeItemSheet extends ItemSheet {
         return data;
     }
 
-    setPosition(position: any = {}) {
-        const minWidth = this.options.minWidth as number | undefined;
-        const maxWidth = this.options.maxWidth as number | undefined;
-        const minHeight = this.options.minHeight as number | undefined;
-        const maxHeight = this.options.maxHeight as number | undefined;
-        const width = Number.isFinite(position.width) ? position.width : this.position?.width;
-        const height = Number.isFinite(position.height) ? position.height : this.position?.height;
-
-        return super.setPosition({
-            ...position,
-            width: Number.isFinite(width) ? clampDimension(width, minWidth, maxWidth) : width,
-            height: Number.isFinite(height) ? clampDimension(height, minHeight, maxHeight) : height,
-        });
+    async _preRender(context: any, options: any) {
+        this.pendingScrollRestore = this.rendered ? captureScrollState(this.element) : [];
+        await super._preRender(context, options);
     }
 
-    protected async _render(force?: boolean, options?: any) {
-        this.pendingScrollRestore = captureScrollState(this.element?.[0] as HTMLElement | null);
-        await super._render(force, options);
-        restoreScrollState(this.pendingScrollRestore);
-    }
-
-    activateListeners(html: any) {
-        super.activateListeners(html);
-        const root = html[0]?.querySelector?.(".ezd6-sheet-root") as HTMLElement | null;
+    async _onRender(context: any, options: any) {
+        await super._onRender(context, options);
+        const root = this.element.querySelector(".ezd6-sheet-root") as HTMLElement | null;
         if (!root) return;
 
         if (!this.character) {
@@ -148,27 +109,24 @@ export class EZD6ArchetypeItemSheet extends ItemSheet {
         });
         this.view.render(root);
 
-        const sheetRoot = html[0] as HTMLElement | undefined;
+        const sheetRoot = this.element;
         if (sheetRoot) {
-            sheetRoot.addEventListener("dragover", (event) => {
+            sheetRoot.addEventListener("dragover", (event: DragEvent) => {
                 event.preventDefault();
             });
-            sheetRoot.addEventListener("drop", (event) => {
+            sheetRoot.addEventListener("drop", (event: DragEvent) => {
                 event.preventDefault();
                 event.stopPropagation();
                 void this.handleDrop(event as DragEvent);
             });
         }
+        restoreScrollState(this.pendingScrollRestore);
     }
 
     protected async _onDrop(event: DragEvent) {
         const handled = await this.handleDrop(event);
         if (handled) return;
         return super._onDrop(event);
-    }
-
-    async close(options?: any) {
-        return super.close(options);
     }
 
     private syncFromItem() {
@@ -256,8 +214,7 @@ export class EZD6ArchetypeItemSheet extends ItemSheet {
         const system = (this.item as any)?.system ?? {};
         const key = type === "ability" ? "abilities" : type === "aspect" ? "aspects" : "equipment";
         const list = Array.isArray(system[key]) ? system[key].slice() : [];
-        const idFactory = (foundry as any)?.utils?.randomID ?? (globalThis as any).randomID;
-        const id = typeof idFactory === "function" ? idFactory() : `tmp-${Math.random().toString(36).slice(2, 10)}`;
+        const id = (foundry as any).utils.randomID();
         const sort = list.reduce((max: number, entry: any) => Math.max(max, Number(entry?.sort) || 0), 0) + 10;
         list.push({
             id,
@@ -279,8 +236,7 @@ export class EZD6ArchetypeItemSheet extends ItemSheet {
         const list = Array.isArray(system[key]) ? system[key].slice() : [];
         const index = list.findIndex((item: any) => (item?.id ?? item?._id) === id);
         if (index < 0) return;
-        const expand = (foundry as any)?.utils?.expandObject;
-        const expanded = typeof expand === "function" ? expand(updates) : updates;
+        const expanded = (foundry as any).utils.expandObject(updates);
         const next = { ...(list[index] ?? {}) };
         if (expanded?.name != null) next.name = expanded.name;
         if (expanded?.img != null) next.img = expanded.img;
@@ -352,12 +308,11 @@ export class EZD6ArchetypeItemSheet extends ItemSheet {
     }
 
     private async openTemporaryItemEditor(data: Record<string, any>, onUpdate: (item: any) => void) {
-        const ItemClass = (globalThis as any).CONFIG?.Item?.documentClass ?? (globalThis as any).Item;
-        const idFactory = (foundry as any)?.utils?.randomID ?? (globalThis as any).randomID;
+        const ItemClass = (globalThis as any).CONFIG.Item.documentClass;
         const userId = game?.user?.id;
         const ownerLevel = (globalThis as any)?.CONST?.DOCUMENT_OWNERSHIP_LEVELS?.OWNER ?? 3;
         const tempData = {
-            _id: typeof idFactory === "function" ? idFactory() : `tmp-${Math.random().toString(36).slice(2, 10)}`,
+            _id: (foundry as any).utils.randomID(),
             ownership: userId ? { [userId]: ownerLevel } : undefined,
             ...data,
         };
@@ -366,20 +321,19 @@ export class EZD6ArchetypeItemSheet extends ItemSheet {
             ui?.notifications?.error?.(localize("EZD6.Notifications.FailedToOpenEditor", "Failed to open editor."));
             return;
         }
-        const expand = (foundry as any)?.utils?.expandObject;
         tempItem.update = async function update(this: any, updateData: Record<string, any>) {
-            const expanded = typeof expand === "function" ? expand(updateData) : updateData;
+            const expanded = (foundry as any).utils.expandObject(updateData);
             this.updateSource(expanded);
             this.prepareData?.();
             onUpdate(this);
             return this;
         };
 
-        tempItem.sheet?.render?.(true);
+        tempItem.sheet?.render?.({ force: true });
     }
 
     private getSheetRoot() {
-        return this.element?.[0]?.querySelector?.(".ezd6-sheet-root") as HTMLElement | null;
+        return this.rendered ? this.element.querySelector(".ezd6-sheet-root") as HTMLElement | null : null;
     }
 
     private async handleDrop(event: DragEvent): Promise<boolean> {

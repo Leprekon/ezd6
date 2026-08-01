@@ -13,6 +13,13 @@ import { registerCompendiumLocalization } from "./ui/compendium-localization";
 import { registerCompendiumExportTool } from "./ui/tools/compendium-export";
 import { registerPlayerResourceDisplay } from "./ui/player-resources";
 import { getSystemId } from "./system-path";
+import { registerDataModels } from "./data-models";
+import { registerItemDocumentClass } from "./item-document";
+import { registerLegacyItemTypeMigration } from "./migrations/legacy-item-types";
+import {
+    registerJournalEntryPageDocumentClass,
+    registerLegacyJournalPageMigration,
+} from "./journal-entry-page-document";
 export { Character, Ability, Resource, Save, DiceChangeBehavior } from "./character";
 export { CharacterSheetView } from "./character-sheet-view";
 
@@ -22,6 +29,8 @@ registerResourceChangeChatHooks();
 registerCompendiumLocalization();
 registerCompendiumExportTool();
 registerPlayerResourceDisplay();
+registerLegacyItemTypeMigration();
+registerLegacyJournalPageMigration();
 
 Hooks.on("preCreateActor", (document: any, data: any) => {
     if (document?.type !== "character") return;
@@ -85,34 +94,31 @@ Hooks.on("preUpdateItem", (_document: any, changes: any) => {
 
 Hooks.once("init", () => {
     const systemId = getSystemId();
-    const actorSheets = (foundry as any).documents?.collections?.Actors ?? Actors;
-    const itemSheets = (foundry as any).documents?.collections?.Items ?? Items;
-    actorSheets.registerSheet(systemId, EZD6CharacterSheet, {
+    registerItemDocumentClass();
+    registerJournalEntryPageDocumentClass();
+    registerDataModels();
+
+    const foundryApi = foundry as any;
+    const sheetConfig = foundryApi.applications.apps.DocumentSheetConfig;
+    const actorDocument = foundryApi.documents.Actor;
+    const itemDocument = CONFIG.Item.documentClass;
+    sheetConfig.registerSheet(actorDocument, systemId, EZD6CharacterSheet, {
         types: ["character"],
         makeDefault: true,
     });
-    itemSheets.registerSheet(systemId, EZD6AbilityItemSheet, {
-        types: ["ability"],
-        makeDefault: true,
-    });
-    itemSheets.registerSheet(systemId, EZD6AspectItemSheet, {
-        types: ["aspect"],
-        makeDefault: true,
-    });
-    itemSheets.registerSheet(systemId, EZD6EquipmentItemSheet, {
-        types: ["equipment"],
-        makeDefault: true,
-    });
-    itemSheets.registerSheet(systemId, EZD6ResourceItemSheet, {
-        types: ["resource"],
-        makeDefault: true,
-    });
-    itemSheets.registerSheet(systemId, EZD6SaveItemSheet, {
-        types: ["save"],
-        makeDefault: true,
-    });
-    itemSheets.registerSheet(systemId, EZD6ArchetypeItemSheet, {
-        types: ["archetype"],
-        makeDefault: true,
-    });
+
+    const itemSheets = [
+        ["ability", EZD6AbilityItemSheet],
+        ["aspect", EZD6AspectItemSheet],
+        ["equipment", EZD6EquipmentItemSheet],
+        ["resource", EZD6ResourceItemSheet],
+        ["save", EZD6SaveItemSheet],
+        ["archetype", EZD6ArchetypeItemSheet],
+    ] as const;
+    for (const [type, sheetClass] of itemSheets) {
+        sheetConfig.registerSheet(itemDocument, systemId, sheetClass, {
+            types: [type],
+            makeDefault: true,
+        });
+    }
 });
